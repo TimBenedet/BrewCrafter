@@ -24,9 +24,10 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { SaveIcon, PlusCircleIcon, XCircleIcon, Trash2Icon } from 'lucide-react';
+import { SaveIcon, PlusCircleIcon, Trash2Icon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { useEffect } from 'react';
 
 // Sub-schemas for array elements
 const fermentableSchema = z.object({
@@ -69,7 +70,6 @@ const mashStepSchema = z.object({
   type: z.enum(['Infusion', 'Temperature', 'Decoction']),
   stepTemp: z.coerce.number().positive("La température doit être positive."),
   stepTime: z.coerce.number().positive("La durée doit être positive."),
-  // infuseAmount: z.coerce.number().optional(), // TODO: Add later if needed
 });
 
 // Main recipe schema
@@ -85,7 +85,7 @@ const recipeFormSchema = z.object({
   fg: z.coerce.number().min(0).optional(),
   abv: z.coerce.number().min(0).optional(),
   ibu: z.coerce.number().min(0).optional(),
-  colorSrm: z.coerce.number().min(0).optional(), // Renamed from 'color' to avoid conflict with fermentable color
+  colorSrm: z.coerce.number().min(0).optional(),
   notes: z.string().optional(),
 
   style: z.object({
@@ -155,11 +155,11 @@ const defaultValues: Partial<RecipeFormValues> = {
       { name: 'Saccharification', type: 'Infusion', stepTemp: 67, stepTime: 60 },
     ],
   },
+  // abv and ibu will be calculated
 };
 
 function sanitizeForXml(text: string | undefined | null): string {
   if (text === undefined || text === null) return '';
-  // Escape basic XML entities. Note: For production, a robust library is safer.
   return String(text)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -182,8 +182,6 @@ function generateBeerXml(data: RecipeFormValues): string {
   if (data.efficiency !== undefined) xml += `    <EFFICIENCY>${data.efficiency}</EFFICIENCY>\n`;
   if (data.og !== undefined) xml += `    <OG>${data.og.toFixed(3)}</OG>\n`;
   if (data.fg !== undefined) xml += `    <FG>${data.fg.toFixed(3)}</FG>\n`;
-  // ABV, IBU, COLOR are often calculated, but can be manually entered.
-  // For now, if user provides them, we include them.
   if (data.abv !== undefined) xml += `    <ABV>${data.abv.toFixed(2)}</ABV>\n`;
   if (data.ibu !== undefined) xml += `    <IBU>${data.ibu.toFixed(1)}</IBU>\n`;
   if (data.colorSrm !== undefined) xml += `    <COLOR>${data.colorSrm.toFixed(1)}</COLOR>\n`;
@@ -194,7 +192,7 @@ function generateBeerXml(data: RecipeFormValues): string {
   if (data.style.categoryNumber) xml += `      <CATEGORY_NUMBER>${sanitizeForXml(data.style.categoryNumber)}</CATEGORY_NUMBER>\n`;
   if (data.style.styleLetter) xml += `      <STYLE_LETTER>${sanitizeForXml(data.style.styleLetter)}</STYLE_LETTER>\n`;
   if (data.style.styleGuide) xml += `      <STYLE_GUIDE>${sanitizeForXml(data.style.styleGuide)}</STYLE_GUIDE>\n`;
-  xml += `      <TYPE>${sanitizeForXml(data.style.type)}</TYPE>\n`; // Style Type
+  xml += `      <TYPE>${sanitizeForXml(data.style.type)}</TYPE>\n`;
   if (data.style.ogMin !== undefined) xml += `      <OG_MIN>${data.style.ogMin.toFixed(3)}</OG_MIN>\n`;
   if (data.style.ogMax !== undefined) xml += `      <OG_MAX>${data.style.ogMax.toFixed(3)}</OG_MAX>\n`;
   if (data.style.fgMin !== undefined) xml += `      <FG_MIN>${data.style.fgMin.toFixed(3)}</FG_MIN>\n`;
@@ -224,7 +222,7 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `        <NAME>${sanitizeForXml(h.name)}</NAME>\n`;
     xml += `        <VERSION>1</VERSION>\n`;
     xml += `        <ALPHA>${h.alpha.toFixed(1)}</ALPHA>\n`;
-    xml += `        <AMOUNT>${h.amount.toFixed(4)}</AMOUNT>\n`; // Hops often in grams, but XML standard is kg, so more precision
+    xml += `        <AMOUNT>${h.amount.toFixed(4)}</AMOUNT>\n`;
     xml += `        <USE>${sanitizeForXml(h.use)}</USE>\n`;
     xml += `        <TIME>${h.time.toFixed(0)}</TIME>\n`;
     xml += `        <FORM>${sanitizeForXml(h.form)}</FORM>\n`;
@@ -239,7 +237,7 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `        <VERSION>1</VERSION>\n`;
     xml += `        <TYPE>${sanitizeForXml(y.type)}</TYPE>\n`;
     xml += `        <FORM>${sanitizeForXml(y.form)}</FORM>\n`;
-    xml += `        <AMOUNT>${y.amount.toFixed(4)}</AMOUNT>\n`; // Can be small for dry yeast or starters
+    xml += `        <AMOUNT>${y.amount.toFixed(4)}</AMOUNT>\n`;
     if(y.laboratory) xml += `        <LABORATORY>${sanitizeForXml(y.laboratory)}</LABORATORY>\n`;
     if(y.productId) xml += `        <PRODUCT_ID>${sanitizeForXml(y.productId)}</PRODUCT_ID>\n`;
     if(y.attenuation !== undefined) xml += `        <ATTENUATION>${y.attenuation.toFixed(1)}</ATTENUATION>\n`;
@@ -255,12 +253,12 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `        <TYPE>${sanitizeForXml(m.type)}</TYPE>\n`;
     xml += `        <USE>${sanitizeForXml(m.use)}</USE>\n`;
     xml += `        <TIME>${m.time.toFixed(0)}</TIME>\n`;
-    xml += `        <AMOUNT>${m.amount.toFixed(4)}</AMOUNT>\n`; // Amount can vary (kg, items, ml)
+    xml += `        <AMOUNT>${m.amount.toFixed(4)}</AMOUNT>\n`;
     xml += `      </MISC>\n`;
   });
   xml += `    </MISCS>\n`;
   
-  xml += `    <WATERS/>\n`; // Placeholder for now
+  xml += `    <WATERS/>\n`;
 
   xml += `    <MASH>\n`;
   xml += `      <NAME>${sanitizeForXml(data.mash.name)}</NAME>\n`;
@@ -273,7 +271,6 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `          <TYPE>${sanitizeForXml(ms.type)}</TYPE>\n`;
     xml += `          <STEP_TEMP>${ms.stepTemp.toFixed(1)}</STEP_TEMP>\n`;
     xml += `          <STEP_TIME>${ms.stepTime.toFixed(0)}</STEP_TIME>\n`;
-    // if (ms.infuseAmount) xml += `          <INFUSE_AMOUNT>${ms.infuseAmount.toFixed(2)}</INFUSE_AMOUNT>\n`;
     xml += `        </MASH_STEP>\n`;
   });
   xml += `      </MASH_STEPS>\n`;
@@ -288,12 +285,65 @@ function generateBeerXml(data: RecipeFormValues): string {
   return xml;
 }
 
+// ABV Calculation: ABV = (OG - FG) * 131.25
+function calculateAbv(og?: number, fg?: number): number | undefined {
+  if (typeof og === 'number' && typeof fg === 'number' && og > fg) {
+    return (og - fg) * 131.25;
+  }
+  return undefined;
+}
+
+// IBU Tinseth Calculation
+// IBU = (Decimal Alpha Acid % * Amount (grams) * Utilization %) / (Boil Volume (liters) * 1.0)
+// Utilization % = Bigness Factor * Boil Time Factor
+// Bigness Factor = 1.65 * (0.000125 ^ (Original Gravity - 1))
+// Boil Time Factor = (1 - e^(-0.04 * Boil Time (minutes))) / 4.15
+
+function getBignessFactor(og?: number): number {
+  if (typeof og !== 'number' || og < 1) return 1; // Default if OG is not valid
+  return 1.65 * Math.pow(0.000125, og - 1.0);
+}
+
+function getBoilTimeFactor(boilTimeMinutes?: number): number {
+  if (typeof boilTimeMinutes !== 'number' || boilTimeMinutes < 0) return 0; // No utilization if no boil time
+  return (1.0 - Math.exp(-0.04 * boilTimeMinutes)) / 4.15;
+}
+
+function calculateIbuTinseth(
+  hops: z.infer<typeof hopSchema>[] = [],
+  boilSize?: number,
+  og?: number
+): number | undefined {
+  if (typeof boilSize !== 'number' || boilSize <= 0 || typeof og !== 'number' || og < 1) {
+    return undefined;
+  }
+
+  let totalIbus = 0;
+  const bignessFactor = getBignessFactor(og);
+
+  hops.forEach(hop => {
+    if (hop.use === 'Boil' && typeof hop.alpha === 'number' && typeof hop.amount === 'number' && typeof hop.time === 'number') {
+      const alphaDecimal = hop.alpha / 100.0;
+      const amountGrams = hop.amount * 1000.0; // Convert kg to g
+      const boilTimeFactor = getBoilTimeFactor(hop.time);
+      const utilization = bignessFactor * boilTimeFactor;
+      
+      if (boilSize > 0) { // Ensure no division by zero
+        const ibusForHop = (alphaDecimal * amountGrams * utilization * 100) / boilSize; // Multiply by 100 for utilization percentage
+        totalIbus += ibusForHop;
+      }
+    }
+  });
+
+  return totalIbus;
+}
+
 
 export function RecipeForm() {
   const form = useForm<RecipeFormValues>({
     resolver: zodResolver(recipeFormSchema),
     defaultValues,
-    mode: 'onChange',
+    mode: 'onChange', // Important for watched fields to update effects
   });
 
   const { fields: fermentableFields, append: appendFermentable, remove: removeFermentable } = useFieldArray({
@@ -320,6 +370,39 @@ export function RecipeForm() {
     control: form.control,
     name: "mash.mashSteps",
   });
+
+  // Watch relevant fields for automatic calculations
+  const watchedOg = form.watch('og');
+  const watchedFg = form.watch('fg');
+  const watchedBoilSize = form.watch('boilSize');
+  const watchedHops = form.watch('hops'); // Watching the whole array
+
+  // Effect for ABV calculation
+  useEffect(() => {
+    const og = parseFloat(String(watchedOg));
+    const fg = parseFloat(String(watchedFg));
+    if (!isNaN(og) && !isNaN(fg)) {
+      const abv = calculateAbv(og, fg);
+      if (abv !== undefined) {
+        form.setValue('abv', parseFloat(abv.toFixed(2)), { shouldValidate: true });
+      }
+    }
+  }, [watchedOg, watchedFg, form.setValue]);
+
+  // Effect for IBU calculation
+  useEffect(() => {
+    const og = parseFloat(String(watchedOg));
+    const boilSize = parseFloat(String(watchedBoilSize));
+     // Ensure watchedHops is an array and its elements are processed correctly
+    const hopsArray = Array.isArray(watchedHops) ? watchedHops : [];
+
+    if (!isNaN(og) && !isNaN(boilSize) && hopsArray) {
+      const ibu = calculateIbuTinseth(hopsArray, boilSize, og);
+      if (ibu !== undefined) {
+        form.setValue('ibu', parseFloat(ibu.toFixed(1)), { shouldValidate: true });
+      }
+    }
+  }, [watchedOg, watchedBoilSize, watchedHops, form.setValue]);
 
 
   function onSubmit(data: RecipeFormValues) {
@@ -397,12 +480,12 @@ export function RecipeForm() {
               <FormField control={form.control} name="boilTime" render={({ field }) => ( <FormItem> <FormLabel>Temps d'ébullition (min)</FormLabel> <FormControl><Input type="number" step="1" placeholder="60" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
             </div>
              <FormField control={form.control} name="efficiency" render={({ field }) => ( <FormItem> <FormLabel>Efficacité (%) (Optionnel)</FormLabel> <FormControl><Input type="number" step="0.1" placeholder="72" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <FormField control={form.control} name="og" render={({ field }) => ( <FormItem> <FormLabel>OG (Optionnel)</FormLabel> <FormControl><Input type="number" step="0.001" placeholder="1.052" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                <FormField control={form.control} name="fg" render={({ field }) => ( <FormItem> <FormLabel>FG (Optionnel)</FormLabel> <FormControl><Input type="number" step="0.001" placeholder="1.012" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                <FormField control={form.control} name="abv" render={({ field }) => ( <FormItem> <FormLabel>ABV (%) (Optionnel)</FormLabel> <FormControl><Input type="number" step="0.01" placeholder="5.25" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                <FormField control={form.control} name="ibu" render={({ field }) => ( <FormItem> <FormLabel>IBU (Optionnel)</FormLabel> <FormControl><Input type="number" step="0.1" placeholder="35" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                <FormField control={form.control} name="colorSrm" render={({ field }) => ( <FormItem> <FormLabel>Couleur (SRM) (Optionnel)</FormLabel> <FormControl><Input type="number" step="0.1" placeholder="14" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4"> {/* Increased to 5 columns for better layout */}
+                <FormField control={form.control} name="og" render={({ field }) => ( <FormItem> <FormLabel>OG</FormLabel> <FormControl><Input type="number" step="0.001" placeholder="1.052" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                <FormField control={form.control} name="fg" render={({ field }) => ( <FormItem> <FormLabel>FG</FormLabel> <FormControl><Input type="number" step="0.001" placeholder="1.012" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                <FormField control={form.control} name="abv" render={({ field }) => ( <FormItem> <FormLabel>ABV (%)</FormLabel> <FormControl><Input type="number" step="0.01" placeholder="5.25" {...field} readOnly className="bg-muted/50" /></FormControl><FormDescription>Calculé auto.</FormDescription> <FormMessage /> </FormItem> )} />
+                <FormField control={form.control} name="ibu" render={({ field }) => ( <FormItem> <FormLabel>IBU</FormLabel> <FormControl><Input type="number" step="0.1" placeholder="35" {...field} readOnly className="bg-muted/50" /></FormControl><FormDescription>Calculé auto. (Tinseth)</FormDescription> <FormMessage /> </FormItem> )} />
+                <FormField control={form.control} name="colorSrm" render={({ field }) => ( <FormItem> <FormLabel>Couleur (SRM)</FormLabel> <FormControl><Input type="number" step="0.1" placeholder="14" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
             </div>
           </CardContent>
         </Card>
@@ -445,7 +528,6 @@ export function RecipeForm() {
           </CardContent>
         </Card>
 
-        {/* Fermentables Section */}
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
@@ -481,7 +563,6 @@ export function RecipeForm() {
           </CardContent>
         </Card>
 
-        {/* Hops Section */}
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
@@ -527,7 +608,6 @@ export function RecipeForm() {
           </CardContent>
         </Card>
 
-        {/* Yeasts Section */}
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
@@ -574,7 +654,6 @@ export function RecipeForm() {
           </CardContent>
         </Card>
 
-        {/* Miscs Section */}
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
@@ -619,7 +698,6 @@ export function RecipeForm() {
           </CardContent>
         </Card>
         
-        {/* Mash Section */}
         <Card>
           <CardHeader>
              <div className="flex justify-between items-center">
@@ -683,4 +761,3 @@ export function RecipeForm() {
     </Form>
   );
 }
-
