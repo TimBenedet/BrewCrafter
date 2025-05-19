@@ -1,3 +1,4 @@
+
 'use client';
 import { useRef } from 'react';
 import {
@@ -8,7 +9,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { FolderPlus, Home, UploadCloud } from 'lucide-react';
+import { Home, UploadCloud } from 'lucide-react'; // Maintained UploadCloud icon
 import Link from 'next/link';
 import { useToast } from "@/hooks/use-toast";
 import { usePathname, useRouter } from 'next/navigation';
@@ -20,89 +21,94 @@ export function AppSidebar() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleAddRecipesClick = () => {
+  const handleAddRecipeClick = () => {
     fileInputRef.current?.click();
   };
 
-  const handleFilesSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) {
+  const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
       toast({
-        title: "Aucun dossier sélectionné",
-        description: "Veuillez sélectionner un dossier contenant des fichiers BeerXML.",
+        title: "Aucun fichier sélectionné",
+        description: "Veuillez sélectionner un fichier BeerXML (.xml).",
         variant: "destructive",
         duration: 5000,
       });
+      // Reset file input to allow re-selection if needed
+      if(fileInputRef.current) {
+          fileInputRef.current.value = "";
+      }
       return;
     }
 
-    const recipeFiles: Array<{ fileName: string; content: string }> = [];
-    let hasXmlFile = false;
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (file.name.endsWith('.xml')) {
-        hasXmlFile = true;
-        try {
-          const content = await file.text();
-          recipeFiles.push({ fileName: file.name, content });
-        } catch (error) {
-          console.error("Error reading file:", file.name, error);
-          toast({
-            title: `Erreur de lecture du fichier ${file.name}`,
-            description: (error as Error).message,
-            variant: "destructive",
-            duration: 5000,
-          });
-          return; // Stop processing if one file fails
-        }
-      }
-    }
-
-    if (!hasXmlFile) {
+    if (!file.name.endsWith('.xml')) {
         toast({
-            title: "Aucun fichier XML trouvé",
-            description: "Le dossier sélectionné ne contient aucun fichier BeerXML (.xml).",
+            title: "Fichier non XML",
+            description: "Le fichier sélectionné n'est pas un fichier BeerXML (.xml). Veuillez en sélectionner un autre.",
             variant: "destructive",
             duration: 5000,
         });
-        // Reset file input to allow re-selection of the same folder if needed
         if(fileInputRef.current) {
             fileInputRef.current.value = "";
         }
         return;
     }
 
+    const recipeFiles: Array<{ fileName: string; content: string }> = [];
+    try {
+      const content = await file.text();
+      recipeFiles.push({ fileName: file.name, content });
+    } catch (error) {
+      console.error("Error reading file:", file.name, error);
+      toast({
+        title: `Erreur de lecture du fichier ${file.name}`,
+        description: (error as Error).message,
+        variant: "destructive",
+        duration: 5000,
+      });
+      if(fileInputRef.current) {
+          fileInputRef.current.value = "";
+      }
+      return;
+    }
+
     if (recipeFiles.length > 0) {
       toast({
         title: "Traitement en cours...",
-        description: `Ajout de ${recipeFiles.length} recette(s).`,
+        description: `Ajout de la recette ${file.name}.`,
         duration: 3000,
       });
 
       try {
-        const result = await addRecipesAction(recipeFiles);
-        if (result.success) {
+        const result = await addRecipesAction(recipeFiles); // Server action expects an array
+        if (result.success && result.count === 1) {
           toast({
-            title: "Recettes ajoutées !",
-            description: `${result.count} recette(s) ont été ajoutées avec succès.`,
+            title: "Recette ajoutée !",
+            description: `La recette ${file.name} a été ajoutée avec succès.`,
             duration: 5000,
           });
-          router.refresh(); // Refresh the page to show new recipes
+          router.refresh(); 
+        } else if (result.success && result.count === 0) {
+          toast({
+            title: "Recette non ajoutée",
+            description: `Le fichier ${file.name} n'a pas pu être traité ou était déjà présent (vérifiez la console pour plus de détails).`,
+            variant: "destructive",
+            duration: 5000,
+          });
         } else {
-          throw new Error(result.error || "Une erreur inconnue est survenue.");
+          throw new Error(result.error || "Une erreur inconnue est survenue lors de l'ajout de la recette.");
         }
       } catch (error) {
         console.error("Error in server action:", error);
         toast({
-          title: "Échec de l'ajout des recettes",
+          title: "Échec de l'ajout de la recette",
           description: (error as Error).message,
           variant: "destructive",
           duration: 5000,
         });
       }
     }
-    // Reset file input to allow re-selection of the same folder if needed
+    
     if(fileInputRef.current) {
         fileInputRef.current.value = "";
     }
@@ -131,23 +137,19 @@ export function AppSidebar() {
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              onClick={handleAddRecipesClick}
-              tooltip={{ children: 'Ajouter des recettes depuis un dépôt', side: 'right' }}
+              onClick={handleAddRecipeClick}
+              tooltip={{ children: 'Ajouter une recette (fichier BeerXML)', side: 'right' }}
             >
-              <UploadCloud className="h-5 w-5" /> {/* Changed icon to UploadCloud for better semantics */}
-              <span>Ajouter des recettes</span>
+              <UploadCloud className="h-5 w-5" />
+              <span>Ajouter une recette</span>
             </SidebarMenuButton>
             <input
               type="file"
-              /* @ts-ignore: webkitdirectory is a non-standard attribute but widely supported */
-              webkitdirectory="true"
-              directory="true"
-              multiple
               accept=".xml"
               ref={fileInputRef}
-              onChange={handleFilesSelected}
+              onChange={handleFileSelected}
               style={{ display: 'none' }}
-              id="recipe-folder-input"
+              id="recipe-file-input"
             />
           </SidebarMenuItem>
         </SidebarMenu>
