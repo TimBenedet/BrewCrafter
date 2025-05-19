@@ -9,7 +9,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { UploadCloud, FilePlus2, HardDrive, Cloud } from 'lucide-react';
+import { UploadCloud, FilePlus2, HardDrive, Cloud, FolderOpen, Tags, Calculator as CalculatorLucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from "@/hooks/use-toast";
 import { usePathname, useRouter } from 'next/navigation';
@@ -40,7 +40,7 @@ const GitBrewLogo = (props: React.SVGProps<SVGSVGElement>) => (
   >
     <g
       transform="translate(0.000000,1024.000000) scale(0.100000,-0.100000)"
-      fill="currentColor" 
+      fill="currentColor"
       stroke="none"
     >
       <path d="M5032 9080 c-19 -11 -40 -37 -48 -57 -36 -86 -74 -395 -74 -609 l0 -121 -112 -7 c-371 -23 -668 -124 -953 -325 -122 -86 -298 -267 -383 -395 -137 -205 -192 -340 -273 -669 -40 -165 -43 -180 -29 -205 24 -42 83 -54 223 -47 113 7 119 6 113 -12 -55 -176 -66 -577 -21 -808 33 -176 72 -245 135 -245 26 0 180 25 227 36 19 5 23 1 29 -33 15 -86 77 -268 124 -367 60 -125 170 -292 236 -358 98 -99 153 -85 317 85 l109 112 107 -105 c59 -58 123 -116 142 -129 l36 -24 6 -184 c5 -122 11 -194 21 -217 8 -20 115 -136 253 -276 l238 -242 95 97 c52 53 94 101 92 106 -1 5 -96 101 -211 214 l-208 205 -5 97 c-3 54 -2 121 1 149 6 48 10 55 60 94 30 24 92 80 139 126 l86 82 88 -93 c112 -118 167 -155 234 -155 47 0 51 2 106 62 152 162 282 415 345 675 10 40 20 73 23 74 3 2 64 -5 135 -15 186 -25 196 -19 236 150 67 281 64 642 -7 887 -5 16 2 17 103 12 128 -7 196 6 225 46 19 25 19 26 -32 234 -54 219 -91 327 -158 461 -223 443 -643 758 -1146 859 -136 27 -303 45 -414 45 l-74 0 7 123 c8 151 19 252 46 431 26 164 21 199 -30 233 -44 30 -113 31 -159 3z m-372 -1122 c-51 -53 -139 -180 -182 -264 -57 -110 -92 -210 -114 -332 l-17 -93 -73 -49 c-99 -68 -268 -151 -393 -194 -115 -40 -337 -89 -382 -84 l-29 3 40 118 c154 460 495 781 942 887 77 18 218 39 227 34 1 -2 -7 -13 -19 -26z m1050 -9 c358 -89 673 -333 842 -655 46 -87 106 -245 123 -322 l7 -33 -44 7 c-284 39 -504 115 -714 245 -104 64 -121 82 -128 142 -18 136 -74 297 -144 415 -41 69 -113 169 -151 209 -12 12 -21 24 -21 26 0 8 150 -15 230 -34z m-561 -61 c226 -170 344 -378 358 -629 17 -308 -105 -590 -343 -793 l-77 -66 -31 23 c-69 49 -191 176 -242 253 -107 161 -157 324 -157 514 -1 238 71 416 235 583 56 56 181 157 196 157 3 0 30 -19 61 -42z m-753 -1019 c13 -52 49 -145 79 -206 l55 -113 -51 -82 c-79 -126 -127 -185 -242 -294 -118 -112 -224 -181 -355 -229 -148 -55 -138 -57 -153 28 -30 175 -6 446 55 623 42 122 40 120 126 148 109 35 266 107 368 169 48 29 88 52 90 51 1 -1 14 -44 28 -95z m1593 -23 c105 -53 299 -126 334 -126 18 0 78 -177 102 -300 23 -121 30 -298 16 -410 -7 -52 -14 -96 -17 -99 -9 -9 -111 22 -190 59 -217 100 -413 283 -555 518 l-46 76 43 81 c41 78 82 185 104 273 l11 42 42 -29 c23 -15 93 -54 156 -85z m-1233 -557 c33 -37 176 -144 251 -188 l73 -43 57 32 c84 48 167 105 240 167 36 30 66 53 67 51 2 -1 22 -32 45 -66 24 -35 70 -95 102 -133 l60 -69 -21 -79 c-70 -274 -152 -424 -410 -745 l-135 -168 -29 34 c-232 269 -340 419 -415 572 -47 95 -105 267 -116 338 -7 46 -6 48 48 112 30 36 77 96 104 135 26 39 51 71 54 71 3 0 14 -10 25 -21z m-472 -511 c13 -81 87 -283 142 -387 l55 -104 -66 -66 -66 -66 -19 25 c-32 42 -106 201 -138 295 -29 85 -68 253 -61 259 2 2 30 17 61 35 32 18 60 36 63 42 12 19 23 8 29 -33z m1708 -24 l36 -23 -18 -84 c-10 -46 -30 -119 -44 -163 -30 -89 -143 -324 -156 -324 -11 0 -140 119 -140 129 0 4 20 43 45 87 51 88 111 237 145 361 l24 82 35 -21 c20 -12 52 -32 73 -44z" />
@@ -55,174 +55,133 @@ const GitBrewLogo = (props: React.SVGProps<SVGSVGElement>) => (
 
 export function AppSidebar() {
   const { toast } = useToast();
-  const pathname = usePathname();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAddRecipeDialogOpen, setIsAddRecipeDialogOpen] = useState(false);
 
-  const handleLocalFileSelectClick = () => {
-    fileInputRef.current?.click();
-    setIsAddRecipeDialogOpen(false); // Close dialog after initiating file selection
+  const handleAddRecipeClick = () => {
+    setIsAddRecipeDialogOpen(true);
   };
 
-  const handleGoogleDriveClick = () => {
+  const handleSelectLocalFile = () => {
+    setIsAddRecipeDialogOpen(false);
+    fileInputRef.current?.click();
+  };
+  
+  const handleSelectGoogleDrive = () => {
+    setIsAddRecipeDialogOpen(false);
     toast({
       title: "Fonctionnalité à venir",
       description: "L'intégration avec Google Drive est prévue prochainement.",
-      duration: 5000,
     });
-    setIsAddRecipeDialogOpen(false);
   };
 
-  const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      if(fileInputRef.current) {
-          fileInputRef.current.value = "";
-      }
+  const handleFilesSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) {
+      toast({ title: "Aucun fichier sélectionné", variant: "destructive" });
       return;
     }
 
-    if (!file.name.endsWith('.xml')) {
-        toast({
-            title: "Fichier non XML",
-            description: "Le fichier sélectionné n'est pas un fichier BeerXML (.xml). Veuillez en sélectionner un autre.",
-            variant: "destructive",
-            duration: 5000,
-        });
-        if(fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
-        return;
-    }
+    const selectedFile = files[0];
 
-    const recipeFiles: Array<{ fileName: string; content: string }> = [];
-    try {
-      const content = await file.text();
-      recipeFiles.push({ fileName: file.name, content });
-    } catch (error) {
-      console.error("Error reading file:", file.name, error);
-      toast({
-        title: `Erreur de lecture du fichier ${file.name}`,
-        description: (error as Error).message,
-        variant: "destructive",
-        duration: 5000,
-      });
-      if(fileInputRef.current) {
-          fileInputRef.current.value = "";
-      }
+    if (!selectedFile.name.toLowerCase().endsWith('.xml')) {
+      toast({ title: "Fichier invalide", description: "Veuillez sélectionner un fichier BeerXML (.xml).", variant: "destructive" });
       return;
-    }
-
-    if (recipeFiles.length > 0) {
-      toast({
-        title: "Traitement en cours...",
-        description: `Ajout de la recette ${file.name}.`,
-        duration: 3000,
-      });
-
-      try {
-        const result = await addRecipesAction(recipeFiles);
-        if (result.success && result.count === 1) {
-          toast({
-            title: "Recette ajoutée !",
-            description: `La recette ${file.name} a été ajoutée avec succès.`,
-            duration: 5000,
-          });
-          router.refresh(); 
-        } else if (result.success && result.count === 0) {
-          toast({
-            title: "Recette non ajoutée",
-            description: `Le fichier ${file.name} n'a pas pu être traité ou était déjà présent (vérifiez la console pour plus de détails).`,
-            variant: "destructive",
-            duration: 5000,
-          });
-        } else {
-          throw new Error(result.error || "Une erreur inconnue est survenue lors de l'ajout de la recette.");
-        }
-      } catch (error) {
-        console.error("Error in server action:", error);
-        toast({
-          title: "Échec de l'ajout de la recette",
-          description: (error as Error).message,
-          variant: "destructive",
-          duration: 5000,
-        });
-      }
     }
     
-    if(fileInputRef.current) {
+    toast({ title: "Chargement de la recette..." });
+
+    try {
+      const fileContent = await selectedFile.text();
+      const result = await addRecipesAction([{ fileName: selectedFile.name, content: fileContent }]);
+
+      if (result.success && result.count && result.count > 0) {
+        toast({
+          title: "Recette ajoutée !",
+          description: `La recette "${selectedFile.name}" a été ajoutée avec succès.`,
+        });
+        router.refresh(); // Refresh data on the current page
+      } else if (result.success && result.count === 0) {
+         toast({
+          title: "Aucune nouvelle recette ajoutée",
+          description: "Le fichier sélectionné n'était pas un fichier de recette valide ou était déjà présent.",
+          variant: "default",
+        });
+      }
+      
+      else {
+        throw new Error(result.error || "Échec de l'ajout de la recette.");
+      }
+    } catch (error) {
+      toast({
+        title: "Erreur lors de l'ajout",
+        description: (error as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      // Reset file input to allow selecting the same file again if needed
+      if (fileInputRef.current) {
         fileInputRef.current.value = "";
+      }
     }
   };
 
+
   return (
-    <>
-      <Sidebar>
-        <SidebarHeader className="p-2">
-          <Link href="/" className="flex items-center gap-1.5 text-xl font-semibold text-sidebar-primary hover:text-sidebar-primary/90 transition-colors px-2 py-1">
-            <GitBrewLogo className="h-10 w-10" />
-            <span>GitBrew</span>
-          </Link>
-        </SidebarHeader>
-        <SidebarContent className="p-2">
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <AlertDialog open={isAddRecipeDialogOpen} onOpenChange={setIsAddRecipeDialogOpen}>
-                <AlertDialogTrigger asChild>
-                  <SidebarMenuButton
-                    tooltip={{ children: 'Ajouter une recette (fichier BeerXML)', side: 'right' }}
-                  >
-                    <UploadCloud className="h-5 w-5" />
-                    <span>Ajouter une recette</span>
-                  </SidebarMenuButton>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Ajouter une recette depuis...</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Choisissez la source de votre fichier de recette BeerXML.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
-                    <Button variant="outline" onClick={handleLocalFileSelectClick} className="w-full">
-                      <HardDrive className="mr-2 h-5 w-5" />
-                      Mon ordinateur
-                    </Button>
-                    <Button variant="outline" onClick={handleGoogleDriveClick} className="w-full">
-                      <Cloud className="mr-2 h-5 w-5" />
-                      Google Drive
-                    </Button>
-                  </div>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Annuler</AlertDialogCancel>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname === '/recipes/new'}
-                tooltip={{ children: 'Créer une nouvelle recette', side: 'right' }}
-              >
-                <Link href="/recipes/new">
-                  <FilePlus2 className="h-5 w-5" />
-                  <span>Nouvelle Recette</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarContent>
-      </Sidebar>
-      <input
-        type="file"
-        accept=".xml"
-        ref={fileInputRef}
-        onChange={handleFileSelected}
-        style={{ display: 'none' }}
-        id="recipe-file-input"
-      />
-    </>
+    <Sidebar>
+      <SidebarHeader>
+        <Link href="/" className="flex items-center gap-1 text-2xl font-semibold text-sidebar-primary hover:text-sidebar-primary/90 transition-colors px-2 py-1">
+          <GitBrewLogo className="h-12 w-12" />
+          <span>GitBrew</span>
+        </Link>
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <AlertDialog open={isAddRecipeDialogOpen} onOpenChange={setIsAddRecipeDialogOpen}>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" className="w-full justify-start text-sm font-normal h-auto py-2 px-2" onClick={handleAddRecipeClick}>
+                  <UploadCloud className="mr-2 h-4 w-4" />
+                  Ajouter une recette
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Ajouter une recette depuis...</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Choisissez la source pour importer votre fichier de recette BeerXML.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="flex-col sm:flex-col sm:space-x-0 gap-2"> {/* Adjusted for vertical stacking */}
+                  <Button onClick={handleSelectLocalFile} className="w-full">
+                    <HardDrive className="mr-2 h-4 w-4" /> Mon ordinateur
+                  </Button>
+                  <Button onClick={handleSelectGoogleDrive} variant="outline" className="w-full">
+                    <Cloud className="mr-2 h-4 w-4" /> Google Drive
+                  </Button>
+                  <AlertDialogCancel className="w-full mt-2 sm:mt-0">Annuler</AlertDialogCancel>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+             <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFilesSelected}
+              className="hidden"
+              accept=".xml" 
+            />
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+              <Link href="/recipes/new">
+                <FilePlus2 />
+                Nouvelle Recette
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarContent>
+    </Sidebar>
   );
 }
