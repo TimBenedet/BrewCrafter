@@ -133,10 +133,10 @@ export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
         <p className="text-xl text-muted-foreground">{recipe.type}{recipe.brewer ? ` by ${recipe.brewer}` : ''}</p>
       </header>
 
-      {/* Metadata and Target Stats Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      {/* Metadata and Target Stats Section - Stacked Vertically */}
+      <div className="space-y-6 mb-6">
         {/* Metadata Card */}
-        <Card className="lg:col-span-1">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center text-xl">
               <InfoIcon className="mr-3 h-5 w-5 text-primary" />
@@ -144,7 +144,7 @@ export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 pt-2">
-            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-4 text-center sm:text-left">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-center sm:text-left">
               <div className="py-2">
                 <Container className="mx-auto sm:mx-0 mb-1 h-6 w-6 text-primary" />
                 <p className="text-xs text-muted-foreground">Batch Volume</p>
@@ -160,19 +160,19 @@ export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
                 <p className="text-xs text-muted-foreground">Efficiency</p>
                 <p className="text-lg font-semibold">{renderValue(recipe.efficiency, '%', 0)}</p>
               </div>
-            </div>
-             {recipe.boilSize && (
-                <div className="pt-2 text-center sm:text-left">
-                  <ListChecksIcon className="mx-auto sm:mx-0 mb-1 h-5 w-5 text-primary/80" />
+              {recipe.boilSize && (
+                <div className="py-2">
+                  <ListChecksIcon className="mx-auto sm:mx-0 mb-1 h-6 w-6 text-primary" />
                   <p className="text-xs text-muted-foreground">Boil Volume</p>
-                  <p className="text-md font-medium">{renderValue(recipe.boilSize, 'L', 1)}</p>
+                  <p className="text-lg font-semibold">{renderValue(recipe.boilSize, 'L', 1)}</p>
                 </div>
               )}
+            </div>
           </CardContent>
         </Card>
 
         {/* Target Stats Card */}
-        <Card className="lg:col-span-2">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center text-xl">
               <BarChart3 className="mr-3 h-5 w-5 text-primary" />
@@ -276,26 +276,6 @@ export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
         </DetailSection>
       )}
 
-      {recipe.mash && recipe.mash.mashSteps.length > 0 && (
-        <DetailSection title={`Mash Profile: ${recipe.mash.name}`} icon={Thermometer}>
-          {recipe.mash.grainTemp && <p className="mb-2 text-sm"><strong>Grain Temperature:</strong> {renderValue(recipe.mash.grainTemp, '°C')}</p>}
-          <Table>
-            <TableHeader><TableRow><TableHead>Step Name</TableHead><TableHead>Type</TableHead><TableHead>Temp</TableHead><TableHead>Time</TableHead>{recipe.mash.mashSteps.some(s => s.infuseAmount) && <TableHead>Infuse Amt.</TableHead>}</TableRow></TableHeader>
-            <TableBody>
-              {recipe.mash.mashSteps.map((s, i) => (
-                <TableRow key={i}>
-                  <TableCell>{s.name}</TableCell>
-                  <TableCell>{s.type}</TableCell>
-                  <TableCell>{renderValue(s.stepTemp, '°C')}</TableCell>
-                  <TableCell>{renderValue(s.stepTime, 'min')}</TableCell>
-                  {recipe.mash!.mashSteps.some(step => step.infuseAmount) && <TableCell>{renderValue(s.infuseAmount, 'L')}</TableCell>}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </DetailSection>
-      )}
-
       {recipe.notes && (
         <DetailSection title="Notes" icon={StickyNote}>
           <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: recipe.notes.replace(/\n/g, '<br />') }} />
@@ -304,5 +284,4 @@ export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
     </div>
   );
 }
-
     
