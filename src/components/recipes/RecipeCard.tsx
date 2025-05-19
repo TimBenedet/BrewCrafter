@@ -1,9 +1,26 @@
 
+'use client';
+
 import Link from 'next/link';
 import type { RecipeSummary } from '@/types/recipe';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronRightIcon, BeerIcon, Palette, Percent, Thermometer, AlertTriangle } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { ChevronRightIcon, BeerIcon, Palette, Percent, Thermometer, AlertTriangle, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { useToast } from "@/hooks/use-toast";
+import { useRouter } from 'next/navigation';
+import { deleteRecipeAction } from '@/app/actions/recipe-actions';
 
 interface RecipeCardProps {
   recipe: RecipeSummary;
@@ -36,10 +53,38 @@ const StatItem: React.FC<{ icon: React.ElementType; label: string; value: string
 
 
 export function RecipeCard({ recipe }: RecipeCardProps) {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { toast } = useToast();
+  const router = useRouter();
+
+  const handleDeleteRecipe = async () => {
+    setIsDeleting(true);
+    try {
+      const result = await deleteRecipeAction(recipe.slug);
+      if (result.success) {
+        toast({
+          title: "Recette supprimée",
+          description: `La recette "${recipe.name}" a été supprimée avec succès.`,
+        });
+        router.refresh(); // Refresh data for the current route
+      } else {
+        throw new Error(result.error || "Erreur lors de la suppression de la recette.");
+      }
+    } catch (error) {
+      toast({
+        title: "Échec de la suppression",
+        description: (error as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
-    <Link href={`/recipes/${recipe.slug}`} passHref legacyBehavior>
-      <a className="block hover:no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg group">
-        <Card className="h-full flex flex-col transition-all duration-200 ease-in-out group-hover:shadow-xl group-hover:border-primary/50 group-focus-within:shadow-xl group-focus-within:border-primary/50">
+    <Card className="h-full flex flex-col transition-all duration-200 ease-in-out hover:shadow-xl hover:border-primary/50 focus-within:shadow-xl focus-within:border-primary/50 group">
+      <Link href={`/recipes/${recipe.slug}`} passHref legacyBehavior>
+        <a className="block hover:no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-t-lg flex-grow">
           <CardHeader className="pb-4">
             <CardTitle className="text-xl mb-0.5 leading-tight text-primary">{recipe.name}</CardTitle>
             <CardDescription className="text-sm text-muted-foreground">{recipe.styleName || recipe.type}</CardDescription>
@@ -54,14 +99,37 @@ export function RecipeCard({ recipe }: RecipeCardProps) {
               <StatItem icon={AlertTriangle} label="Bitterness" value={recipe.ibu} unit=" IBU" precision={0} />
             </div>
           </CardContent>
-          <CardFooter>
-            <Button variant="ghost" size="sm" className="w-full justify-between text-primary group-hover:bg-primary/10">
-              View Recipe
-              <ChevronRightIcon className="h-4 w-4 ml-2 transition-transform duration-200 group-hover:translate-x-1" />
+        </a>
+      </Link>
+      <CardFooter className="flex justify-between items-center">
+        <Button variant="ghost" size="sm" className="text-primary group-hover:bg-primary/10 flex-grow mr-2" asChild>
+          <Link href={`/recipes/${recipe.slug}`}>
+            View Recipe
+            <ChevronRightIcon className="h-4 w-4 ml-2 transition-transform duration-200 group-hover:translate-x-1" />
+          </Link>
+        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={isDeleting} aria-label="Supprimer la recette">
+              <Trash2 className="h-5 w-5" />
             </Button>
-          </CardFooter>
-        </Card>
-      </a>
-    </Link>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette recette ?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Cette action est irréversible et supprimera le fichier XML de la recette &quot;{recipe.name}&quot; de votre dépôt.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteRecipe} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                {isDeleting ? "Suppression..." : "Supprimer"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </CardFooter>
+    </Card>
   );
 }

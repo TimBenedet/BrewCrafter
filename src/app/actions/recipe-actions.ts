@@ -1,3 +1,4 @@
+
 'use server';
 
 import fs from 'fs/promises';
@@ -19,30 +20,17 @@ interface ActionResult {
 
 export async function addRecipesAction(recipeFiles: RecipeFile[]): Promise<ActionResult> {
   try {
-    // Ensure the Recipes directory exists
     await fs.mkdir(recipesDir, { recursive: true });
 
     let filesWritten = 0;
     for (const file of recipeFiles) {
-      // Basic sanitization for filename, although files come from user's system
-      // We only accept .xml files as per the input accept attribute.
       if (!file.fileName.endsWith('.xml')) {
         console.warn(`Skipping non-XML file: ${file.fileName}`);
         continue;
       }
       
-      // Prevent writing outside of the recipesDir, though path.join should handle most of this.
-      // A more robust sanitization might be needed if filenames were purely user-generated strings.
       const safeFileName = path.basename(file.fileName);
       const filePath = path.join(recipesDir, safeFileName);
-
-      // Check if file already exists, optionally skip or overwrite
-      // For now, we'll overwrite.
-      // const exists = await fs.access(filePath).then(() => true).catch(() => false);
-      // if (exists) {
-      //   console.log(`File ${safeFileName} already exists. Skipping or add overwrite logic.`);
-      //   continue;
-      // }
 
       await fs.writeFile(filePath, file.content, 'utf-8');
       filesWritten++;
@@ -50,11 +38,8 @@ export async function addRecipesAction(recipeFiles: RecipeFile[]): Promise<Actio
     }
 
     if (filesWritten > 0) {
-      // Revalidate paths to ensure Next.js picks up the new files
-      revalidatePath('/'); // For the homepage listing
-      revalidatePath('/recipes'); // For the recipes/[recipeSlug] pages (generic)
-      // To be more specific, you might revalidate individual recipe slugs if known,
-      // but revalidating the parent path is generally sufficient for new files in a directory.
+      revalidatePath('/'); 
+      revalidatePath('/recipes'); 
     }
     
     return { success: true, count: filesWritten };
@@ -62,5 +47,45 @@ export async function addRecipesAction(recipeFiles: RecipeFile[]): Promise<Actio
   } catch (error) {
     console.error('Error saving recipe files:', error);
     return { success: false, error: (error as Error).message || 'Failed to save recipes.' };
+  }
+}
+
+export async function deleteRecipeAction(recipeSlug: string): Promise<ActionResult> {
+  try {
+    if (!recipeSlug || typeof recipeSlug !== 'string' || recipeSlug.includes('..')) {
+        // Basic validation to prevent path traversal or invalid slugs
+        return { success: false, error: 'Invalid recipe slug provided.' };
+    }
+
+    const fileName = `${recipeSlug}.xml`;
+    // Sanitize filename again to be absolutely sure
+    const safeFileName = path.basename(fileName); 
+    
+    if (!safeFileName.endsWith('.xml')) {
+        return { success: false, error: 'Invalid file extension.' };
+    }
+
+    const filePath = path.join(recipesDir, safeFileName);
+
+    // Optional: Check if file exists before attempting to delete, fs.unlink will error if not found anyway
+    try {
+        await fs.access(filePath);
+    } catch (e) {
+        console.warn(`File ${safeFileName} not found for deletion.`);
+        return { success: false, error: `Recipe file ${safeFileName} not found.`};
+    }
+
+    await fs.unlink(filePath);
+    console.log(`Recipe file ${safeFileName} deleted successfully.`);
+
+    revalidatePath('/'); // Revalidate the homepage
+    revalidatePath('/recipes'); // Revalidate generic recipe paths
+    revalidatePath(`/recipes/${recipeSlug}`); // Revalidate the specific recipe path, though it's now deleted
+
+    return { success: true };
+
+  } catch (error) {
+    console.error('Error deleting recipe file:', error);
+    return { success: false, error: (error as Error).message || 'Failed to delete recipe.' };
   }
 }
