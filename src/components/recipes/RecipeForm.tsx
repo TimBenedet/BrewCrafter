@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { SaveIcon, PlusCircleIcon, Trash2Icon } from 'lucide-react';
+import { SaveIcon, PlusCircleIcon, Trash2Icon, InfoIcon, ListChecksIcon, Wheat, Hop, Microscope, Package, Thermometer, StickyNote } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useEffect } from 'react';
@@ -128,9 +128,9 @@ const defaultValues: Partial<RecipeFormValues> = {
   efficiency: 72.0,
   og: 1.052,
   fg: 1.012,
-  abv: 0, 
-  ibu: 0, 
-  colorSrm: 0, 
+  abv: 0, // Initialize to 0 or appropriate number
+  ibu: 0, // Initialize to 0 or appropriate number
+  colorSrm: 0, // Initialize to 0 or appropriate number
   notes: '',
   style: {
     name: 'American Amber Ale',
@@ -347,7 +347,7 @@ function calculateIbuTinseth(
       const utilization = bignessFactor * boilTimeFactor;
       
       if (numBoilSize > 0) { 
-        const ibusForHop = (alphaDecimal * amountGrams * utilization * 1000) / numBoilSize; // Corrected: BeerXML standard seems to use mg/L or similar for alpha_acid_units. The 1000 factor might relate to this.
+        const ibusForHop = (alphaDecimal * amountGrams * utilization * 1000) / numBoilSize; 
         totalIbus += ibusForHop;
       }
     }
@@ -401,7 +401,7 @@ export function RecipeForm() {
     } else {
       form.setValue('abv', 0, { shouldValidate: true });
     }
-  }, [watchedOg, watchedFg, form.setValue]);
+  }, [watchedOg, watchedFg, form]);
 
   useEffect(() => {
     const hopsArray = Array.isArray(watchedHops) ? watchedHops : [];
@@ -411,7 +411,7 @@ export function RecipeForm() {
     } else {
       form.setValue('ibu', 0, { shouldValidate: true }); 
     }
-  }, [watchedOg, watchedBoilSize, watchedHops, form.setValue]);
+  }, [watchedOg, watchedBoilSize, watchedHops, form]);
 
 
   function onSubmit(data: RecipeFormValues) {
@@ -440,7 +440,10 @@ export function RecipeForm() {
         {/* General Information Card */}
         <Card>
           <CardHeader>
-            <CardTitle>Informations Générales</CardTitle>
+            <CardTitle className="flex items-center">
+                <InfoIcon className="mr-2 h-5 w-5 text-primary" />
+                Informations Générales
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -624,7 +627,10 @@ export function RecipeForm() {
         {/* Style Card */}
         <Card>
           <CardHeader>
-            <CardTitle>Style de la Bière</CardTitle>
+            <CardTitle className="flex items-center">
+                <ListChecksIcon className="mr-2 h-5 w-5 text-primary" />
+                Style de la Bière
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <FormField
@@ -738,7 +744,10 @@ export function RecipeForm() {
         {/* Fermentables Card */}
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Fermentescibles</CardTitle>
+                <CardTitle className="flex items-center">
+                    <Wheat className="mr-2 h-5 w-5 text-primary" />
+                    Fermentescibles
+                </CardTitle>
                 <Button type="button" variant="outline" size="sm" onClick={() => appendFermentable({ name: '', type: 'Grain', amount: 0, yield: 75, color: 0 })}>
                     <PlusCircleIcon className="mr-2 h-4 w-4" /> Ajouter
                 </Button>
@@ -778,7 +787,10 @@ export function RecipeForm() {
         {/* Hops Card */}
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Houblons</CardTitle>
+                <CardTitle className="flex items-center">
+                    <Hop className="mr-2 h-5 w-5 text-primary" />
+                    Houblons
+                </CardTitle>
                 <Button type="button" variant="outline" size="sm" onClick={() => appendHop({ name: '', alpha: 0, amount: 0, use: 'Boil', time: 60, form: 'Pellet' })}>
                     <PlusCircleIcon className="mr-2 h-4 w-4" /> Ajouter
                 </Button>
@@ -824,7 +836,10 @@ export function RecipeForm() {
         {/* Yeasts Card */}
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Levures</CardTitle>
+                <CardTitle className="flex items-center">
+                    <Microscope className="mr-2 h-5 w-5 text-primary" />
+                    Levures
+                </CardTitle>
                 <Button type="button" variant="outline" size="sm" onClick={() => appendYeast({ name: '', type: 'Ale', form: 'Dry', amount: 0, laboratory: '', productId: '', attenuation: 75 })}>
                      <PlusCircleIcon className="mr-2 h-4 w-4" /> Ajouter
                 </Button>
@@ -873,7 +888,10 @@ export function RecipeForm() {
         {/* Miscs Card */}
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Ingrédients Divers</CardTitle>
+                <CardTitle className="flex items-center">
+                    <Package className="mr-2 h-5 w-5 text-primary" />
+                    Ingrédients Divers
+                </CardTitle>
                 <Button type="button" variant="outline" size="sm" onClick={() => appendMisc({ name: '', type: 'Spice', use: 'Boil', time: 0, amount: 0 })}>
                      <PlusCircleIcon className="mr-2 h-4 w-4" /> Ajouter
                 </Button>
@@ -918,7 +936,10 @@ export function RecipeForm() {
         {/* Mash Profile Card */}
         <Card>
             <CardHeader>
-                <CardTitle>Profil d'Empâtage</CardTitle>
+                <CardTitle className="flex items-center">
+                    <Thermometer className="mr-2 h-5 w-5 text-primary" />
+                    Profil d'Empâtage
+                </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
                 <FormField
@@ -970,7 +991,10 @@ export function RecipeForm() {
         {/* Notes Card */}
         <Card>
             <CardHeader>
-                <CardTitle>Notes</CardTitle>
+                <CardTitle className="flex items-center">
+                    <StickyNote className="mr-2 h-5 w-5 text-primary" />
+                    Notes
+                </CardTitle>
             </CardHeader>
             <CardContent>
                 <FormField
