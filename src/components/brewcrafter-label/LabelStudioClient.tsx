@@ -4,8 +4,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { LabelFormSchema, type LabelFormValues, type LabelRecipeData } from '@/types/label';
-import type { RecipeSummary, BeerXMLRecipe } from '@/types/recipe';
+import { LabelFormSchema, type LabelFormValues } from '@/types/label';
+import type { RecipeSummary } from '@/types/recipe';
 import { getRecipeDetailsAction } from '@/app/actions/recipe-actions';
 import { useToast } from '@/hooks/use-toast';
 import html2canvas from 'html2canvas';
@@ -23,21 +23,26 @@ interface LabelStudioClientProps {
   initialRecipes: RecipeSummary[];
 }
 
+const FLAT_LABEL_BASE_WIDTH_PX = 500;
+const PHYSICAL_LABEL_DIMENSIONS = {
+  '33CL': { widthCM: 20, heightCM: 7 },  // Physical: 20cm W x 7cm H
+  '75CL': { widthCM: 26, heightCM: 9 },  // Physical: 26cm W x 9cm H
+};
+
 export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
   const { toast } = useToast();
   const [recipes, setRecipes] = useState<RecipeSummary[]>(initialRecipes);
   const [selectedRecipeSlug, setSelectedRecipeSlug] = useState<string | undefined>(undefined);
   
-  // States for display values derived from selected recipe
   const [displayIbu, setDisplayIbu] = useState<string>('N/A');
   const [displaySrm, setDisplaySrm] = useState<string>('N/A');
-  const [currentSrmHexColor, setCurrentSrmHexColor] = useState<string>('#CCCCCC'); // Default for BeerIcon
+  const [currentSrmHexColor, setCurrentSrmHexColor] = useState<string>('#CCCCCC');
   const [ingredientsSummaryForLabel, setIngredientsSummaryForLabel] = useState<string>('N/A');
   const [displayAbv, setDisplayAbv] = useState<string>('N/A');
-  const [displayVolumeLabel, setDisplayVolumeLabel] = useState<string>('33CL');
+  
+  const frontLabelContentRef = useRef<HTMLDivElement>(null);
+  const backLabelContentRef = useRef<HTMLDivElement>(null);
 
-  const frontLabelRef = useRef<HTMLDivElement>(null);
-  // const backLabelRef = useRef<HTMLDivElement>(null); // For future back label download
 
   const form = useForm<LabelFormValues>({
     resolver: zodResolver(LabelFormSchema),
@@ -69,9 +74,17 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
   const watchedBrewingDate = form.watch('brewingDate');
   const watchedBrewingLocation = form.watch('brewingLocation');
 
+  const [flatLabelWidthPx, setFlatLabelWidthPx] = useState(FLAT_LABEL_BASE_WIDTH_PX);
+  const [flatLabelHeightPx, setFlatLabelHeightPx] = useState(
+    FLAT_LABEL_BASE_WIDTH_PX * (PHYSICAL_LABEL_DIMENSIONS['33CL'].heightCM / PHYSICAL_LABEL_DIMENSIONS['33CL'].widthCM)
+  );
+
   useEffect(() => {
-    setDisplayVolumeLabel(watchedVolume);
+    const physicalDims = PHYSICAL_LABEL_DIMENSIONS[watchedVolume];
+    const newHeight = FLAT_LABEL_BASE_WIDTH_PX * (physicalDims.heightCM / physicalDims.widthCM);
+    setFlatLabelHeightPx(Math.round(newHeight));
   }, [watchedVolume]);
+
 
   useEffect(() => {
     const fetchAndSetRecipeData = async () => {
@@ -80,12 +93,11 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
         if (result.success && result.recipe) {
           const recipeData = result.recipe;
           form.reset({
-            ...form.getValues(), // Keep existing form values not pre-filled
+            ...form.getValues(),
             selectedRecipeSlug: selectedRecipeSlug,
             beerName: recipeData.name || form.getValues('beerName'),
             description: recipeData.notes || form.getValues('description'),
             ingredients: summarizeIngredients(recipeData.fermentables, recipeData.hops, recipeData.yeasts) || form.getValues('ingredients'),
-            // brewingDate and brewingLocation are manual, so not reset from recipe here
           });
 
           setDisplayIbu(recipeData.ibu?.toFixed(0) || 'N/A');
@@ -97,7 +109,6 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
           toast({ title: "Recipe Loaded", description: `${recipeData.name} data has been pre-filled.` });
         } else {
           toast({ title: "Error", description: `Failed to load recipe: ${result.error}`, variant: "destructive" });
-          // Reset to manual entry visual state if recipe fails to load
           setDisplayIbu('N/A');
           setDisplaySrm('N/A');
           setCurrentSrmHexColor('#CCCCCC');
@@ -105,12 +116,11 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
           setDisplayAbv('N/A');
         }
       } else if (selectedRecipeSlug === 'none') {
-        // Reset to defaults or clear fields if "None" is selected
          form.reset({
-            ...LabelFormSchema.parse({}), // Resets to schema defaults
+            ...LabelFormSchema.parse({}), 
             selectedRecipeSlug: 'none',
-            volume: form.getValues('volume'), // keep current volume
-            backgroundColor: form.getValues('backgroundColor'), // keep colors
+            volume: form.getValues('volume'),
+            backgroundColor: form.getValues('backgroundColor'),
             textColor: form.getValues('textColor'),
             backgroundImage: form.getValues('backgroundImage')
          });
@@ -123,56 +133,64 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
       }
     };
     fetchAndSetRecipeData();
-  }, [selectedRecipeSlug, form, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRecipeSlug, form.reset, toast]); // form.getValues removed as per lint
 
-  const handleDownloadImage = async (labelRef: React.RefObject<HTMLDivElement>, labelName: string) => {
-    if (!labelRef.current) {
-      toast({ title: 'Error', description: 'Label preview element not found.', variant: 'destructive' });
+  const handleDownloadImage = async (labelContentRef: React.RefObject<HTMLDivElement>, labelName: string) => {
+    if (!labelContentRef.current) {
+      toast({ title: 'Error', description: 'Label content element not found.', variant: 'destructive' });
       return;
     }
     toast({ title: 'Download Started', description: `Generating ${labelName} image...` });
 
-    const originalTransform = labelRef.current.style.transform;
-    const originalBorder = labelRef.current.style.border;
-    const originalBoxShadow = labelRef.current.style.boxShadow;
-
-    // Temporarily reset styles for capture
-    labelRef.current.style.transform = 'none';
-    labelRef.current.style.border = 'none';
-    labelRef.current.style.boxShadow = 'none';
+    const elementToCapture = labelContentRef.current;
     
-    // Force a reflow to apply style changes before capture
+    // Store original styles to restore them later
+    const originalTransform = elementToCapture.style.transform;
+    const originalBorder = elementToCapture.style.border;
+    const originalBoxShadow = elementToCapture.style.boxShadow;
+    const originalMargin = elementToCapture.style.margin;
+
+    // Temporarily apply styles for capture
+    elementToCapture.style.transform = 'none';
+    elementToCapture.style.border = 'none'; 
+    elementToCapture.style.boxShadow = 'none';
+    elementToCapture.style.margin = '0'; 
+    
+    // Force a reflow might be needed in some complex cases, but try without first
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _ = labelRef.current.offsetHeight;
+    const _ = elementToCapture.offsetHeight; 
 
-
-    // Physical dimensions (example for 33CL: 20cm x 7cm)
-    const physicalWidthCM = watchedVolume === '33CL' ? 20 : 24; // Example for 75CL: 24cm
-    const physicalHeightCM = watchedVolume === '33CL' ? 7 : 9;  // Example for 75CL: 9cm
+    const physicalDimensions = PHYSICAL_LABEL_DIMENSIONS[watchedVolume];
     const dpi = 300;
-    const physicalWidthInches = physicalWidthCM / 2.54;
-    const physicalHeightInches = physicalHeightCM / 2.54;
+    const physicalWidthInches = physicalDimensions.widthCM / 2.54;
+    const physicalHeightInches = physicalDimensions.heightCM / 2.54;
     
     const targetPixelWidth = Math.round(physicalWidthInches * dpi);
     const targetPixelHeight = Math.round(physicalHeightInches * dpi);
 
-    // Use the actual dimensions of the flat label content for canvas
-    const labelContentElement = labelRef.current;
-    const elementWidth = labelContentElement.offsetWidth;
-    const elementHeight = labelContentElement.offsetHeight;
+    const elementWidth = elementToCapture.offsetWidth;
+    const elementHeight = elementToCapture.offsetHeight;
 
-    // Calculate scale to match DPI based on current element size vs target pixel size
-    // This scale is for html2canvas to render at a higher resolution
-    const scale = Math.min(targetPixelWidth / elementWidth, targetPixelHeight / elementHeight, 4); // Cap scale at 4x to prevent memory issues
+    // Calculate scale to match DPI
+    // Choose scale to fit either width or height, maintaining aspect ratio, up to a max practical scale (e.g., 4)
+    const scaleX = targetPixelWidth / elementWidth;
+    const scaleY = targetPixelHeight / elementHeight;
+    const scale = Math.min(scaleX, scaleY, 4);
+
 
     try {
-      const canvas = await html2canvas(labelContentElement, {
+      const canvas = await html2canvas(elementToCapture, {
         scale: scale,
-        width: elementWidth,
+        width: elementWidth, // Use element's current on-screen width/height for html2canvas internal calculations
         height: elementHeight,
-        backgroundColor: null, // Use transparent background, or derive from theme
-        useCORS: true, // For external images if any
+        backgroundColor: null, // Capture with transparency if background image is used
+        useCORS: true,
         logging: true,
+        scrollX: 0, // Ensure content from the start is captured
+        scrollY: 0,
+        windowWidth: elementWidth, // Provide explicit dimensions to html2canvas
+        windowHeight: elementHeight,
       });
       const image = canvas.toDataURL('image/png');
       const link = document.createElement('a');
@@ -184,14 +202,14 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
       toast({ title: 'Download Error', description: 'Could not generate label image.', variant: 'destructive' });
     } finally {
       // Restore original styles
-      if (labelRef.current) {
-        labelRef.current.style.transform = originalTransform;
-        labelRef.current.style.border = originalBorder;
-        labelRef.current.style.boxShadow = originalBoxShadow;
+      if (elementToCapture) {
+        elementToCapture.style.transform = originalTransform;
+        elementToCapture.style.border = originalBorder;
+        elementToCapture.style.boxShadow = originalBoxShadow;
+        elementToCapture.style.margin = originalMargin;
       }
     }
   };
-
 
   const labelDataForPreview = {
     beerName: watchedBeerName,
@@ -202,19 +220,21 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
     srmHexColor: currentSrmHexColor,
     ingredientsSummary: ingredientsSummaryForLabel,
     abv: displayAbv,
-    volume: displayVolumeLabel,
+    volume: watchedVolume,
     backgroundColor: watchedBackgroundColor,
     textColor: watchedTextColor,
     backgroundImage: watchedBackgroundImage,
     description: watchedDescription,
-    ingredientsList: watchedIngredients, // for back label
+    ingredientsList: watchedIngredients,
     brewingDate: watchedBrewingDate,
     brewingLocation: watchedBrewingLocation,
+    flatLabelWidthPx: flatLabelWidthPx,
+    flatLabelHeightPx: flatLabelHeightPx,
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-1">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="md:col-span-1">
         <LabelControls
           form={form}
           recipes={recipes}
@@ -222,35 +242,35 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
           selectedRecipeSlug={selectedRecipeSlug}
         />
       </div>
-      <div className="md:col-span-1 lg:col-span-2 space-y-6">
+      <div className="md:col-span-2 space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="font-bebas-neue tracking-wide">Label Preview</CardTitle>
+            <CardTitle className="font-bebas-neue tracking-wide">Label Previews</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
-              <LabelPreview {...labelDataForPreview} ref={frontLabelRef} />
-              <BackLabelPreview {...labelDataForPreview} />
+              <LabelPreview {...labelDataForPreview} ref={frontLabelContentRef} />
+              <BackLabelPreview {...labelDataForPreview} ref={backLabelContentRef} />
             </div>
-            <Button 
-              onClick={() => handleDownloadImage(frontLabelRef, 'front_label')} 
-              className="w-full mt-4"
-              disabled={!frontLabelRef.current}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Download Front Label
-            </Button>
-            {/* Add download for back label later */}
-             {/* <Button 
-              onClick={() => handleDownloadImage(backLabelRef, 'back_label')} 
-              className="w-full mt-2"
-              variant="outline"
-              disabled={!backLabelRef.current}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Download Back Label (Placeholder)
-            </Button> */}
-
+            <div className="flex flex-col items-center space-y-2 mt-4">
+              <Button 
+                onClick={() => handleDownloadImage(frontLabelContentRef, 'front_label')} 
+                className="w-full sm:w-auto"
+                disabled={!frontLabelContentRef.current}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Download Front Label
+              </Button>
+              <Button 
+                onClick={() => handleDownloadImage(backLabelContentRef, 'back_label')} 
+                className="w-full sm:w-auto"
+                variant="outline"
+                disabled={!backLabelContentRef.current}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Download Back Label
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

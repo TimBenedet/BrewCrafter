@@ -24,7 +24,7 @@ export default async function BrewCrafterLabelPage() {
         <CardHeader>
           <CardTitle className="flex items-center text-2xl font-bebas-neue tracking-wide text-primary">
             <Paintbrush className="mr-3 h-7 w-7" />
-            BrewCrafter Label Studio
+            BrewCrafter Label
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -46,3 +46,4 @@ export default async function BrewCrafterLabelPage() {
     </div>
   );
 }
+

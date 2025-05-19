@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { forwardRef, useEffect, useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface BackLabelPreviewProps {
@@ -12,17 +12,27 @@ interface BackLabelPreviewProps {
   backgroundColor: string;
   textColor: string;
   backgroundImage?: string;
+  flatLabelWidthPx: number;
+  flatLabelHeightPx: number;
 }
 
-export function BackLabelPreview({
-  description,
-  ingredientsList,
-  brewingDate,
-  brewingLocation,
-  backgroundColor,
-  textColor,
-  backgroundImage,
-}: BackLabelPreviewProps) {
+// On-screen preview container dimensions (same as front)
+const PREVIEW_CONTAINER_WIDTH_PX = 200;
+const PREVIEW_CONTAINER_HEIGHT_PX = 400;
+
+
+export const BackLabelPreview = forwardRef<HTMLDivElement, BackLabelPreviewProps>(
+  ({
+    description,
+    ingredientsList,
+    brewingDate,
+    brewingLocation,
+    backgroundColor,
+    textColor,
+    backgroundImage,
+    flatLabelWidthPx, // Use same dimensions as front for consistency
+    flatLabelHeightPx,
+  }, ref) => {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
     
   useEffect(() => {
@@ -34,14 +44,9 @@ export function BackLabelPreview({
     }
   }, [backgroundImage]);
 
-  // Fixed dimensions for the on-screen preview container (similar to front label's container)
-  const PREVIEW_CONTAINER_WIDTH = '200px';
-  const PREVIEW_CONTAINER_HEIGHT = '200px'; // Back label might be shorter or different aspect ratio
-
-  // Style for the actual content of the back label
   const backLabelStyle: React.CSSProperties = {
-    width: '100%', // Fill the preview container
-    height: '100%',
+    width: `${flatLabelWidthPx}px`,
+    height: `${flatLabelHeightPx}px`,
     backgroundColor: backgroundImage ? 'transparent' : backgroundColor,
     color: textColor,
     fontFamily: 'var(--font-inter)',
@@ -49,73 +54,90 @@ export function BackLabelPreview({
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
-    padding: '10px', // Internal padding for the content
-    fontSize: '10px', // Smaller base font for back label
+    padding: '1rem', // p-4
+    fontSize: '10px', 
     lineHeight: '1.4',
   };
+
+  // Scale factor for fitting the rotated flat label into the preview container
+  const scaleToFit = Math.min(
+    (PREVIEW_CONTAINER_HEIGHT_PX - 20) / flatLabelWidthPx, 
+    (PREVIEW_CONTAINER_WIDTH_PX - 20) / flatLabelHeightPx,
+    0.75 
+  );
 
   return (
     <div className="w-full flex flex-col items-center">
       <h3 className="text-lg font-semibold mb-2 text-center">Back Label</h3>
       <div 
-        className="bg-card border-2 border-primary rounded-md shadow-lg"
+        className="bg-card border-2 border-primary rounded-md shadow-lg flex items-center justify-center overflow-hidden"
         style={{
-          width: PREVIEW_CONTAINER_WIDTH,
-          height: PREVIEW_CONTAINER_HEIGHT,
+          width: `${PREVIEW_CONTAINER_WIDTH_PX}px`,
+          height: `${PREVIEW_CONTAINER_HEIGHT_PX}px`,
         }}
       >
-        <div style={backLabelStyle} className="back-label-content-ref"> {/* Add ref here if downloading separately */}
-          {backgroundImage && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                backgroundImage: `url(${backgroundImage})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                opacity: isImageLoaded ? 1 : 0,
-                transition: 'opacity 0.5s ease-in-out',
-              }}
-            />
-          )}
-          {backgroundImage && (
-             <div 
-              style={{ 
-                position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
-                backgroundColor: 'rgba(0,0,0,0.5)', // Darker overlay for back text readability
-                zIndex: 1 
-              }} 
-            />
-          )}
-          <ScrollArea className="h-full w-full" style={{position: 'relative', zIndex: 2}}>
-            <div className="p-2 space-y-1.5"> {/* Padding inside scroll area */}
-              <div>
-                <strong className="font-semibold">Description:</strong>
-                <p className="text-xs">{description}</p>
+        <div 
+          style={{
+            width: `${flatLabelWidthPx}px`,
+            height: `${flatLabelHeightPx}px`,
+            transform: `rotate(90deg) scale(${scaleToFit})`,
+            transformOrigin: 'center center',
+          }}
+        >
+          <div style={backLabelStyle} ref={ref} className="back-label-content-for-capture">
+            {backgroundImage && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  backgroundImage: `url(${backgroundImage})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  opacity: isImageLoaded ? 1 : 0,
+                  transition: 'opacity 0.5s ease-in-out',
+                }}
+              />
+            )}
+            {backgroundImage && (
+              <div 
+                style={{ 
+                  position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
+                  backgroundColor: 'rgba(0,0,0,0.5)', // Darker overlay
+                  zIndex: 1 
+                }} 
+              />
+            )}
+            <ScrollArea className="h-full w-full" style={{position: 'relative', zIndex: 2}}>
+              <div className="space-y-3 p-1"> {/* Inner padding for scroll content */}
+                <div>
+                  <p className="font-semibold text-sm mb-0.5">Description:</p>
+                  <p className="text-xs leading-relaxed">{description}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-sm mb-0.5">Ingredients:</p>
+                  <p className="text-xs leading-relaxed whitespace-pre-wrap">{ingredientsList}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-sm mb-0.5">Brewed on:</p>
+                  <p className="text-xs leading-relaxed">{brewingDate}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-sm mb-0.5">Brewed by:</p>
+                  <p className="text-xs leading-relaxed">{brewingLocation}</p>
+                </div>
+                <p className="text-[9px] mt-2 text-muted-foreground/80">
+                  Store in a cool, dark place. Enjoy responsibly. Best before: See base.
+                </p>
               </div>
-              <div>
-                <strong className="font-semibold">Ingredients:</strong>
-                <p className="text-xs whitespace-pre-wrap">{ingredientsList}</p>
-              </div>
-              <div>
-                <strong className="font-semibold">Brewing Date:</strong>
-                <p className="text-xs">{brewingDate}</p>
-              </div>
-              <div>
-                <strong className="font-semibold">Brewing Location:</strong>
-                <p className="text-xs">{brewingLocation}</p>
-              </div>
-              {/* Placeholder for more content */}
-              <p className="text-xs mt-2 text-muted-foreground">
-                Store in a cool, dark place. Enjoy responsibly.
-              </p>
-            </div>
-          </ScrollArea>
+            </ScrollArea>
+          </div>
         </div>
       </div>
     </div>
   );
 }
+);
+BackLabelPreview.displayName = 'BackLabelPreview';

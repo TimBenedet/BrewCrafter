@@ -1,8 +1,8 @@
 
 'use client';
 
-import React, { forwardRef, useEffect, useRef, useState } from 'react';
-import { Beer } from 'lucide-react'; // Lucide Beer icon
+import React, { forwardRef, useEffect, useState } from 'react';
+import { Beer } from 'lucide-react';
 
 interface LabelPreviewProps {
   beerName: string;
@@ -13,17 +13,17 @@ interface LabelPreviewProps {
   srmHexColor: string;
   ingredientsSummary: string;
   abv: string;
-  volume: string; // e.g., "33CL" or "75CL"
+  volume: string;
   backgroundColor: string;
   textColor: string;
   backgroundImage?: string;
+  flatLabelWidthPx: number;
+  flatLabelHeightPx: number;
 }
 
-// Dimensions for the "flat" label before rotation (these are for aspect ratio and internal layout)
-const FLAT_LABEL_WIDTH_PX = 500; 
-const FLAT_LABEL_HEIGHT_33CL_PX = 175; // Approx 20cm x 7cm ratio
-const FLAT_LABEL_HEIGHT_75CL_PX = 225; // Approx 24cm x 9cm ratio
-
+// On-screen preview container dimensions
+const PREVIEW_CONTAINER_WIDTH_PX = 200;
+const PREVIEW_CONTAINER_HEIGHT_PX = 400;
 
 export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
   (
@@ -40,16 +40,15 @@ export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
       backgroundColor,
       textColor,
       backgroundImage,
+      flatLabelWidthPx,
+      flatLabelHeightPx,
     },
-    ref
+    ref // This ref is for the INNER, UNROTATED content div (flatLabelContentRef)
   ) => {
-    const flatLabelContentRef = useRef<HTMLDivElement>(null);
     const [isImageLoaded, setIsImageLoaded] = useState(false);
 
-    const flatLabelHeight = volume === '75CL' ? FLAT_LABEL_HEIGHT_75CL_PX : FLAT_LABEL_HEIGHT_33CL_PX;
-    
     useEffect(() => {
-      setIsImageLoaded(false); // Reset when image changes
+      setIsImageLoaded(false);
       if (backgroundImage) {
         const img = new window.Image();
         img.src = backgroundImage;
@@ -57,51 +56,51 @@ export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
       }
     }, [backgroundImage]);
 
-
     // Style for the flat label content (the div that will be captured by html2canvas)
     const flatLabelStyle: React.CSSProperties = {
-      width: `${FLAT_LABEL_WIDTH_PX}px`,
-      height: `${flatLabelHeight}px`,
+      width: `${flatLabelWidthPx}px`,
+      height: `${flatLabelHeightPx}px`,
       backgroundColor: backgroundImage ? 'transparent' : backgroundColor,
       color: textColor,
-      fontFamily: 'var(--font-inter)',
-      position: 'relative', // For absolute positioning of children and overlay
-      overflow: 'hidden', // Clip content to label bounds
-      display: 'flex',
-      flexDirection: 'column', // Main axis for top/center/bottom sections
-      border: '1px solid transparent', // Placeholder for potential temporary border during dev
+      fontFamily: 'var(--font-inter)', // Inter for most text
+      position: 'relative',
+      overflow: 'hidden',
+      display: 'flex', // Added for safety, though children are absolute
+      flexDirection: 'column',
+      padding: '1rem', // p-4 equivalent
     };
 
-    const beerIconSize = Math.min(FLAT_LABEL_WIDTH_PX, flatLabelHeight) * 0.3; // 30% of shorter dimension
+    // Scale factor for fitting the rotated flat label into the preview container
+    // Ensure it fits both width-wise (when rotated) and height-wise
+    const scaleToFit = Math.min(
+      (PREVIEW_CONTAINER_HEIGHT_PX - 20) / flatLabelWidthPx, // -20 for some padding in preview
+      (PREVIEW_CONTAINER_WIDTH_PX - 20) / flatLabelHeightPx,
+      0.75 // Max scale to ensure it's not too large
+    ); 
+    
+    const beerIconSize = Math.min(flatLabelWidthPx, flatLabelHeightPx) * 0.4; // 40% of shorter dimension of flat label
 
     return (
       <div className="w-full flex flex-col items-center">
         <h3 className="text-lg font-semibold mb-2 text-center">Front Label</h3>
-        {/* This is the on-screen container that shows the rotated preview */}
-        <div 
-          className="bg-card border-2 border-primary rounded-md shadow-lg overflow-hidden"
+        <div
+          className="bg-card border-2 border-primary rounded-md shadow-lg flex items-center justify-center overflow-hidden"
           style={{
-            width: '200px', // Fixed width for the vertical preview container
-            height: '400px', // Fixed height for the vertical preview container
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
+            width: `${PREVIEW_CONTAINER_WIDTH_PX}px`,
+            height: `${PREVIEW_CONTAINER_HEIGHT_PX}px`,
           }}
         >
-          {/* This is the actual label content, rotated and scaled */}
+          {/* This div is for rotating and scaling the flatLabelContent for on-screen preview */}
           <div
-            ref={ref} // This ref is for html2canvas to capture the non-rotated version
             style={{
-              width: `${FLAT_LABEL_WIDTH_PX}px`,
-              height: `${flatLabelHeight}px`,
-              // Scale to fit, maintain aspect ratio
-              transform: `rotate(90deg) scale(${Math.min(380 / FLAT_LABEL_WIDTH_PX, 180 / flatLabelHeight)})`, 
+              width: `${flatLabelWidthPx}px`,
+              height: `${flatLabelHeightPx}px`,
+              transform: `rotate(90deg) scale(${scaleToFit})`,
               transformOrigin: 'center center',
-              border: '1px dashed hsl(var(--border))', // Visual guide for the flat label in preview
             }}
           >
-            {/* Content of the label - this is what gets designed and captured */}
-            <div style={flatLabelStyle} ref={flatLabelContentRef}>
+            {/* This is the actual label content (flatLabelContentRef) */}
+            <div style={flatLabelStyle} ref={ref} className="flat-label-content-for-capture">
               {backgroundImage && (
                 <div
                   style={{
@@ -119,71 +118,113 @@ export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
                 />
               )}
               {backgroundImage && (
-                <div 
-                  style={{ 
-                    position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
-                    backgroundColor: 'rgba(0,0,0,0.4)', // Dark overlay
-                    zIndex: 1 
-                  }} 
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: 'rgba(0,0,0,0.4)', // bg-black/40 overlay
+                    zIndex: 1,
+                  }}
                 />
               )}
 
-              {/* Label content structure (relative to flatLabelStyle) */}
-              <div style={{ position: 'relative', zIndex: 2, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: '10px' }}>
-                {/* Top Section (Horizontal) */}
-                <div className="text-center mb-1">
-                  <p className="text-[7px] leading-tight">IBU: {ibu} &nbsp;|&nbsp; SRM: {srm}</p>
-                  <p className="text-[7px] leading-tight mt-0.5"><strong className="font-semibold">Ingrédients:</strong> {ingredientsSummary}</p>
+              {/* Label elements - ZIndex 2 to be above overlay */}
+              <div style={{ position: 'relative', zIndex: 2, width: '100%', height: '100%' }}>
+                {/* Top Information Block */}
+                <div
+                  className="text-center px-1"
+                  style={{
+                    position: 'absolute',
+                    top: '0.5rem', // top-2 from padding edge
+                    left: '0', 
+                    right: '0',
+                    color: 'hsl(var(--primary))', // text-primary
+                  }}
+                >
+                  <p className="text-[7px] whitespace-nowrap overflow-hidden text-ellipsis">
+                    IBU: {ibu} &nbsp;|&nbsp; SRM: {srm}
+                  </p>
+                  <p className="text-[7px] mt-0.5 whitespace-normal">
+                    <span className="font-semibold">Ingrédients:</span> {ingredientsSummary}
+                  </p>
                 </div>
 
-                {/* Middle Section (Flex container for vertical text and icon) */}
-                <div className="flex-grow flex items-center justify-between px-1">
-                  {/* Left Vertical Text */}
-                  <div 
-                    className="font-bebas-neue font-bold text-xl" 
-                    style={{ 
-                      writingMode: 'vertical-rl', 
-                      transform: 'rotate(180deg)', // Corrects text orientation for vertical-rl
-                      whiteSpace: 'nowrap',
-                      marginLeft: '2px', // Small margin from edge
-                      textAlign: 'center'
-                    }}
-                  >
-                    {beerName}
-                  </div>
-
-                  {/* Center Icon */}
-                  <div className="flex justify-center items-center flex-grow">
-                    <Beer
-                      style={{
-                        width: `${beerIconSize}px`,
-                        height: `${beerIconSize}px`,
-                        fill: srmHexColor,
-                        stroke: 'hsl(var(--primary))',
-                        strokeWidth: 1.5,
-                      }}
-                    />
-                  </div>
-
-                  {/* Right Vertical Text */}
-                  <div 
-                    className="text-xs"
-                    style={{ 
-                      writingMode: 'vertical-rl', 
-                      transform: 'rotate(180deg)',
-                      whiteSpace: 'nowrap',
-                      marginRight: '2px', // Small margin from edge
-                      textAlign: 'center'
-                    }}
-                  >
-                    {volume} - {abv}% alc.
-                  </div>
+                {/* Left Side Text (Beer Name) */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '0.5rem', // 0.5rem from left padding edge
+                    transform: 'translateY(-50%) rotate(180deg)',
+                    writingMode: 'vertical-rl',
+                    maxHeight: `calc(100% - ${flatLabelHeightPx * 0.25}px)`, // Approx space, adjust as needed
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    color: 'hsl(var(--primary))', // text-primary
+                  }}
+                  className="font-bebas-neue text-xl font-bold" // font-heading
+                >
+                  {beerName}
                 </div>
 
-                {/* Bottom Section (Horizontal) */}
-                <div className="text-center mt-1">
-                  <p className="text-[10px] font-bold leading-tight" style={{color: 'hsl(var(--primary))'}}>{breweryName}</p>
-                  <p className="text-[9px] text-muted-foreground leading-tight mt-0.5">{tagline}</p>
+                {/* Right Side Text (Volume & ABV) */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    right: '0.5rem', // 0.5rem from right padding edge
+                    transform: 'translateY(-50%) rotate(180deg)',
+                    writingMode: 'vertical-rl',
+                    maxHeight: `calc(100% - ${flatLabelHeightPx * 0.25}px)`,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    color: 'hsl(var(--primary))', // text-primary
+                  }}
+                  className="text-xs"
+                >
+                  <span>{volume} - {abv}% alc.</span>
+                </div>
+                
+                {/* Center Icon */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: '0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: 'auto', // For flex centering
+                  }}
+                >
+                  <Beer
+                    style={{
+                      width: `${beerIconSize}px`,
+                      height: `${beerIconSize}px`,
+                      fill: srmHexColor,
+                      stroke: 'hsl(var(--primary))',
+                      strokeWidth: 1.5,
+                      transform: 'rotate(-90deg)', // Handle points "up" on flat horizontal label
+                    }}
+                  />
+                </div>
+
+                {/* Bottom Centered Text */}
+                <div
+                  className="text-center px-2"
+                  style={{
+                    position: 'absolute',
+                    bottom: '0.5rem', // bottom-2 from padding edge
+                    left: '0',
+                    right: '0',
+                  }}
+                >
+                  <p className="text-[10px] font-semibold" style={{color: 'hsl(var(--primary))'}}>{breweryName}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{tagline}</p>
                 </div>
               </div>
             </div>
