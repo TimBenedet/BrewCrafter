@@ -2,13 +2,12 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-// Removed direct import: import { getRecipeSummaries } from '@/lib/recipe-utils';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
 import type { RecipeSummary } from '@/types/recipe';
 import { FileWarning, FilterIcon, AlertTriangle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from '@/components/ui/card';
+// Removed Label import as it's no longer used for the filter
+import { Card, CardContent } from '@/components/ui/card'; // Card is still used for loading state
 
 export default function HomePage() {
   const [recipes, setRecipes] = useState<RecipeSummary[]>([]);
@@ -60,14 +59,10 @@ export default function HomePage() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <Card className="w-full md:w-1/3 lg:w-1/4">
-          <CardContent className="p-4">
-            <div className="animate-pulse space-y-2">
-              <div className="h-4 bg-muted rounded w-3/4"></div>
-              <div className="h-4 bg-muted rounded w-1/2"></div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Simplified loading skeleton for the filter area */}
+        <div className="flex justify-end mb-6">
+          <div className="animate-pulse h-10 w-[200px] bg-muted rounded-md"></div>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(3)].map((_, i) => (
             <Card key={i} className="animate-pulse">
@@ -114,25 +109,23 @@ export default function HomePage() {
   return (
     <div>
       {uniqueStyles.length > 0 && (
-        <Card className="mb-6 p-4">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="flex items-center">
-              <FilterIcon className="h-5 w-5 mr-2 text-primary" />
-              <Label htmlFor="style-filter" className="text-lg font-semibold">Filtrer par style</Label>
-            </div>
-            <Select value={selectedStyle} onValueChange={setSelectedStyle}>
-              <SelectTrigger id="style-filter" className="w-full sm:w-[250px] bg-background">
-                <SelectValue placeholder="Tous les styles" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les styles</SelectItem>
-                {uniqueStyles.map(style => (
-                  <SelectItem key={style} value={style}>{style}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </Card>
+        <div className="mb-6 flex justify-end">
+          <Select value={selectedStyle} onValueChange={setSelectedStyle}>
+            <SelectTrigger 
+              id="style-filter" 
+              className="w-auto sm:w-[220px] bg-background text-sm"
+            >
+              <FilterIcon className="h-4 w-4 mr-2 text-muted-foreground" />
+              <SelectValue placeholder="Filtrer par style" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les styles</SelectItem>
+              {uniqueStyles.map(style => (
+                <SelectItem key={style} value={style}>{style}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       )}
 
       {recipesToDisplay.length > 0 ? (
