@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { BeerIcon } from 'lucide-react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { TopTabs } from '@/components/layout/TopTabs';
 
 export function Header() {
   return (
@@ -15,7 +16,7 @@ export function Header() {
           </Link>
         </div>
         <div className="absolute left-1/2 transform -translate-x-1/2">
-          <h1 className="text-xl font-medium text-foreground">My Beer Recipes</h1>
+          <TopTabs />
         </div>
         {/* SidebarTrigger for desktop */}
         <div>
