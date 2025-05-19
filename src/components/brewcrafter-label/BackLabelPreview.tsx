@@ -30,7 +30,7 @@ export const BackLabelPreview = forwardRef<HTMLDivElement, BackLabelPreviewProps
     backgroundColor,
     textColor,
     backgroundImage,
-    flatLabelWidthPx, // Use same dimensions as front for consistency
+    flatLabelWidthPx, 
     flatLabelHeightPx,
   }, ref) => {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
@@ -57,18 +57,18 @@ export const BackLabelPreview = forwardRef<HTMLDivElement, BackLabelPreviewProps
     padding: '1rem', // p-4
     fontSize: '10px', 
     lineHeight: '1.4',
+    boxSizing: 'border-box',
   };
 
-  // Scale factor for fitting the rotated flat label into the preview container
   const scaleToFit = Math.min(
     (PREVIEW_CONTAINER_HEIGHT_PX - 20) / flatLabelWidthPx, 
     (PREVIEW_CONTAINER_WIDTH_PX - 20) / flatLabelHeightPx,
-    0.75 
+    0.85 // Max scale, slightly increased
   );
 
   return (
     <div className="w-full flex flex-col items-center">
-      <h3 className="text-lg font-semibold mb-2 text-center">Back Label</h3>
+      <h3 className="text-lg font-semibold mb-2 text-center">Back Label Preview</h3>
       <div 
         className="bg-card border-2 border-primary rounded-md shadow-lg flex items-center justify-center overflow-hidden"
         style={{
@@ -98,6 +98,7 @@ export const BackLabelPreview = forwardRef<HTMLDivElement, BackLabelPreviewProps
                   backgroundPosition: 'center',
                   opacity: isImageLoaded ? 1 : 0,
                   transition: 'opacity 0.5s ease-in-out',
+                  zIndex: 1,
                 }}
               />
             )}
@@ -106,31 +107,29 @@ export const BackLabelPreview = forwardRef<HTMLDivElement, BackLabelPreviewProps
                 style={{ 
                   position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
                   backgroundColor: 'rgba(0,0,0,0.5)', // Darker overlay
-                  zIndex: 1 
+                  zIndex: 2 
                 }} 
               />
             )}
-            <ScrollArea className="h-full w-full" style={{position: 'relative', zIndex: 2}}>
+            <ScrollArea className="h-full w-full" style={{position: 'relative', zIndex: 3}}>
               <div className="space-y-3 p-1"> {/* Inner padding for scroll content */}
                 <div>
-                  <p className="font-semibold text-sm mb-0.5">Description:</p>
+                  <p className="font-semibold text-sm mb-1">Description</p>
                   <p className="text-xs leading-relaxed">{description}</p>
                 </div>
                 <div>
-                  <p className="font-semibold text-sm mb-0.5">Ingredients:</p>
+                  <p className="font-semibold text-sm mb-1">Ingredients</p>
                   <p className="text-xs leading-relaxed whitespace-pre-wrap">{ingredientsList}</p>
                 </div>
                 <div>
-                  <p className="font-semibold text-sm mb-0.5">Brewed on:</p>
+                  <p className="font-semibold text-sm mb-1">Brewed on:</p>
                   <p className="text-xs leading-relaxed">{brewingDate}</p>
                 </div>
                 <div>
-                  <p className="font-semibold text-sm mb-0.5">Brewed by:</p>
+                  <p className="font-semibold text-sm mb-1">Brewed by:</p>
                   <p className="text-xs leading-relaxed">{brewingLocation}</p>
                 </div>
-                <p className="text-[9px] mt-2 text-muted-foreground/80">
-                  Store in a cool, dark place. Enjoy responsibly. Best before: See base.
-                </p>
+                {/* Removed "Store in cool dark place" text to match simpler screenshot */}
               </div>
             </ScrollArea>
           </div>
