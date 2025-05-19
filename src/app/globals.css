@@ -17,7 +17,7 @@ body {
     --popover: 0 0% 100%;
     --popover-foreground: 37 65% 20%;
 
-    --primary: 209 100% 50%; /* Electric Blue #007afe */
+    --primary: 210 100% 50%; /* Electric Blue #007afe */
     --primary-foreground: 0 0% 100%; /* White */
 
     --secondary: 37 100% 85%; /* Lighter amber for secondary elements */
@@ -34,9 +34,9 @@ body {
 
     --border: 37 30% 88%; /* Light tan-gray border */
     --input: 37 35% 95%; /* Very light tan-gray for input backgrounds */
-    --ring: 209 100% 50%; /* Electric Blue for focus rings */
+    --ring: 210 100% 50%; /* Electric Blue for focus rings */
 
-    --chart-1: 209 100% 55%;
+    --chart-1: 210 100% 55%;
     --chart-2: 190 80% 50%;
     --chart-3: 230 70% 60%;
     --chart-4: 200 90% 65%;
@@ -46,12 +46,12 @@ body {
     /* Sidebar specific colors */
     --sidebar-background: 37 50% 96%; /* Slightly off-white tan */
     --sidebar-foreground: 37 65% 15%; /* Dark amber/brown for text */
-    --sidebar-primary: 209 100% 50%; /* Main primary blue */
+    --sidebar-primary: 210 100% 50%; /* Main primary blue */
     --sidebar-primary-foreground: 0 0% 100%; /* White */
     --sidebar-accent: 37 80% 88%; /* Lighter tan for active/hover */
     --sidebar-accent-foreground: 37 100% 30%; /* Darker amber for text on accent */
     --sidebar-border: 37 30% 85%;
-    --sidebar-ring: 209 100% 50%;
+    --sidebar-ring: 210 100% 50%;
   }
 
   .dark {
@@ -64,7 +64,7 @@ body {
     --popover: 37 20% 15%;
     --popover-foreground: 37 20% 90%;
 
-    --primary: 209 100% 55%; /* Brighter electric blue for dark mode */
+    --primary: 210 100% 55%; /* Brighter electric blue for dark mode */
     --primary-foreground: 37 100% 15%; /* Very dark amber/brown for text on primary */
 
     --secondary: 37 30% 25%; /* Muted dark amber/brown */
@@ -81,9 +81,9 @@ body {
 
     --border: 37 20% 25%;
     --input: 37 25% 20%;
-    --ring: 209 100% 55%;
+    --ring: 210 100% 55%;
 
-    --chart-1: 209 100% 60%;
+    --chart-1: 210 100% 60%;
     --chart-2: 190 80% 55%;
     --chart-3: 230 70% 65%;
     --chart-4: 200 90% 70%;
@@ -92,12 +92,12 @@ body {
     /* Sidebar specific colors - dark theme */
     --sidebar-background: 37 20% 12%; /* Darker amber/brown for sidebar */
     --sidebar-foreground: 37 20% 90%;
-    --sidebar-primary: 209 100% 55%;
+    --sidebar-primary: 210 100% 55%;
     --sidebar-primary-foreground: 37 100% 15%;
     --sidebar-accent: 37 30% 22%; /* Muted dark amber/brown for sidebar accent */
     --sidebar-accent-foreground: 37 20% 90%;
     --sidebar-border: 37 20% 25%;
-    --sidebar-ring: 209 100% 55%;
+    --sidebar-ring: 210 100% 55%;
   }
 }
 
