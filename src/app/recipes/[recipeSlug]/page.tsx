@@ -1,3 +1,4 @@
+
 import { getRecipeDetails, getRecipeSummaries } from '@/lib/recipe-utils';
 import { RecipeDetailDisplay } from '@/components/recipes/RecipeDetailDisplay';
 import { notFound } from 'next/navigation';
@@ -40,7 +41,7 @@ export default async function RecipePage({ params }: RecipePageProps) {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="mb-4"> {/* Added margin-bottom for spacing */}
         <Button asChild variant="outline" size="sm">
           <Link href="/">
             <ArrowLeftIcon className="mr-2 h-4 w-4" />
@@ -52,3 +53,4 @@ export default async function RecipePage({ params }: RecipePageProps) {
     </div>
   );
 }
+
