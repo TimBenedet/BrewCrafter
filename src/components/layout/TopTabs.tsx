@@ -24,7 +24,7 @@ export function TopTabs() {
               key={item.href} 
               value={item.href} 
               asChild
-              className="data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground data-[state=active]:shadow-none hover:bg-muted/50 transition-colors px-3 py-1.5 text-sm font-medium" // Adjusted active and hover styles, ensured text styling
+              className="data-[state=active]:text-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-colors px-3 py-1.5 text-sm font-medium" // Adjusted active state: removed bg-secondary, changed text to text-primary
             >
               <Link href={item.href} className="flex items-center gap-2">
                 <item.icon className="h-4 w-4" />
@@ -37,4 +37,3 @@ export function TopTabs() {
     </div>
   );
 }
-
