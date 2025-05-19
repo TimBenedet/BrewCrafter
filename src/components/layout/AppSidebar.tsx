@@ -9,7 +9,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { Home, UploadCloud } from 'lucide-react'; // Maintained UploadCloud icon
+import { Home, UploadCloud, FilePlus2 } from 'lucide-react'; 
 import Link from 'next/link';
 import { useToast } from "@/hooks/use-toast";
 import { usePathname, useRouter } from 'next/navigation';
@@ -34,7 +34,6 @@ export function AppSidebar() {
         variant: "destructive",
         duration: 5000,
       });
-      // Reset file input to allow re-selection if needed
       if(fileInputRef.current) {
           fileInputRef.current.value = "";
       }
@@ -151,6 +150,18 @@ export function AppSidebar() {
               style={{ display: 'none' }}
               id="recipe-file-input"
             />
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={pathname === '/recipes/new'}
+              tooltip={{ children: 'Créer une nouvelle recette', side: 'right' }}
+            >
+              <Link href="/recipes/new">
+                <FilePlus2 className="h-5 w-5" />
+                <span>Nouvelle Recette</span>
+              </Link>
+            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
