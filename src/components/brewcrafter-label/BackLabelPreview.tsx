@@ -16,9 +16,8 @@ interface BackLabelPreviewProps {
   flatLabelHeightPx: number;
 }
 
-// On-screen preview container dimensions
-const PREVIEW_CONTAINER_WIDTH_PX = 300; // Updated
-const PREVIEW_CONTAINER_HEIGHT_PX = 400; // Updated
+const PREVIEW_CONTAINER_WIDTH_PX = 300;
+const PREVIEW_CONTAINER_HEIGHT_PX = 400;
 
 
 export const BackLabelPreview = forwardRef<HTMLDivElement, BackLabelPreviewProps>(
@@ -52,19 +51,13 @@ export const BackLabelPreview = forwardRef<HTMLDivElement, BackLabelPreviewProps
     fontFamily: 'var(--font-inter)',
     position: 'relative',
     overflow: 'hidden',
-    display: 'flex',
-    flexDirection: 'column',
-    padding: '1rem', 
-    fontSize: '10px', 
-    lineHeight: '1.4',
     boxSizing: 'border-box',
   };
 
-  // Adjusted scaleToFit calculation
   const scaleToFit = Math.min(
-      PREVIEW_CONTAINER_WIDTH_PX / flatLabelHeightPx, // After rotation, label's height becomes preview's width constraint
-      PREVIEW_CONTAINER_HEIGHT_PX / flatLabelWidthPx  // After rotation, label's width becomes preview's height constraint
-  ) * 0.93; // Apply a factor for some padding/margin inside the preview box
+      PREVIEW_CONTAINER_WIDTH_PX / flatLabelHeightPx, 
+      PREVIEW_CONTAINER_HEIGHT_PX / flatLabelWidthPx  
+  ) * 0.93;
 
   return (
     <div className="w-full flex flex-col items-center">
@@ -80,7 +73,7 @@ export const BackLabelPreview = forwardRef<HTMLDivElement, BackLabelPreviewProps
           style={{
             width: `${flatLabelWidthPx}px`,
             height: `${flatLabelHeightPx}px`,
-            transform: `rotate(90deg) scale(${scaleToFit})`,
+            transform: `rotate(-90deg) scale(${scaleToFit})`, // Changed to -90deg
             transformOrigin: 'center center',
           }}
         >
@@ -111,26 +104,38 @@ export const BackLabelPreview = forwardRef<HTMLDivElement, BackLabelPreviewProps
                 }} 
               />
             )}
-            <ScrollArea className="h-full w-full" style={{position: 'relative', zIndex: 3}}>
-              <div className="space-y-2 p-1"> {/* Reduced space-y, inner padding for scroll content */}
-                <div>
-                  <p className="font-semibold text-sm mb-0.5">Description</p> {/* Reduced mb */}
-                  <p className="text-xs leading-snug">{description}</p> {/* Adjusted leading */}
+            {/* Inner wrapper for padding and content layout */}
+            <div style={{
+              width: '100%',
+              height: '100%',
+              padding: '1rem', // Padding applied here
+              position: 'relative',
+              zIndex: 3, // Content on top of background/overlay
+              boxSizing: 'border-box',
+              display: 'flex', // Added to allow ScrollArea to fill height
+              flexDirection: 'column', // Added for ScrollArea
+            }}>
+              <ScrollArea className="h-full w-full" style={{ flexGrow: 1 }}> {/* ScrollArea takes remaining space */}
+                <div className="space-y-2 p-1">
+                  <div>
+                    <p className="font-semibold text-sm mb-0.5">Description</p>
+                    <p className="text-xs leading-snug">{description}</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm mb-0.5">Ingredients</p>
+                    <p className="text-xs leading-snug whitespace-pre-wrap">{ingredientsList}</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm mb-0.5">Brewed on:</p>
+                    <p className="text-xs leading-snug">{brewingDate}</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm mb-0.5">Brewed by:</p>
+                    <p className="text-xs leading-snug">{brewingLocation}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-semibold text-sm mb-0.5">Ingredients</p>
-                  <p className="text-xs leading-snug whitespace-pre-wrap">{ingredientsList}</p>
-                </div>
-                <div>
-                  <p className="font-semibold text-sm mb-0.5">Brewed on:</p>
-                  <p className="text-xs leading-snug">{brewingDate}</p>
-                </div>
-                <div>
-                  <p className="font-semibold text-sm mb-0.5">Brewed by:</p>
-                  <p className="text-xs leading-snug">{brewingLocation}</p>
-                </div>
-              </div>
-            </ScrollArea>
+              </ScrollArea>
+            </div>
           </div>
         </div>
       </div>

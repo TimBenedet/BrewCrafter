@@ -16,8 +16,8 @@ interface LabelPreviewProps {
 }
 
 // On-screen preview container dimensions
-const PREVIEW_CONTAINER_WIDTH_PX = 300; // Updated
-const PREVIEW_CONTAINER_HEIGHT_PX = 400; // Updated
+const PREVIEW_CONTAINER_WIDTH_PX = 300;
+const PREVIEW_CONTAINER_HEIGHT_PX = 400;
 
 export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
   (
@@ -53,21 +53,15 @@ export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
       fontFamily: 'var(--font-inter)',
       position: 'relative',
       overflow: 'hidden',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: '1rem', // p-4 equivalent
       boxSizing: 'border-box',
     };
 
-    // Adjusted scaleToFit calculation
     const scaleToFit = Math.min(
-        PREVIEW_CONTAINER_WIDTH_PX / flatLabelHeightPx, // After rotation, label's height becomes preview's width constraint
-        PREVIEW_CONTAINER_HEIGHT_PX / flatLabelWidthPx  // After rotation, label's width becomes preview's height constraint
-    ) * 0.93; // Apply a factor for some padding/margin inside the preview box
+        PREVIEW_CONTAINER_WIDTH_PX / flatLabelHeightPx, 
+        PREVIEW_CONTAINER_HEIGHT_PX / flatLabelWidthPx  
+    ) * 0.93; 
 
-    const beerNameFontSize = Math.max(12, Math.min(flatLabelWidthPx / 7, 70)); // Adjusted divisor and max
+    const beerNameFontSize = Math.max(12, Math.min(flatLabelWidthPx / 7, 70));
 
     return (
       <div className="w-full flex flex-col items-center">
@@ -83,7 +77,7 @@ export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
             style={{
               width: `${flatLabelWidthPx}px`,
               height: `${flatLabelHeightPx}px`,
-              transform: `rotate(90deg) scale(${scaleToFit})`,
+              transform: `rotate(-90deg) scale(${scaleToFit})`, // Changed to -90deg
               transformOrigin: 'center center',
             }}
           >
@@ -113,14 +107,26 @@ export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
                     left: 0,
                     width: '100%',
                     height: '100%',
-                    backgroundColor: 'rgba(0,0,0,0.4)', // bg-black/40 overlay
+                    backgroundColor: 'rgba(0,0,0,0.4)', 
                     zIndex: 2,
                   }}
                 />
               )}
 
-              <div style={{ position: 'relative', zIndex: 3, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', padding: '0 0.5rem', fontSize: '12px' }}> {/* Increased font size slightly */}
+              {/* Inner wrapper for padding and content layout */}
+              <div style={{
+                width: '100%',
+                height: '100%',
+                padding: '1rem', // Padding applied here
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                position: 'relative',
+                zIndex: 3, // Content on top of background/overlay
+                boxSizing: 'border-box',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: '12px' }}>
                   <p>IBU: {ibu}</p>
                   <p>Alc: {abv}%</p>
                 </div>
@@ -128,7 +134,7 @@ export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
                 <div style={{ textAlign: 'center', flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5rem 0' }}>
                   <h1
                     className="font-bebas-neue leading-tight"
-                    style={{ fontSize: `${beerNameFontSize}px`, wordBreak: 'break-word', hyphens: 'auto', lineHeight: '1.0' }} // Ensure tight line height
+                    style={{ fontSize: `${beerNameFontSize}px`, wordBreak: 'break-word', hyphens: 'auto', lineHeight: '1.0' }}
                   >
                     {beerName.split(' ').map((word, index, arr) => (
                         <div key={index} style={{ display: 'block' }}>{word}</div>
@@ -136,7 +142,7 @@ export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
                   </h1>
                 </div>
 
-                <div style={{ width: '100%', textAlign: 'center', padding: '0 0.5rem', fontSize: '12px' }}> {/* Increased font size slightly */}
+                <div style={{ width: '100%', textAlign: 'center', fontSize: '12px' }}>
                   <p>{volume}</p>
                 </div>
               </div>
