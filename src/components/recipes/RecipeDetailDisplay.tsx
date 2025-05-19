@@ -1,9 +1,10 @@
+
 import type { BeerXMLRecipe, Style, Fermentable, Hop, Yeast, Misc, MashProfile, MashStep } from '@/types/recipe';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Droplets, HopIcon, InfoIcon, ListChecksIcon, Microscope, Thermometer, StickyNote, Settings2 } from 'lucide-react'; // Settings2 for equipment (generic)
+import { Wheat, HopIcon, InfoIcon, ListChecksIcon, Microscope, Thermometer, StickyNote, Package } from 'lucide-react'; // Added Wheat, Package
 
 interface SectionProps {
   title: string;
@@ -70,7 +71,7 @@ export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
       </div>
       
       {recipe.fermentables.length > 0 && (
-        <DetailSection title="Fermentables" icon={Droplets}>
+        <DetailSection title="Fermentables" icon={Wheat}>
           <Table>
             <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Amount</TableHead><TableHead>Type</TableHead><TableHead>Yield</TableHead><TableHead>Color</TableHead></TableRow></TableHeader>
             <TableBody>
@@ -109,7 +110,7 @@ export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
       )}
       
       {recipe.miscs.length > 0 && (
-        <DetailSection title="Miscs" icon={Settings2}>
+        <DetailSection title="Miscs" icon={Package}>
            <Table>
             <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Amount</TableHead><TableHead>Use</TableHead><TableHead>Time</TableHead><TableHead>Type</TableHead></TableRow></TableHeader>
             <TableBody>
@@ -149,3 +150,5 @@ export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
     </div>
   );
 }
+
+      
