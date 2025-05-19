@@ -104,6 +104,8 @@ export function AppSidebar() {
             description: `La recette ${file.name} a été ajoutée avec succès.`,
             duration: 5000,
           });
+          // Check if current page is home page before refreshing, to avoid unnecessary refreshes
+          // For now, always refresh, can be optimized later if needed.
           router.refresh(); 
         } else if (result.success && result.count === 0) {
           toast({
@@ -126,6 +128,7 @@ export function AppSidebar() {
       }
     }
     
+    // Reset file input value to allow selecting the same file again if needed
     if(fileInputRef.current) {
         fileInputRef.current.value = "";
     }
@@ -142,42 +145,8 @@ export function AppSidebar() {
         </SidebarHeader>
         <SidebarContent className="p-2">
           <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname === '/'}
-                tooltip={{ children: 'Mes Recettes', side: 'right' }}
-              >
-                <Link href="/">
-                  <Home className="h-5 w-5" />
-                  <span>Mes Recettes</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname === '/label'}
-                tooltip={{ children: 'GitBrew Label', side: 'right' }}
-              >
-                <Link href="/label">
-                  <Tags className="h-5 w-5" />
-                  <span>GitBrew Label</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname === '/calculator'}
-                tooltip={{ children: 'GitBrew Calculator', side: 'right' }}
-              >
-                <Link href="/calculator">
-                  <CalculatorLucideIcon className="h-5 w-5" />
-                  <span>GitBrew Calculator</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            {/* "Mes Recettes", "GitBrew Label", and "GitBrew Calculator" are removed from here as per user request */}
+            {/* The primary navigation for these is now via the TopTabs component */}
             <SidebarMenuItem>
               <AlertDialog open={isAddRecipeDialogOpen} onOpenChange={setIsAddRecipeDialogOpen}>
                 <AlertDialogTrigger asChild>
