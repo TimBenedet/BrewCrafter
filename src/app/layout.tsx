@@ -1,7 +1,9 @@
+
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Header } from '@/components/layout/Header';
+import { TopTabs } from '@/components/layout/TopTabs';
 import { Toaster } from "@/components/ui/toaster";
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/AppSidebar';
@@ -33,6 +35,7 @@ export default function RootLayout({
           <AppSidebar />
           <SidebarInset>
             <Header />
+            <TopTabs />
             <main className="flex-grow container mx-auto px-4 py-8">
               {children}
             </main>

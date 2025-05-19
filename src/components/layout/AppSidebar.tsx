@@ -9,7 +9,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { Home, UploadCloud, FilePlus2 } from 'lucide-react'; 
+import { Home, UploadCloud, FilePlus2, Tags, CalculatorIcon as CalculatorLucideIcon } from 'lucide-react'; 
 import Link from 'next/link';
 import { useToast } from "@/hooks/use-toast";
 import { usePathname, useRouter } from 'next/navigation';
@@ -126,11 +126,35 @@ export function AppSidebar() {
             <SidebarMenuButton
               asChild
               isActive={pathname === '/'}
-              tooltip={{ children: 'Accueil', side: 'right' }}
+              tooltip={{ children: 'Mes Recettes', side: 'right' }}
             >
               <Link href="/">
                 <Home className="h-5 w-5" />
-                <span>Accueil</span>
+                <span>Mes Recettes</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+           <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={pathname === '/label'}
+              tooltip={{ children: 'GitBrew Label', side: 'right' }}
+            >
+              <Link href="/label">
+                <Tags className="h-5 w-5" />
+                <span>GitBrew Label</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+           <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={pathname === '/calculator'}
+              tooltip={{ children: 'GitBrew Calculator', side: 'right' }}
+            >
+              <Link href="/calculator">
+                <CalculatorLucideIcon className="h-5 w-5" />
+                <span>GitBrew Calculator</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
