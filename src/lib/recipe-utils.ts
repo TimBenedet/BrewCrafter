@@ -1,3 +1,4 @@
+
 import fs from 'fs/promises';
 import path from 'path';
 import type { BeerXMLRecipe, RecipeSummary, Fermentable, Hop, Yeast, Misc, MashStep } from '@/types/recipe';
@@ -87,22 +88,40 @@ export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
     for (const fileName of xmlFiles) {
       const filePath = path.join(recipesDir, fileName);
       const fileContent = await fs.readFile(filePath, 'utf-8');
-      const recipeName = extractTagContent(fileContent, 'NAME');
-      const recipeType = extractTagContent(fileContent, 'TYPE');
+      const recipeBlock = extractTagContent(fileContent, 'RECIPE'); // Operate on the RECIPE block
       
-      if (recipeName) {
-        summaries.push({
-          slug: fileName.replace(/\.xml$/, ''),
-          name: recipeName,
-          type: recipeType || 'N/A',
-        });
+      if (recipeBlock) {
+        const recipeName = extractTagContent(recipeBlock, 'NAME');
+        const recipeType = extractTagContent(recipeBlock, 'TYPE');
+        const styleBlock = extractTagContent(recipeBlock, 'STYLE');
+        const styleName = styleBlock ? extractTagContent(styleBlock, 'NAME') : undefined;
+
+        const og = extractTagContent(recipeBlock, 'OG');
+        const fg = extractTagContent(recipeBlock, 'FG');
+        const ibu = extractTagContent(recipeBlock, 'IBU'); // Assumes IBU is Tinseth or pre-calculated in XML
+        const color = extractTagContent(recipeBlock, 'COLOR');
+        const abv = extractTagContent(recipeBlock, 'ABV');
+        const batchSize = extractTagContent(recipeBlock, 'BATCH_SIZE');
+        
+        if (recipeName) {
+          summaries.push({
+            slug: fileName.replace(/\.xml$/, ''),
+            name: recipeName,
+            type: recipeType || 'N/A',
+            styleName: styleName,
+            og: og ? parseFloat(og) : undefined,
+            fg: fg ? parseFloat(fg) : undefined,
+            ibu: ibu ? parseFloat(ibu) : undefined,
+            color: color ? parseFloat(color) : undefined,
+            abv: abv ? parseFloat(abv) : undefined,
+            batchSize: batchSize ? parseFloat(batchSize) : undefined,
+          });
+        }
       }
     }
     return summaries;
   } catch (error) {
     console.error("Failed to read recipe summaries:", error);
-    // In a real app, you might want to throw the error or handle it differently
-    // For now, return an empty array or a specific error state
     return [];
   }
 }
@@ -134,6 +153,12 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
       efficiency: extractTagContent(recipeBlock, 'EFFICIENCY') ? parseFloat(extractTagContent(recipeBlock, 'EFFICIENCY')!) : undefined,
       notes: extractTagContent(recipeBlock, 'NOTES'),
       
+      og: extractTagContent(recipeBlock, 'OG') ? parseFloat(extractTagContent(recipeBlock, 'OG')!) : undefined,
+      fg: extractTagContent(recipeBlock, 'FG') ? parseFloat(extractTagContent(recipeBlock, 'FG')!) : undefined,
+      abv: extractTagContent(recipeBlock, 'ABV') ? parseFloat(extractTagContent(recipeBlock, 'ABV')!) : undefined,
+      ibu: extractTagContent(recipeBlock, 'IBU') ? parseFloat(extractTagContent(recipeBlock, 'IBU')!) : undefined,
+      color: extractTagContent(recipeBlock, 'COLOR') ? parseFloat(extractTagContent(recipeBlock, 'COLOR')!) : undefined,
+      
       style: styleBlock ? {
         name: extractTagContent(styleBlock, 'NAME') || 'N/A',
         category: extractTagContent(styleBlock, 'CATEGORY'),
@@ -158,8 +183,6 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
           grainTemp: extractTagContent(mashBlock, 'GRAIN_TEMP') ? parseFloat(extractTagContent(mashBlock, 'GRAIN_TEMP')!) : undefined,
           mashSteps: mashStepsBlock ? parseMashSteps(mashStepsBlock) : []
       } : undefined,
-
-      // Placeholder for other sections like WATERS, EQUIPMENT if needed
     };
   } catch (error) {
     console.error(`Failed to read or parse recipe ${slug}.xml:`, error);

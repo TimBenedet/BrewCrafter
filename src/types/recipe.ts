@@ -1,7 +1,15 @@
+
 export interface RecipeSummary {
   slug: string;
   name: string;
-  type: string;
+  type: string; // Original type field, e.g., "All Grain"
+  styleName?: string; // Specific style name, e.g., "American Amber Ale"
+  og?: number;
+  fg?: number;
+  ibu?: number;
+  color?: number; // SRM
+  abv?: number;
+  batchSize?: number; // Liters
 }
 
 export interface Style {
@@ -83,5 +91,10 @@ export interface BeerXMLRecipe {
   yeasts: Yeast[];
   miscs: Misc[];
   mash?: MashProfile;
-  // Potentially: waters, equipment
+  // Calculated values that might also be in XML
+  og?: number;
+  fg?: number;
+  abv?: number;
+  ibu?: number;
+  color?: number; // SRM
 }
