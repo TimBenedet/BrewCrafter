@@ -64,35 +64,62 @@ function sanitizeForXml(text: string | undefined | null): string {
 }
 
 function generateBasicBeerXml(data: RecipeFormValues): string {
-  // This is a very basic XML generation. 
-  // A full BeerXML generator would be much more complex and handle all sections.
   let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
   xml += `<RECIPES>\n`;
   xml += `  <RECIPE>\n`;
   xml += `    <NAME>${sanitizeForXml(data.name)}</NAME>\n`;
   xml += `    <VERSION>1</VERSION>\n`;
-  xml += `    <TYPE>${sanitizeForXml(data.type)}</TYPE>\n`;
+  xml += `    <TYPE>${sanitizeForXml(data.type)}</TYPE>\n`; // This is Recipe Type
   if (data.brewer) {
     xml += `    <BREWER>${sanitizeForXml(data.brewer)}</BREWER>\n`;
   }
   xml += `    <BATCH_SIZE>${data.batchSize}</BATCH_SIZE>\n`;
   xml += `    <BOIL_SIZE>${data.boilSize}</BOIL_SIZE>\n`;
   xml += `    <BOIL_TIME>${data.boilTime}</BOIL_TIME>\n`;
-  if (data.notes) {
-    xml += `    <NOTES>${sanitizeForXml(data.notes)}</NOTES>\n`;
-  }
-  // Placeholder for other main elements like STYLE, EQUIPMENT, etc.
+  
+  // Placeholders for fields not yet in the form, using values from user's example or common defaults
+  xml += `    <EFFICIENCY>72.0</EFFICIENCY>\n`;
+  xml += `    <OG>1.052</OG>\n`;
+  xml += `    <FG>1.012</FG>\n`;
+  xml += `    <ABV>5.25</ABV>\n`;
+  xml += `    <IBU>35</IBU>\n`;
+  xml += `    <COLOR>14</COLOR>\n`;
+
+  xml += `    <STYLE>\n`;
+  xml += `      <NAME>American Amber Ale</NAME>\n`;
+  xml += `      <CATEGORY>Amber and Brown American Beer</CATEGORY>\n`;
+  xml += `      <CATEGORY_NUMBER>19</CATEGORY_NUMBER>\n`;
+  xml += `      <STYLE_LETTER>A</STYLE_LETTER>\n`;
+  xml += `      <STYLE_GUIDE>BJCP 2015</STYLE_GUIDE>\n`;
+  xml += `      <TYPE>Ale</TYPE>\n`; // Style Type
+  xml += `      <OG_MIN>1.045</OG_MIN>\n`;
+  xml += `      <OG_MAX>1.060</OG_MAX>\n`;
+  xml += `      <FG_MIN>1.010</FG_MIN>\n`;
+  xml += `      <FG_MAX>1.015</FG_MAX>\n`;
+  xml += `      <IBU_MIN>25</IBU_MIN>\n`;
+  xml += `      <IBU_MAX>40</IBU_MAX>\n`;
+  xml += `      <COLOR_MIN>10</COLOR_MIN>\n`;
+  xml += `      <COLOR_MAX>17</COLOR_MAX>\n`;
+  xml += `    </STYLE>\n`;
+
   xml += `    <FERMENTABLES/>\n`;
   xml += `    <HOPS/>\n`;
   xml += `    <YEASTS/>\n`;
   xml += `    <MISCS/>\n`;
-  xml += `    <WATERS/>\n`;
+  xml += `    <WATERS/>\n`; // Kept from previous version, common element
+
   xml += `    <MASH>\n`;
-  xml += `      <NAME>Generic Mash</NAME>\n`;
+  xml += `      <NAME>Single Infusion</NAME>\n`;
   xml += `      <VERSION>1</VERSION>\n`;
-  xml += `      <GRAIN_TEMP>20.0</GRAIN_TEMP>\n`;
   xml += `      <MASH_STEPS/>\n`;
   xml += `    </MASH>\n`;
+
+  if (data.notes) {
+    xml += `    <NOTES>${sanitizeForXml(data.notes)}</NOTES>\n`;
+  } else {
+    xml += `    <NOTES>A balanced American Amber Ale with citrus hop notes.</NOTES>\n`; // Placeholder from example
+  }
+  
   xml += `  </RECIPE>\n`;
   xml += `</RECIPES>\n`;
   return xml;
