@@ -103,7 +103,10 @@ export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
               style={{
                 width: '100%',
                 height: '100%',
-                padding: '0.75rem', // Reduced padding slightly
+                paddingTop: '0.5rem', // Reduced top padding to move IBU/Alc and subsequently beer name up
+                paddingRight: '0.75rem',
+                paddingBottom: '0.75rem',
+                paddingLeft: '0.75rem',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
@@ -133,7 +136,7 @@ export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  padding: '0.25rem 0', // Reduced vertical padding
+                  padding: '0.25rem 0', 
                 }}
               >
                 <h1
@@ -142,12 +145,12 @@ export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
                     fontSize: `${beerNameFontSize}px`,
                     wordBreak: 'break-word',
                     hyphens: 'auto',
-                    lineHeight: '1.0', // Tight line height
-                    margin: 0, // Ensure no default h1 margin
+                    lineHeight: '1.0', 
+                    margin: 0, 
                   }}
                 >
                   {beerName.split(' ').map((word, index) => (
-                    <div key={index} style={{ display: 'block', lineHeight: '1.0' }}> {/* Ensure tight line height for each word block */}
+                    <div key={index} style={{ display: 'block', lineHeight: '1.0' }}> 
                       {word}
                     </div>
                   ))}
