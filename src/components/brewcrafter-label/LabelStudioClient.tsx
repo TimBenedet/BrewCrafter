@@ -23,13 +23,14 @@ interface LabelStudioClientProps {
   initialRecipes: RecipeSummary[];
 }
 
-// Define the design canvas dimensions (pre-rotation for preview)
-const DESIGN_CANVAS_WIDTH_PX = 400;
-const DESIGN_CANVAS_HEIGHT_PX = 300;
+// Define the design canvas dimensions (vertical label)
+const DESIGN_CANVAS_WIDTH_PX = 300;
+const DESIGN_CANVAS_HEIGHT_PX = 400;
 
+// Physical dimensions for a typical VERTICAL label on a bottle
 const PHYSICAL_LABEL_DIMENSIONS = {
-  '33CL': { widthCM: 20, heightCM: 7 },
-  '75CL': { widthCM: 26, heightCM: 9 },
+  '33CL': { widthCM: 7, heightCM: 10 }, // Approx. for a 33CL bottle front
+  '75CL': { widthCM: 9, heightCM: 12 }, // Approx. for a 75CL bottle front
 };
 
 export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
@@ -60,7 +61,7 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
       breweryName: 'Galaxy Brews Co.',
       tagline: 'Crafted with passion, enjoyed with friends.',
       backgroundImage: undefined,
-      backgroundColor: '#000000', // Default to black for the "black area"
+      backgroundColor: '#000000',
       textColor: '#FFFFFF',
     },
   });
@@ -70,14 +71,11 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
   const watchedTextColor = form.watch('textColor');
   const watchedBackgroundImage = form.watch('backgroundImage');
   const watchedBeerName = form.watch('beerName');
-  const watchedBreweryName = form.watch('breweryName'); // This was missing, added it.
-  const watchedTagline = form.watch('tagline'); // This was missing, added it.
   const watchedDescription = form.watch('description');
   const watchedIngredients = form.watch('ingredients');
   const watchedBrewingDate = form.watch('brewingDate');
   const watchedBrewingLocation = form.watch('brewingLocation');
 
-  // flatLabelWidthPx and flatLabelHeightPx now refer to the design canvas dimensions
   const flatLabelWidthPx = DESIGN_CANVAS_WIDTH_PX;
   const flatLabelHeightPx = DESIGN_CANVAS_HEIGHT_PX;
 
@@ -88,20 +86,19 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
         if (result.success && result.recipe) {
           const recipeData = result.recipe;
           form.reset({
-            ...form.getValues(), // Keep current form values for fields not in recipe
+            ...form.getValues(),
             selectedRecipeSlug: selectedRecipeSlug,
             beerName: recipeData.name || form.getValues('beerName'),
             description: recipeData.notes || form.getValues('description'),
             ingredients: summarizeIngredients(recipeData.fermentables, recipeData.hops, recipeData.yeasts) || form.getValues('ingredients'),
-            // Retain existing color/image choices unless we want to override them
             backgroundColor: form.getValues('backgroundColor'),
             textColor: form.getValues('textColor'),
             backgroundImage: form.getValues('backgroundImage'),
             breweryName: form.getValues('breweryName'),
             tagline: form.getValues('tagline'),
-            brewingDate: form.getValues('brewingDate'), // These might not be in recipe
-            brewingLocation: form.getValues('brewingLocation'), // These might not be in recipe
-            volume: form.getValues('volume'), // Keep selected volume
+            brewingDate: form.getValues('brewingDate'),
+            brewingLocation: form.getValues('brewingLocation'),
+            volume: form.getValues('volume'),
           });
 
           setDisplayIbu(recipeData.ibu?.toFixed(0) || 'N/A');
@@ -121,10 +118,9 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
         }
       } else if (selectedRecipeSlug === 'none') {
          form.reset({
-            ...LabelFormSchema.parse({}), // Resets to Zod default values
+            ...LabelFormSchema.parse({}), 
             selectedRecipeSlug: 'none',
-            volume: form.getValues('volume'), // Keep selected volume
-            // Explicitly keep design choices if user switches to "None"
+            volume: form.getValues('volume'),
             backgroundColor: form.getValues('backgroundColor'),
             textColor: form.getValues('textColor'),
             backgroundImage: form.getValues('backgroundImage'),
@@ -152,46 +148,26 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
 
     const elementToCapture = labelContentRef.current;
     
-    const originalTransform = elementToCapture.style.transform;
-    // Note: We are capturing the element as it is designed (400x300, horizontal content)
-    // No border/shadow/margin reset needed here as these styles are on the preview container, not the capture ref.
-    
-    elementToCapture.style.transform = 'none'; // Ensure no stray transforms interfere with capture size
-     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _ = elementToCapture.offsetHeight; 
-
     const physicalDimensions = PHYSICAL_LABEL_DIMENSIONS[watchedVolume];
     const dpi = 300;
     
-    // The downloaded image should reflect the physical label's aspect ratio and DPI.
-    // The capture source is DESIGN_CANVAS_WIDTH_PX x DESIGN_CANVAS_HEIGHT_PX (400x300).
-    // If the physical label is, e.g., 20cm W x 7cm H.
     const physicalWidthInches = physicalDimensions.widthCM / 2.54;
     const physicalHeightInches = physicalDimensions.heightCM / 2.54;
     
-    const targetPixelWidth = Math.round(physicalWidthInches * dpi); // e.g., for 20cm -> ~2362px
-    const targetPixelHeight = Math.round(physicalHeightInches * dpi); // e.g., for 7cm -> ~827px
+    const targetPixelWidth = Math.round(physicalWidthInches * dpi);
+    const targetPixelHeight = Math.round(physicalHeightInches * dpi);
 
-    // elementToCapture dimensions are DESIGN_CANVAS_WIDTH_PX and DESIGN_CANVAS_HEIGHT_PX
-    const elementWidth = DESIGN_CANVAS_WIDTH_PX; // 400
-    const elementHeight = DESIGN_CANVAS_HEIGHT_PX; // 300
+    // Element dimensions are DESIGN_CANVAS_WIDTH_PX and DESIGN_CANVAS_HEIGHT_PX (e.g., 300x400)
+    const elementWidth = DESIGN_CANVAS_WIDTH_PX; 
+    const elementHeight = DESIGN_CANVAS_HEIGHT_PX;
 
-    // Calculate scale to map the 400x300 canvas to the targetPixelWidth x targetPixelHeight
-    // This will stretch/squash if aspect ratios don't match.
-    // For example, if physical is 20x7 (ratio 2.85) and design is 400x300 (ratio 1.33), it will be squashed vertically.
-    // This is intentional if the design canvas is fixed but output needs to match varying physical shapes.
     const scaleX = targetPixelWidth / elementWidth;
     const scaleY = targetPixelHeight / elementHeight;
-    
-    // To maintain aspect ratio of the *design*, we should use the smaller scale factor
-    // and then the canvas will be sized accordingly. Or, if we want to fill the target dimensions,
-    // html2canvas needs to be told the target canvas size.
-    // For best quality, we scale up the capture.
-    const scale = Math.min(scaleX, scaleY, 8); // Cap scale to avoid memory issues, e.g. 8x
+    const scale = Math.min(scaleX, scaleY, 8); // Use smaller scale to maintain aspect ratio, cap at 8x
 
     try {
       const canvas = await html2canvas(elementToCapture, {
-        scale: scale, // Use the calculated scale
+        scale: scale, 
         width: elementWidth, 
         height: elementHeight,
         backgroundColor: null, 
@@ -202,10 +178,6 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
         windowWidth: elementWidth, 
         windowHeight: elementHeight,
       });
-
-      // If we want the output image to strictly be targetPixelWidth x targetPixelHeight,
-      // we might need to draw the captured canvas onto a new canvas of those dimensions.
-      // For now, html2canvas with scale will produce canvas.width = elementWidth * scale.
       
       const image = canvas.toDataURL('image/png');
       const link = document.createElement('a');
@@ -215,21 +187,12 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
     } catch (err) {
       console.error("Error generating image:", err);
       toast({ title: 'Download Error', description: 'Could not generate label image.', variant: 'destructive' });
-    } finally {
-      if (elementToCapture) {
-        elementToCapture.style.transform = originalTransform;
-      }
     }
   };
 
   const labelDataForPreview = {
     beerName: watchedBeerName,
-    // breweryName: watchedBreweryName, // Not used in simplified front label
-    // tagline: watchedTagline, // Not used in simplified front label
     ibu: displayIbu,
-    // srm: displaySrm, // Not used directly in simplified front label elements
-    // srmHexColor: currentSrmHexColor, // Not used in simplified front label
-    // ingredientsSummary: ingredientsSummaryForLabel, // Not used in simplified front label
     abv: displayAbv,
     volume: watchedVolume,
     backgroundColor: watchedBackgroundColor,
@@ -239,8 +202,8 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
     ingredientsList: watchedIngredients,
     brewingDate: watchedBrewingDate,
     brewingLocation: watchedBrewingLocation,
-    flatLabelWidthPx: flatLabelWidthPx, // Should be 400
-    flatLabelHeightPx: flatLabelHeightPx, // Should be 300
+    flatLabelWidthPx: flatLabelWidthPx, 
+    flatLabelHeightPx: flatLabelHeightPx, 
   };
 
   return (
@@ -259,7 +222,7 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
             <CardTitle className="font-bebas-neue tracking-wide">Label Previews</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start justify-center"> {/* Added justify-center */}
               <LabelPreview {...labelDataForPreview} ref={frontLabelContentRef} />
               <BackLabelPreview {...labelDataForPreview} ref={backLabelContentRef} />
             </div>

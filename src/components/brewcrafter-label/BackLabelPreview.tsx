@@ -12,8 +12,8 @@ interface BackLabelPreviewProps {
   backgroundColor: string;
   textColor: string;
   backgroundImage?: string;
-  flatLabelWidthPx: number; // Expected to be 400px
-  flatLabelHeightPx: number; // Expected to be 300px
+  flatLabelWidthPx: number; // Expected to be 300px
+  flatLabelHeightPx: number; // Expected to be 400px
 }
 
 // On-screen preview container dimensions
@@ -30,8 +30,8 @@ export const BackLabelPreview = forwardRef<HTMLDivElement, BackLabelPreviewProps
     backgroundColor,
     textColor,
     backgroundImage,
-    flatLabelWidthPx, // e.g., 400px
-    flatLabelHeightPx, // e.g., 300px
+    flatLabelWidthPx, // e.g., 300px
+    flatLabelHeightPx, // e.g., 400px
   }, ref) => {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
     
@@ -45,9 +45,10 @@ export const BackLabelPreview = forwardRef<HTMLDivElement, BackLabelPreviewProps
   }, [backgroundImage]);
 
   // Styles for the actual label content (the "black area")
+  // This is now designed to be vertical, 300px wide x 400px high.
   const backLabelStyle: React.CSSProperties = {
-    width: `${flatLabelWidthPx}px`, // 400px
-    height: `${flatLabelHeightPx}px`, // 300px
+    width: `${flatLabelWidthPx}px`, // 300px
+    height: `${flatLabelHeightPx}px`, // 400px
     backgroundColor: backgroundImage ? 'transparent' : backgroundColor,
     color: textColor,
     fontFamily: 'var(--font-inter)',
@@ -55,12 +56,6 @@ export const BackLabelPreview = forwardRef<HTMLDivElement, BackLabelPreviewProps
     overflow: 'hidden',
     boxSizing: 'border-box',
   };
-
-  // Scale the rotated content to fit the preview container
-  const scaleToFit = Math.min(
-      PREVIEW_CONTAINER_WIDTH_PX / flatLabelHeightPx, // 300 / 300 = 1
-      PREVIEW_CONTAINER_HEIGHT_PX / flatLabelWidthPx  // 400 / 400 = 1
-  );
 
   return (
     <div className="w-full flex flex-col items-center">
@@ -72,75 +67,66 @@ export const BackLabelPreview = forwardRef<HTMLDivElement, BackLabelPreviewProps
           height: `${PREVIEW_CONTAINER_HEIGHT_PX}px`, // 400px
         }}
       >
-        {/* This div handles the rotation and scaling for preview */}
-        <div 
-          style={{
-            width: `${flatLabelWidthPx}px`, // 400px
-            height: `${flatLabelHeightPx}px`, // 300px
-            transform: `rotate(90deg) scale(${scaleToFit})`, // Rotate 90deg right
-            transformOrigin: 'center center',
-          }}
-        >
-          {/* This is the actual label content to be captured by html2canvas */}
-          <div style={backLabelStyle} ref={ref} className="back-label-content-for-capture">
-            {backgroundImage && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  backgroundImage: `url(${backgroundImage})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  opacity: isImageLoaded ? 1 : 0,
-                  transition: 'opacity 0.5s ease-in-out',
-                  zIndex: 1,
-                }}
-              />
-            )}
-            {backgroundImage && ( // Overlay for text readability on image
-              <div 
-                style={{ 
-                  position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
-                  backgroundColor: 'rgba(0,0,0,0.5)', 
-                  zIndex: 2 
-                }} 
-              />
-            )}
-            {/* Inner wrapper for padding and content layout for the horizontal design */}
-            <div style={{
-              width: '100%', // Takes full 400px width
-              height: '100%', // Takes full 300px height
-              padding: '1rem', 
-              position: 'relative',
-              zIndex: 3, 
-              boxSizing: 'border-box',
-              display: 'flex', 
-              flexDirection: 'column', 
-            }}>
-              <ScrollArea className="h-full w-full" style={{ flexGrow: 1 }}>
-                <div className="space-y-2 p-1"> {/* Added small padding inside scroll area */}
-                  <div>
-                    <p className="font-semibold text-sm mb-0.5">Description</p>
-                    <p className="text-xs leading-snug">{description}</p>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-sm mb-0.5">Ingredients</p>
-                    <p className="text-xs leading-snug whitespace-pre-wrap">{ingredientsList}</p>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-sm mb-0.5">Brewed on:</p>
-                    <p className="text-xs leading-snug">{brewingDate}</p>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-sm mb-0.5">Brewed by:</p>
-                    <p className="text-xs leading-snug">{brewingLocation}</p>
-                  </div>
+        {/* This is the actual label content to be captured by html2canvas */}
+        {/* No rotation div needed here, content is displayed as is. */}
+        <div style={backLabelStyle} ref={ref} className="back-label-content-for-capture">
+          {backgroundImage && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                backgroundImage: `url(${backgroundImage})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                opacity: isImageLoaded ? 1 : 0,
+                transition: 'opacity 0.5s ease-in-out',
+                zIndex: 1,
+              }}
+            />
+          )}
+          {backgroundImage && ( // Overlay for text readability on image
+            <div 
+              style={{ 
+                position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
+                backgroundColor: 'rgba(0,0,0,0.5)', 
+                zIndex: 2 
+              }} 
+            />
+          )}
+          {/* Inner wrapper for padding and content layout for the VERTICAL design */}
+          <div style={{
+            width: '100%', // Takes full 300px width
+            height: '100%', // Takes full 400px height
+            padding: '1rem', 
+            position: 'relative',
+            zIndex: 3, 
+            boxSizing: 'border-box',
+            display: 'flex', 
+            flexDirection: 'column', 
+          }}>
+            <ScrollArea className="h-full w-full" style={{ flexGrow: 1 }}>
+              <div className="space-y-3 p-1"> {/* Adjusted spacing for vertical layout */}
+                <div>
+                  <p className="font-semibold text-base mb-0.5">Description</p> {/* Slightly larger title */}
+                  <p className="text-sm leading-relaxed">{description}</p> {/* Relaxed leading */}
                 </div>
-              </ScrollArea>
-            </div>
+                <div>
+                  <p className="font-semibold text-base mb-0.5">Ingredients</p>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{ingredientsList}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-base mb-0.5">Brewed on:</p>
+                  <p className="text-sm leading-relaxed">{brewingDate}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-base mb-0.5">Brewed by:</p>
+                  <p className="text-sm leading-relaxed">{brewingLocation}</p>
+                </div>
+              </div>
+            </ScrollArea>
           </div>
         </div>
       </div>
