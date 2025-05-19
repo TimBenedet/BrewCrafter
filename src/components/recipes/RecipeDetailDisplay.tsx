@@ -223,23 +223,6 @@ export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
           </CardContent>
         </Card>
       </div>
-
-      {/* Style Card (if style exists) */}
-      {recipe.style && (
-        <Card className="mb-6">
-          <CardHeader><CardTitle className="text-xl flex items-center"><ListChecksIcon className="mr-3 h-5 w-5 text-primary" />Style: {recipe.style.name}</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm pt-2">
-            {recipe.style.category && <p><strong>Category:</strong> {recipe.style.category}</p>}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-              {recipe.style.ogMin && recipe.style.ogMax && <p><strong>OG Range:</strong> {renderValue(recipe.style.ogMin, '', 3)} - {renderValue(recipe.style.ogMax, '', 3)}</p>}
-              {recipe.style.fgMin && recipe.style.fgMax && <p><strong>FG Range:</strong> {renderValue(recipe.style.fgMin, '', 3)} - {renderValue(recipe.style.fgMax, '', 3)}</p>}
-              {recipe.style.ibuMin && recipe.style.ibuMax && <p><strong>IBU Range:</strong> {renderValue(recipe.style.ibuMin, '', 0)} - {renderValue(recipe.style.ibuMax, '', 0)}</p>}
-              {recipe.style.colorMin && recipe.style.colorMax && <p><strong>Color Range (SRM):</strong> {renderValue(recipe.style.colorMin, '', 0)} - {renderValue(recipe.style.colorMax, '', 0)}</p>}
-              {recipe.style.abvMin && recipe.style.abvMax && <p><strong>ABV Range:</strong> {renderValue(recipe.style.abvMin, '%', 1)} - {renderValue(recipe.style.abvMax, '%', 1)}</p>}
-            </div>
-          </CardContent>
-        </Card>
-      )}
       
       {recipe.fermentables.length > 0 && (
         <DetailSection title="Fermentables" icon={Wheat}>
