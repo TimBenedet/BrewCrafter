@@ -1,6 +1,6 @@
 
 'use client';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import {
   Sidebar,
   SidebarHeader,
@@ -9,31 +9,49 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { Home, UploadCloud, FilePlus2, Tags, CalculatorIcon as CalculatorLucideIcon, BeerIcon } from 'lucide-react';
+import { Home, UploadCloud, FilePlus2, Tags, CalculatorIcon as CalculatorLucideIcon, BeerIcon, HardDrive, Cloud } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from "@/hooks/use-toast";
 import { usePathname, useRouter } from 'next/navigation';
 import { addRecipesAction } from '@/app/actions/recipe-actions';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 
 export function AppSidebar() {
   const { toast } = useToast();
   const pathname = usePathname();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isAddRecipeDialogOpen, setIsAddRecipeDialogOpen] = useState(false);
 
-  const handleAddRecipeClick = () => {
+  const handleLocalFileSelectClick = () => {
     fileInputRef.current?.click();
+    setIsAddRecipeDialogOpen(false); // Close dialog after initiating file selection
+  };
+
+  const handleGoogleDriveClick = () => {
+    toast({
+      title: "Fonctionnalité à venir",
+      description: "L'intégration avec Google Drive est prévue prochainement.",
+      duration: 5000,
+    });
+    setIsAddRecipeDialogOpen(false);
   };
 
   const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) {
-      toast({
-        title: "Aucun fichier sélectionné",
-        description: "Veuillez sélectionner un fichier BeerXML (.xml).",
-        variant: "destructive",
-        duration: 5000,
-      });
+      // No need to toast if no file was selected, user might have cancelled
       if(fileInputRef.current) {
           fileInputRef.current.value = "";
       }
@@ -79,7 +97,7 @@ export function AppSidebar() {
       });
 
       try {
-        const result = await addRecipesAction(recipeFiles); // Server action expects an array
+        const result = await addRecipesAction(recipeFiles);
         if (result.success && result.count === 1) {
           toast({
             title: "Recette ajoutée !",
@@ -114,82 +132,108 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar>
-      <SidebarHeader className="p-2">
-        <Link href="/" className="flex items-center gap-2 text-xl font-semibold text-sidebar-primary hover:text-sidebar-primary/90 transition-colors px-2 py-1">
-          <BeerIcon className="h-7 w-7" />
-          <span>GitBrew</span>
-        </Link>
-      </SidebarHeader>
-      <SidebarContent className="p-2">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={pathname === '/'}
-              tooltip={{ children: 'Mes Recettes', side: 'right' }}
-            >
-              <Link href="/">
-                <Home className="h-5 w-5" />
-                <span>Mes Recettes</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-           <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={pathname === '/label'}
-              tooltip={{ children: 'GitBrew Label', side: 'right' }}
-            >
-              <Link href="/label">
-                <Tags className="h-5 w-5" />
-                <span>GitBrew Label</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-           <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={pathname === '/calculator'}
-              tooltip={{ children: 'GitBrew Calculator', side: 'right' }}
-            >
-              <Link href="/calculator">
-                <CalculatorLucideIcon className="h-5 w-5" />
-                <span>GitBrew Calculator</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={handleAddRecipeClick}
-              tooltip={{ children: 'Ajouter une recette (fichier BeerXML)', side: 'right' }}
-            >
-              <UploadCloud className="h-5 w-5" />
-              <span>Ajouter une recette</span>
-            </SidebarMenuButton>
-            <input
-              type="file"
-              accept=".xml"
-              ref={fileInputRef}
-              onChange={handleFileSelected}
-              style={{ display: 'none' }}
-              id="recipe-file-input"
-            />
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={pathname === '/recipes/new'}
-              tooltip={{ children: 'Créer une nouvelle recette', side: 'right' }}
-            >
-              <Link href="/recipes/new">
-                <FilePlus2 className="h-5 w-5" />
-                <span>Nouvelle Recette</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarContent>
-    </Sidebar>
+    <>
+      <Sidebar>
+        <SidebarHeader className="p-2">
+          <Link href="/" className="flex items-center gap-2 text-xl font-semibold text-sidebar-primary hover:text-sidebar-primary/90 transition-colors px-2 py-1">
+            <BeerIcon className="h-7 w-7" />
+            <span>GitBrew</span>
+          </Link>
+        </SidebarHeader>
+        <SidebarContent className="p-2">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === '/'}
+                tooltip={{ children: 'Mes Recettes', side: 'right' }}
+              >
+                <Link href="/">
+                  <Home className="h-5 w-5" />
+                  <span>Mes Recettes</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === '/label'}
+                tooltip={{ children: 'GitBrew Label', side: 'right' }}
+              >
+                <Link href="/label">
+                  <Tags className="h-5 w-5" />
+                  <span>GitBrew Label</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === '/calculator'}
+                tooltip={{ children: 'GitBrew Calculator', side: 'right' }}
+              >
+                <Link href="/calculator">
+                  <CalculatorLucideIcon className="h-5 w-5" />
+                  <span>GitBrew Calculator</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <AlertDialog open={isAddRecipeDialogOpen} onOpenChange={setIsAddRecipeDialogOpen}>
+                <AlertDialogTrigger asChild>
+                  <SidebarMenuButton
+                    tooltip={{ children: 'Ajouter une recette (fichier BeerXML)', side: 'right' }}
+                  >
+                    <UploadCloud className="h-5 w-5" />
+                    <span>Ajouter une recette</span>
+                  </SidebarMenuButton>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Ajouter une recette depuis...</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Choisissez la source de votre fichier de recette BeerXML.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
+                    <Button variant="outline" onClick={handleLocalFileSelectClick} className="w-full">
+                      <HardDrive className="mr-2 h-5 w-5" />
+                      Mon ordinateur
+                    </Button>
+                    <Button variant="outline" onClick={handleGoogleDriveClick} className="w-full">
+                      <Cloud className="mr-2 h-5 w-5" />
+                      Google Drive
+                    </Button>
+                  </div>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === '/recipes/new'}
+                tooltip={{ children: 'Créer une nouvelle recette', side: 'right' }}
+              >
+                <Link href="/recipes/new">
+                  <FilePlus2 className="h-5 w-5" />
+                  <span>Nouvelle Recette</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarContent>
+      </Sidebar>
+      <input
+        type="file"
+        accept=".xml"
+        ref={fileInputRef}
+        onChange={handleFileSelected}
+        style={{ display: 'none' }}
+        id="recipe-file-input"
+      />
+    </>
   );
 }
