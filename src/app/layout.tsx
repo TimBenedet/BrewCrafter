@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Header } from '@/components/layout/Header';
 import { Toaster } from "@/components/ui/toaster";
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import { AppSidebar } from '@/components/layout/AppSidebar';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -26,12 +28,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans flex flex-col min-h-screen`}>
-        <Header />
-        <main className="flex-grow container mx-auto px-4 py-8">
-          {children}
-        </main>
-        <Toaster />
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
+        <SidebarProvider defaultOpen={true}>
+          <AppSidebar />
+          <SidebarInset>
+            <Header />
+            <main className="flex-grow container mx-auto px-4 py-8">
+              {children}
+            </main>
+            <Toaster />
+          </SidebarInset>
+        </SidebarProvider>
       </body>
     </html>
   );
