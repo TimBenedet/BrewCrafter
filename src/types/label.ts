@@ -7,6 +7,8 @@ export const LabelFormSchema = z.object({
   
   // Front Label Fields
   beerName: z.string().min(1, "Beer name is required").default('Cosmic Haze IPA'),
+  ibuForLabel: z.string().default('N/A'), // IBU to display on label
+  abvForLabel: z.string().default('N/A'), // ABV to display on label
   // IBU & SRM are for display, sourced from recipe, not directly part of this form schema for editing.
   // Alcohol (ABV) is also sourced from recipe for display.
 
@@ -21,7 +23,7 @@ export const LabelFormSchema = z.object({
   tagline: z.string().default('Crafted with passion, enjoyed with friends.'),
   
   backgroundImage: z.string().optional(), // Will store Data URL
-  backgroundColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Invalid hex color").default('#333333'),
+  backgroundColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Invalid hex color").default('#000000'),
   textColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Invalid hex color").default('#FFFFFF'),
 });
 

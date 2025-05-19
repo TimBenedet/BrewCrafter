@@ -22,7 +22,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { UploadCloud, Image as ImageIcon, Palette, TextIcon, Trash2, Info, Tag, Settings, CalendarDays, MapPin, Building, Type } from 'lucide-react';
+import { UploadCloud, Image as ImageIcon, Palette, TextIcon, Trash2, Info, Tag, Settings, CalendarDays, MapPin, Building, Type, Percent, Hop } from 'lucide-react';
 import React, { useState } from 'react';
 
 interface LabelControlsProps {
@@ -120,6 +120,30 @@ export function LabelControls({ form, recipes, onRecipeSelect, selectedRecipeSlu
                       </FormItem>
                     )}
                   />
+                   <FormField
+                    control={form.control}
+                    name="ibuForLabel"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center"><Hop className="mr-2 h-4 w-4"/>IBU (for label)</FormLabel>
+                        <FormControl><Input {...field} placeholder="e.g., 45" /></FormControl>
+                        <FormDescription>Editable. Pre-filled from recipe if selected.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="abvForLabel"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center"><Percent className="mr-2 h-4 w-4"/>Alcohol % (for label)</FormLabel>
+                        <FormControl><Input {...field} placeholder="e.g., 5.2" /></FormControl>
+                        <FormDescription>Editable. Pre-filled from recipe if selected.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <FormField
                     control={form.control}
                     name="volume"
@@ -146,9 +170,8 @@ export function LabelControls({ form, recipes, onRecipeSelect, selectedRecipeSlu
                       </FormItem>
                     )}
                   />
-                  {/* IBU, SRM, Alcohol are typically derived from recipe, not direct inputs here */}
                   <FormDescription>
-                    IBU, SRM, and Alcohol % are pre-filled from the selected recipe if available.
+                    SRM color is pre-filled from the selected recipe if available and affects the Beer Icon on the label.
                   </FormDescription>
                 </CardContent>
               </Card>

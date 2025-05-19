@@ -5,8 +5,9 @@ import React, { forwardRef, useEffect, useState } from 'react';
 
 interface LabelPreviewProps {
   beerName: string;
-  ibu: string;
-  abv: string;
+  ibu: string; // Now expects the direct string value from the form
+  abv: string; // Now expects the direct string value from the form
+  volume: '33CL' | '75CL';
   backgroundColor: string;
   textColor: string;
   backgroundImage?: string;
@@ -24,11 +25,12 @@ export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
       beerName,
       ibu,
       abv,
+      volume,
       backgroundColor,
       textColor,
       backgroundImage,
-      flatLabelWidthPx, // This is the width of the content to be captured (e.g., 300px)
-      flatLabelHeightPx, // This is the height of the content to be captured (e.g., 400px)
+      flatLabelWidthPx, 
+      flatLabelHeightPx, 
     },
     ref
   ) => {
@@ -43,8 +45,6 @@ export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
       }
     }, [backgroundImage]);
 
-    // Styles for the actual label content (the "black area")
-    // This is now designed to be vertical, 300px wide x 400px high.
     const flatLabelStyle: React.CSSProperties = {
       width: `${flatLabelWidthPx}px`, // 300px
       height: `${flatLabelHeightPx}px`, // 400px
@@ -65,12 +65,10 @@ export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
         <div
           className="bg-card border-2 border-primary rounded-md shadow-lg flex items-center justify-center overflow-hidden"
           style={{
-            width: `${PREVIEW_CONTAINER_WIDTH_PX}px`, // 300px
-            height: `${PREVIEW_CONTAINER_HEIGHT_PX}px`, // 400px
+            width: `${PREVIEW_CONTAINER_WIDTH_PX}px`, 
+            height: `${PREVIEW_CONTAINER_HEIGHT_PX}px`, 
           }}
         >
-          {/* This is the actual label content to be captured by html2canvas */}
-          {/* No rotation div needed here, content is displayed as is. */}
           <div style={flatLabelStyle} ref={ref} className="flat-label-content-for-capture">
             {backgroundImage && (
               <div
@@ -89,7 +87,7 @@ export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
                 }}
               />
             )}
-            {backgroundImage && ( // Overlay for text readability on image
+            {backgroundImage && ( 
               <div
                 style={{
                   position: 'absolute',
@@ -103,39 +101,45 @@ export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
               />
             )}
 
-            {/* Inner wrapper for padding and content layout for the VERTICAL design */}
             <div style={{
-              width: '100%', // Takes full 300px width of flatLabelStyle
-              height: '100%', // Takes full 400px height of flatLabelStyle
-              padding: '1rem', // Padding applied here
+              width: '100%', 
+              height: '100%', 
+              padding: '1rem', 
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: 'space-between',
-              alignItems: 'center',
+              justifyContent: 'space-between', // Pushes top and bottom content to edges
+              alignItems: 'center', // Centers beer name and volume
               position: 'relative',
               zIndex: 3, 
               boxSizing: 'border-box',
             }}>
               {/* Top row for IBU and Alc */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: '1rem' /* Increased font size */ }}>
-                <p style={{ textAlign: 'left' }}>IBU: {ibu}</p>
-                <p style={{ textAlign: 'right' }}>Alc: {abv}%</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: '0.8rem' }}>
+                <div style={{ textAlign: 'left' }}>
+                  <p className="font-semibold">IBU</p>
+                  <p>{ibu}</p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <p className="font-semibold">Alc.</p>
+                  <p>{abv}%</p>
+                </div>
               </div>
 
-              {/* Centered Beer Name */}
-              <div style={{ textAlign: 'center', flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5rem 0' }}>
+              {/* Centered Beer Name and Volume */}
+              <div style={{ textAlign: 'center', flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0.5rem 0' }}>
                 <h1
-                  className="font-bebas-neue leading-tight" // Use Bebas Neue
+                  className="font-bebas-neue leading-tight" 
                   style={{ fontSize: `${beerNameFontSize}px`, wordBreak: 'break-word', hyphens: 'auto', lineHeight: '1.0' }}
                 >
                   {beerName.split(' ').map((word, index) => (
                       <div key={index} style={{ display: 'block' }}>{word}</div>
                   ))}
                 </h1>
+                <p style={{ fontSize: '1rem', marginTop: '0.5rem' }}>{volume}</p>
               </div>
               
-              {/* Bottom placeholder - Volume was removed, keep space balanced */}
-               <div style={{ width: '100%', height: '1rem' }}>{/* Empty div to balance space */}</div>
+              {/* Bottom placeholder - to ensure space-between works correctly */}
+               <div style={{ width: '100%', height: '1.2rem' }}>{/* Empty div to balance space, height matches approx top row */}</div>
             </div>
           </div>
         </div>
