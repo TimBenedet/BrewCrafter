@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { SaveIcon, PlusCircleIcon, Trash2Icon, InfoIcon, ListChecksIcon, Wheat, Hop, Microscope, Package, Thermometer, StickyNote } from 'lucide-react';
+import { SaveIcon, PlusCircleIcon, Trash2Icon, InfoIcon, ListChecksIcon, Wheat, Hop, Microscope, Package, Thermometer, StickyNote, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useEffect } from 'react';
@@ -81,28 +81,20 @@ const recipeFormSchema = z.object({
   boilSize: z.coerce.number().positive({ message: 'La taille d\'ébullition (BOIL_SIZE) doit être un nombre positif.' }),
   boilTime: z.coerce.number().int().positive({ message: 'Le temps d\'ébullition (BOIL_TIME) doit être un entier positif.'}),
   efficiency: z.coerce.number().min(0).max(100).optional(),
+  notes: z.string().optional(),
+
+  // Target Stats moved to their own section in UI, but remain top-level in schema for now
   og: z.coerce.number().min(0).optional(),
   fg: z.coerce.number().min(0).optional(),
   abv: z.coerce.number().min(0).optional(),
   ibu: z.coerce.number().min(0).optional(),
   colorSrm: z.coerce.number().min(0).optional(),
-  notes: z.string().optional(),
 
   style: z.object({
     name: z.string().min(1, "Le nom du style est requis."),
     category: z.string().optional(),
-    categoryNumber: z.string().optional(),
-    styleLetter: z.string().optional(),
     styleGuide: z.string().optional(),
     type: z.enum(['Ale', 'Lager', 'Mead', 'Wheat', 'Mixed', 'Cider']),
-    ogMin: z.coerce.number().optional(),
-    ogMax: z.coerce.number().optional(),
-    fgMin: z.coerce.number().optional(),
-    fgMax: z.coerce.number().optional(),
-    ibuMin: z.coerce.number().optional(),
-    ibuMax: z.coerce.number().optional(),
-    colorMin: z.coerce.number().optional(),
-    colorMax: z.coerce.number().optional(),
   }),
 
   fermentables: z.array(fermentableSchema).optional(),
@@ -128,25 +120,15 @@ const defaultValues: Partial<RecipeFormValues> = {
   efficiency: 72.0,
   og: 1.052,
   fg: 1.012,
-  abv: 0, // Initialize to 0 or appropriate number
-  ibu: 0, // Initialize to 0 or appropriate number
-  colorSrm: 0, // Initialize to 0 or appropriate number
+  abv: 5.25, 
+  ibu: 35.0, 
+  colorSrm: 14.0, 
   notes: '',
   style: {
     name: 'American Amber Ale',
     category: 'Amber and Brown American Beer',
-    categoryNumber: '19',
-    styleLetter: 'A',
     styleGuide: 'BJCP 2015',
     type: 'Ale',
-    ogMin: 1.045,
-    ogMax: 1.060,
-    fgMin: 1.010,
-    fgMax: 1.015,
-    ibuMin: 25,
-    ibuMax: 40,
-    colorMin: 10,
-    colorMax: 17,
   },
   fermentables: [],
   hops: [],
@@ -185,39 +167,22 @@ function generateBeerXml(data: RecipeFormValues): string {
   
   const og = data.og === undefined || data.og === null || data.og === '' ? undefined : data.og;
   const fg = data.fg === undefined || data.fg === null || data.fg === '' ? undefined : data.fg;
+  const abv = data.abv === undefined || data.abv === null || data.abv === '' ? undefined : data.abv;
+  const ibu = data.ibu === undefined || data.ibu === null || data.ibu === '' ? undefined : data.ibu;
   const colorSrm = data.colorSrm === undefined || data.colorSrm === null || data.colorSrm === '' ? undefined : data.colorSrm;
 
   if (og !== undefined) xml += `    <OG>${Number(og).toFixed(3)}</OG>\n`;
   if (fg !== undefined) xml += `    <FG>${Number(fg).toFixed(3)}</FG>\n`;
-  if (data.abv !== undefined) xml += `    <ABV>${data.abv.toFixed(2)}</ABV>\n`;
-  if (data.ibu !== undefined) xml += `    <IBU>${data.ibu.toFixed(1)}</IBU>\n`;
+  if (abv !== undefined) xml += `    <ABV>${Number(abv).toFixed(2)}</ABV>\n`;
+  if (ibu !== undefined) xml += `    <IBU>${Number(ibu).toFixed(1)}</IBU>\n`;
   if (colorSrm !== undefined) xml += `    <COLOR>${Number(colorSrm).toFixed(1)}</COLOR>\n`;
 
   xml += `    <STYLE>\n`;
   xml += `      <NAME>${sanitizeForXml(data.style.name)}</NAME>\n`;
   if (data.style.category) xml += `      <CATEGORY>${sanitizeForXml(data.style.category)}</CATEGORY>\n`;
-  if (data.style.categoryNumber) xml += `      <CATEGORY_NUMBER>${sanitizeForXml(data.style.categoryNumber)}</CATEGORY_NUMBER>\n`;
-  if (data.style.styleLetter) xml += `      <STYLE_LETTER>${sanitizeForXml(data.style.styleLetter)}</STYLE_LETTER>\n`;
   if (data.style.styleGuide) xml += `      <STYLE_GUIDE>${sanitizeForXml(data.style.styleGuide)}</STYLE_GUIDE>\n`;
   xml += `      <TYPE>${sanitizeForXml(data.style.type)}</TYPE>\n`;
-  
-  const styleOgMin = data.style.ogMin === undefined || data.style.ogMin === null || data.style.ogMin === '' ? undefined : data.style.ogMin;
-  const styleOgMax = data.style.ogMax === undefined || data.style.ogMax === null || data.style.ogMax === '' ? undefined : data.style.ogMax;
-  const styleFgMin = data.style.fgMin === undefined || data.style.fgMin === null || data.style.fgMin === '' ? undefined : data.style.fgMin;
-  const styleFgMax = data.style.fgMax === undefined || data.style.fgMax === null || data.style.fgMax === '' ? undefined : data.style.fgMax;
-  const styleIbuMin = data.style.ibuMin === undefined || data.style.ibuMin === null || data.style.ibuMin === '' ? undefined : data.style.ibuMin;
-  const styleIbuMax = data.style.ibuMax === undefined || data.style.ibuMax === null || data.style.ibuMax === '' ? undefined : data.style.ibuMax;
-  const styleColorMin = data.style.colorMin === undefined || data.style.colorMin === null || data.style.colorMin === '' ? undefined : data.style.colorMin;
-  const styleColorMax = data.style.colorMax === undefined || data.style.colorMax === null || data.style.colorMax === '' ? undefined : data.style.colorMax;
-
-  if (styleOgMin !== undefined) xml += `      <OG_MIN>${Number(styleOgMin).toFixed(3)}</OG_MIN>\n`;
-  if (styleOgMax !== undefined) xml += `      <OG_MAX>${Number(styleOgMax).toFixed(3)}</OG_MAX>\n`;
-  if (styleFgMin !== undefined) xml += `      <FG_MIN>${Number(styleFgMin).toFixed(3)}</FG_MIN>\n`;
-  if (styleFgMax !== undefined) xml += `      <FG_MAX>${Number(styleFgMax).toFixed(3)}</FG_MAX>\n`;
-  if (styleIbuMin !== undefined) xml += `      <IBU_MIN>${Number(styleIbuMin).toFixed(0)}</IBU_MIN>\n`;
-  if (styleIbuMax !== undefined) xml += `      <IBU_MAX>${Number(styleIbuMax).toFixed(0)}</IBU_MAX>\n`;
-  if (styleColorMin !== undefined) xml += `      <COLOR_MIN>${Number(styleColorMin).toFixed(0)}</COLOR_MIN>\n`;
-  if (styleColorMax !== undefined) xml += `      <COLOR_MAX>${Number(styleColorMax).toFixed(0)}</COLOR_MAX>\n`;
+  // Removed categoryNumber, styleLetter, and style ranges (ogMin/Max etc.)
   xml += `    </STYLE>\n`;
 
   xml += `    <FERMENTABLES>\n`;
@@ -537,8 +502,7 @@ export function RecipeForm() {
                 )}
               />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormField
+            <FormField
                 control={form.control}
                 name="efficiency"
                 render={({ field }) => (
@@ -550,77 +514,7 @@ export function RecipeForm() {
                     <FormMessage />
                     </FormItem>
                 )}
-                />
-                 <FormField
-                    control={form.control}
-                    name="og"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>OG (Densité Initiale)</FormLabel>
-                        <FormControl>
-                            <Input type="number" step="0.001" placeholder="Ex: 1.050" {...field} value={field.value ?? ''} />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                 />
-                <FormField
-                    control={form.control}
-                    name="fg"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>FG (Densité Finale)</FormLabel>
-                        <FormControl>
-                            <Input type="number" step="0.001" placeholder="Ex: 1.010" {...field} value={field.value ?? ''} />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormField
-                    control={form.control}
-                    name="abv"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>ABV (%) - Calculé</FormLabel>
-                        <FormControl>
-                            <Input type="number" step="0.01" {...field} readOnly />
-                        </FormControl>
-                        <FormDescription>Calculé automatiquement à partir de OG et FG.</FormDescription>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="ibu"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>IBU - Calculé</FormLabel>
-                        <FormControl>
-                            <Input type="number" step="0.1" {...field} readOnly />
-                        </FormControl>
-                        <FormDescription>Calculé (Tinseth) à partir des houblons, OG et volume d'ébullition.</FormDescription>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="colorSrm"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Couleur (SRM)</FormLabel>
-                        <FormControl>
-                            <Input type="number" step="0.1" {...field} value={field.value ?? ''} />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
-            </div>
+            />
           </CardContent>
         </Card>
 
@@ -674,71 +568,115 @@ export function RecipeForm() {
                     )}
                 />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                 <FormField
-                    control={form.control}
-                    name="style.categoryNumber"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Numéro de Catégorie</FormLabel>
-                        <FormControl>
-                            <Input {...field} value={field.value ?? ''}/>
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="style.styleLetter"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Lettre de Style</FormLabel>
-                        <FormControl>
-                            <Input {...field} value={field.value ?? ''}/>
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="style.type"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Type (Style)</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                            <SelectTrigger>
-                            <SelectValue placeholder="Type de style" />
-                            </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                            <SelectItem value="Ale">Ale</SelectItem>
-                            <SelectItem value="Lager">Lager</SelectItem>
-                            <SelectItem value="Mead">Mead</SelectItem>
-                            <SelectItem value="Wheat">Wheat</SelectItem>
-                            <SelectItem value="Mixed">Mixed</SelectItem>
-                            <SelectItem value="Cider">Cider</SelectItem>
-                        </SelectContent>
-                        </Select>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-            </div>
-            <p className="font-medium text-sm">Gammes du Style (Optionnel):</p>
-             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <FormField control={form.control} name="style.ogMin" render={({ field }) => (<FormItem><FormLabel>OG Min</FormLabel><FormControl><Input type="number" step="0.001" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="style.ogMax" render={({ field }) => (<FormItem><FormLabel>OG Max</FormLabel><FormControl><Input type="number" step="0.001" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="style.fgMin" render={({ field }) => (<FormItem><FormLabel>FG Min</FormLabel><FormControl><Input type="number" step="0.001" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="style.fgMax" render={({ field }) => (<FormItem><FormLabel>FG Max</FormLabel><FormControl><Input type="number" step="0.001" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="style.ibuMin" render={({ field }) => (<FormItem><FormLabel>IBU Min</FormLabel><FormControl><Input type="number" step="1" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="style.ibuMax" render={({ field }) => (<FormItem><FormLabel>IBU Max</FormLabel><FormControl><Input type="number" step="1" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="style.colorMin" render={({ field }) => (<FormItem><FormLabel>Couleur Min (SRM)</FormLabel><FormControl><Input type="number" step="0.1" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="style.colorMax" render={({ field }) => (<FormItem><FormLabel>Couleur Max (SRM)</FormLabel><FormControl><Input type="number" step="0.1" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-            </div>
+             <FormField
+                control={form.control}
+                name="style.type"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Type (Style)</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                        <SelectTrigger>
+                        <SelectValue placeholder="Type de style" />
+                        </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                        <SelectItem value="Ale">Ale</SelectItem>
+                        <SelectItem value="Lager">Lager</SelectItem>
+                        <SelectItem value="Mead">Mead</SelectItem>
+                        <SelectItem value="Wheat">Wheat</SelectItem>
+                        <SelectItem value="Mixed">Mixed</SelectItem>
+                        <SelectItem value="Cider">Cider</SelectItem>
+                    </SelectContent>
+                    </Select>
+                    <FormMessage />
+                </FormItem>
+                )}
+            />
           </CardContent>
+        </Card>
+        
+        {/* Target Stats Card */}
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center">
+                    <BarChart3 className="mr-2 h-5 w-5 text-primary" />
+                    Statistiques Cibles
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                        control={form.control}
+                        name="og"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>OG (Densité Initiale)</FormLabel>
+                            <FormControl>
+                                <Input type="number" step="0.001" placeholder="Ex: 1.050" {...field} value={field.value ?? ''} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="fg"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>FG (Densité Finale)</FormLabel>
+                            <FormControl>
+                                <Input type="number" step="0.001" placeholder="Ex: 1.010" {...field} value={field.value ?? ''} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <FormField
+                        control={form.control}
+                        name="abv"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>ABV (%) - Calculé</FormLabel>
+                            <FormControl>
+                                <Input type="number" step="0.01" {...field} readOnly />
+                            </FormControl>
+                            <FormDescription>Calculé automatiquement à partir de OG et FG.</FormDescription>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="ibu"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>IBU - Calculé</FormLabel>
+                            <FormControl>
+                                <Input type="number" step="0.1" {...field} readOnly />
+                            </FormControl>
+                            <FormDescription>Calculé (Tinseth) à partir des houblons, OG et volume d'ébullition.</FormDescription>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="colorSrm"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Couleur (SRM)</FormLabel>
+                            <FormControl>
+                                <Input type="number" step="0.1" {...field} value={field.value ?? ''} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </div>
+            </CardContent>
         </Card>
 
         {/* Fermentables Card */}
