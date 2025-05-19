@@ -28,8 +28,9 @@ const DESIGN_CANVAS_WIDTH_PX = 300;
 const DESIGN_CANVAS_HEIGHT_PX = 400;
 
 // Physical dimensions for a typical VERTICAL label on a bottle
+// Adjusted 33CL width to maintain 0.75 aspect ratio (300/400)
 const PHYSICAL_LABEL_DIMENSIONS = {
-  '33CL': { widthCM: 7, heightCM: 10 }, 
+  '33CL': { widthCM: 7.5, heightCM: 10 }, 
   '75CL': { widthCM: 9, heightCM: 12 }, 
 };
 
@@ -38,10 +39,8 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
   const [recipes, setRecipes] = useState<RecipeSummary[]>(initialRecipes);
   const [selectedRecipeSlug, setSelectedRecipeSlug] = useState<string | undefined>(undefined);
   
-  // These states are now mainly for informational display or if needed elsewhere,
-  // as the label preview will directly use form values for IBU/ABV.
   const [displayIbu, setDisplayIbu] = useState<string>('N/A');
-  const [displaySrm, setDisplaySrm] = useState<string>('N/A'); // Still needed for beer icon color
+  const [displaySrm, setDisplaySrm] = useState<string>('N/A'); 
   const [currentSrmHexColor, setCurrentSrmHexColor] = useState<string>('#CCCCCC');
   const [ingredientsSummaryForLabel, setIngredientsSummaryForLabel] = useState<string>('N/A');
   const [displayAbv, setDisplayAbv] = useState<string>('N/A');
@@ -56,8 +55,8 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
       selectedRecipeSlug: '',
       volume: '33CL',
       beerName: 'Cosmic Haze IPA',
-      ibuForLabel: '65', // Default IBU for label
-      abvForLabel: '6.8', // Default ABV for label
+      ibuForLabel: '65', 
+      abvForLabel: '6.8', 
       description: 'A juicy and hazy IPA, bursting with tropical fruit aromas and a smooth, pillowy mouthfeel. Perfect for exploring the cosmos or just chilling on your couch.',
       ingredients: 'Water, Barley Malts (Pilsen, Vienna, CaraPils), Flaked Oats, Wheat Malt, Hops (Citra, Mosaic, Galaxy), Yeast.',
       brewingDate: 'Brewed on: 15/07/2024',
@@ -92,26 +91,23 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
         if (result.success && result.recipe) {
           const recipeData = result.recipe;
           form.reset({
-            ...form.getValues(), // Keep existing common design choices
+            ...form.getValues(), 
             selectedRecipeSlug: selectedRecipeSlug,
             beerName: recipeData.name || form.getValues('beerName'),
             ibuForLabel: recipeData.ibu?.toFixed(0) || 'N/A',
             abvForLabel: recipeData.abv?.toFixed(1) || 'N/A',
             description: recipeData.notes || form.getValues('description'),
             ingredients: summarizeIngredients(recipeData.fermentables, recipeData.hops, recipeData.yeasts) || form.getValues('ingredients'),
-            // Keep existing backgroundColor, textColor, backgroundImage, breweryName, tagline, brewingDate, brewingLocation, volume
-            // if not explicitly overridden by recipe or user.
             backgroundColor: form.getValues('backgroundColor'),
             textColor: form.getValues('textColor'),
             backgroundImage: form.getValues('backgroundImage'),
             breweryName: form.getValues('breweryName'),
             tagline: form.getValues('tagline'),
-            brewingDate: form.getValues('brewingDate'), // Could be pre-filled if recipe has it
-            brewingLocation: form.getValues('brewingLocation'), // Could be pre-filled
+            brewingDate: form.getValues('brewingDate'), 
+            brewingLocation: form.getValues('brewingLocation'), 
             volume: form.getValues('volume'),
           });
 
-          // Update display states (these might be used for info outside the label preview itself)
           setDisplayIbu(recipeData.ibu?.toFixed(0) || 'N/A');
           setDisplaySrm(recipeData.color?.toFixed(0) || 'N/A');
           setCurrentSrmHexColor(srmToHex(recipeData.color));
@@ -121,21 +117,19 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
           toast({ title: "Recipe Loaded", description: `${recipeData.name} data has been pre-filled.` });
         } else {
           toast({ title: "Error", description: `Failed to load recipe: ${result.error}`, variant: "destructive" });
-          // Reset display values if recipe load fails
           setDisplayIbu('N/A');
           setDisplaySrm('N/A');
           setCurrentSrmHexColor('#CCCCCC');
           setIngredientsSummaryForLabel('N/A');
           setDisplayAbv('N/A');
         }
-      } else if (selectedRecipeSlug === 'none') { // Manual entry
+      } else if (selectedRecipeSlug === 'none') { 
          form.reset({
-            ...LabelFormSchema.parse({ // Use Zod defaults for most fields
+            ...LabelFormSchema.parse({ 
                 ibuForLabel: 'N/A',
                 abvForLabel: 'N/A',
             }), 
-            selectedRecipeSlug: 'none', // Ensure this is set
-            // Preserve design choices
+            selectedRecipeSlug: 'none', 
             volume: form.getValues('volume'),
             backgroundColor: form.getValues('backgroundColor'),
             textColor: form.getValues('textColor'),
@@ -143,10 +137,9 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
             breweryName: form.getValues('breweryName'),
             tagline: form.getValues('tagline'),
          });
-        // Reset display values for manual entry
         setDisplayIbu('N/A');
         setDisplaySrm('N/A');
-        setCurrentSrmHexColor('#CCCCCC'); // Default for icon if no recipe SRM
+        setCurrentSrmHexColor('#CCCCCC'); 
         setIngredientsSummaryForLabel('N/A');
         setDisplayAbv('N/A');
         toast({ title: "Manual Entry", description: "Fields cleared for manual input (design choices preserved)." });
@@ -154,7 +147,7 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
     };
     fetchAndSetRecipeData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedRecipeSlug, form.reset, toast]); // form.reset and toast are stable
+  }, [selectedRecipeSlug, form.reset, toast]); 
 
   const handleDownloadImage = async (labelContentRef: React.RefObject<HTMLDivElement>, labelName: string) => {
     if (!labelContentRef.current) {
@@ -168,26 +161,17 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
     const physicalDimensions = PHYSICAL_LABEL_DIMENSIONS[watchedVolume];
     const dpi = 300;
     
-    // For a vertical label, physicalWidthCM is the bottle circumference part, physicalHeightCM is the label height
     const physicalWidthInches = physicalDimensions.widthCM / 2.54; 
     const physicalHeightInches = physicalDimensions.heightCM / 2.54;
     
-    // Target pixel dimensions for the downloaded image
     const targetPixelWidth = Math.round(physicalWidthInches * dpi);
     const targetPixelHeight = Math.round(physicalHeightInches * dpi);
 
-    // Element dimensions are DESIGN_CANVAS_WIDTH_PX and DESIGN_CANVAS_HEIGHT_PX (e.g., 300x400)
-    // These are the dimensions of the element being captured by html2canvas.
     const elementWidth = DESIGN_CANVAS_WIDTH_PX; 
     const elementHeight = DESIGN_CANVAS_HEIGHT_PX;
 
-    // Calculate scale factor to achieve target DPI
-    // We want the 300px (elementWidth) to become targetPixelWidth in the output
-    // And 400px (elementHeight) to become targetPixelHeight
     const scaleX = targetPixelWidth / elementWidth;
     const scaleY = targetPixelHeight / elementHeight;
-    // Use the smaller scale to maintain aspect ratio if physical and canvas aspect ratios differ slightly
-    // Cap scale at a reasonable maximum (e.g., 8) to prevent excessive memory usage for very large DPI/physical sizes.
     const scale = Math.min(scaleX, scaleY, 8); 
 
     try {
@@ -195,12 +179,12 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
         scale: scale, 
         width: elementWidth, 
         height: elementHeight,
-        backgroundColor: null, // Use transparent background for canvas, actual bg is from the element
-        useCORS: true, // If background images are from external sources
-        logging: true,
+        backgroundColor: null, 
+        useCORS: true, 
+        logging: false, // Set to true for debugging if needed
         scrollX: 0, 
         scrollY: 0,
-        windowWidth: elementWidth, // Ensure html2canvas "sees" the element at its intended capture size
+        windowWidth: elementWidth, 
         windowHeight: elementHeight,
       });
       
@@ -209,6 +193,7 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
       link.download = `${form.getValues('beerName').replace(/\s+/g, '_') || 'my_beer'}_${labelName}.png`;
       link.href = image;
       link.click();
+      toast({ title: 'Download Complete!', description: `${labelName} has been downloaded.` });
     } catch (err) {
       console.error("Error generating image:", err);
       toast({ title: 'Download Error', description: 'Could not generate label image.', variant: 'destructive' });
@@ -217,8 +202,8 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
 
   const labelDataForPreview = {
     beerName: watchedBeerName,
-    ibu: watchedIbuForLabel, // Use the editable form value
-    abv: watchedAbvForLabel, // Use the editable form value
+    ibu: watchedIbuForLabel, 
+    abv: watchedAbvForLabel, 
     volume: watchedVolume,
     backgroundColor: watchedBackgroundColor,
     textColor: watchedTextColor,
@@ -276,3 +261,5 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
     </div>
   );
 }
+
+    
