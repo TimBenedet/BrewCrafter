@@ -10,10 +10,7 @@ export function Header() {
         <div className="flex items-center gap-2">
           {/* SidebarTrigger for mobile, managed by ui/sidebar component's CSS */}
           <SidebarTrigger className="md:hidden" /> 
-          <Link href="/" className="flex items-center gap-2 text-xl font-semibold text-primary hover:text-primary/90 transition-colors">
-            <BeerIcon className="h-7 w-7" />
-            <span>GitBrew</span>
-          </Link>
+          {/* GitBrew logo and text link removed from here */}
         </div>
         <div className="absolute left-1/2 transform -translate-x-1/2">
           <TopTabs />
