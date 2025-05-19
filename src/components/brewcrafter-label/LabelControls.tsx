@@ -10,6 +10,7 @@ import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -163,7 +164,7 @@ export function LabelControls({ form, recipes, onRecipeSelect, selectedRecipeSlu
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Description / Notes</FormLabel>
-                        <FormControl><Input asChild><textarea className="h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" {...field} /></Input></FormControl>
+                        <FormControl><Textarea className="h-24" {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -174,7 +175,7 @@ export function LabelControls({ form, recipes, onRecipeSelect, selectedRecipeSlu
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Ingredients Text</FormLabel>
-                        <FormControl><Input asChild><textarea className="h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" {...field} /></Input></FormControl>
+                        <FormControl><Textarea className="h-20" {...field} /></FormControl>
                          <FormDescription>Summarized ingredients are pre-filled from recipe. Edit as needed.</FormDescription>
                         <FormMessage />
                       </FormItem>
