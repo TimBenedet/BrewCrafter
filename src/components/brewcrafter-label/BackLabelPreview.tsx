@@ -16,9 +16,9 @@ interface BackLabelPreviewProps {
   flatLabelHeightPx: number;
 }
 
-// On-screen preview container dimensions (same as front)
-const PREVIEW_CONTAINER_WIDTH_PX = 200;
-const PREVIEW_CONTAINER_HEIGHT_PX = 400;
+// On-screen preview container dimensions
+const PREVIEW_CONTAINER_WIDTH_PX = 300; // Updated
+const PREVIEW_CONTAINER_HEIGHT_PX = 400; // Updated
 
 
 export const BackLabelPreview = forwardRef<HTMLDivElement, BackLabelPreviewProps>(
@@ -54,17 +54,17 @@ export const BackLabelPreview = forwardRef<HTMLDivElement, BackLabelPreviewProps
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
-    padding: '1rem', // p-4
+    padding: '1rem', 
     fontSize: '10px', 
     lineHeight: '1.4',
     boxSizing: 'border-box',
   };
 
+  // Adjusted scaleToFit calculation
   const scaleToFit = Math.min(
-    (PREVIEW_CONTAINER_HEIGHT_PX - 20) / flatLabelWidthPx, 
-    (PREVIEW_CONTAINER_WIDTH_PX - 20) / flatLabelHeightPx,
-    0.85 // Max scale, slightly increased
-  );
+      PREVIEW_CONTAINER_WIDTH_PX / flatLabelHeightPx, // After rotation, label's height becomes preview's width constraint
+      PREVIEW_CONTAINER_HEIGHT_PX / flatLabelWidthPx  // After rotation, label's width becomes preview's height constraint
+  ) * 0.93; // Apply a factor for some padding/margin inside the preview box
 
   return (
     <div className="w-full flex flex-col items-center">
@@ -106,30 +106,29 @@ export const BackLabelPreview = forwardRef<HTMLDivElement, BackLabelPreviewProps
               <div 
                 style={{ 
                   position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
-                  backgroundColor: 'rgba(0,0,0,0.5)', // Darker overlay
+                  backgroundColor: 'rgba(0,0,0,0.5)', 
                   zIndex: 2 
                 }} 
               />
             )}
             <ScrollArea className="h-full w-full" style={{position: 'relative', zIndex: 3}}>
-              <div className="space-y-3 p-1"> {/* Inner padding for scroll content */}
+              <div className="space-y-2 p-1"> {/* Reduced space-y, inner padding for scroll content */}
                 <div>
-                  <p className="font-semibold text-sm mb-1">Description</p>
-                  <p className="text-xs leading-relaxed">{description}</p>
+                  <p className="font-semibold text-sm mb-0.5">Description</p> {/* Reduced mb */}
+                  <p className="text-xs leading-snug">{description}</p> {/* Adjusted leading */}
                 </div>
                 <div>
-                  <p className="font-semibold text-sm mb-1">Ingredients</p>
-                  <p className="text-xs leading-relaxed whitespace-pre-wrap">{ingredientsList}</p>
+                  <p className="font-semibold text-sm mb-0.5">Ingredients</p>
+                  <p className="text-xs leading-snug whitespace-pre-wrap">{ingredientsList}</p>
                 </div>
                 <div>
-                  <p className="font-semibold text-sm mb-1">Brewed on:</p>
-                  <p className="text-xs leading-relaxed">{brewingDate}</p>
+                  <p className="font-semibold text-sm mb-0.5">Brewed on:</p>
+                  <p className="text-xs leading-snug">{brewingDate}</p>
                 </div>
                 <div>
-                  <p className="font-semibold text-sm mb-1">Brewed by:</p>
-                  <p className="text-xs leading-relaxed">{brewingLocation}</p>
+                  <p className="font-semibold text-sm mb-0.5">Brewed by:</p>
+                  <p className="text-xs leading-snug">{brewingLocation}</p>
                 </div>
-                {/* Removed "Store in cool dark place" text to match simpler screenshot */}
               </div>
             </ScrollArea>
           </div>

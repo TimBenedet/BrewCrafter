@@ -5,12 +5,7 @@ import React, { forwardRef, useEffect, useState } from 'react';
 
 interface LabelPreviewProps {
   beerName: string;
-  // breweryName: string; // No longer used in this simple design
-  // tagline: string; // No longer used
   ibu: string;
-  // srm: string; // No longer used
-  // srmHexColor: string; // No longer used
-  // ingredientsSummary: string; // No longer used
   abv: string;
   volume: string;
   backgroundColor: string;
@@ -21,8 +16,8 @@ interface LabelPreviewProps {
 }
 
 // On-screen preview container dimensions
-const PREVIEW_CONTAINER_WIDTH_PX = 200;
-const PREVIEW_CONTAINER_HEIGHT_PX = 400;
+const PREVIEW_CONTAINER_WIDTH_PX = 300; // Updated
+const PREVIEW_CONTAINER_HEIGHT_PX = 400; // Updated
 
 export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
   (
@@ -50,32 +45,29 @@ export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
       }
     }, [backgroundImage]);
 
-    // Style for the flat label content (the div that will be captured by html2canvas)
     const flatLabelStyle: React.CSSProperties = {
       width: `${flatLabelWidthPx}px`,
       height: `${flatLabelHeightPx}px`,
       backgroundColor: backgroundImage ? 'transparent' : backgroundColor,
       color: textColor,
-      fontFamily: 'var(--font-inter)', // Inter for most text
+      fontFamily: 'var(--font-inter)',
       position: 'relative',
       overflow: 'hidden',
-      display: 'flex', 
-      flexDirection: 'column', // Use flex column for main alignment
-      justifyContent: 'space-between', // Pushes top/bottom elements
-      alignItems: 'center', // Centers beer name and volume
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      alignItems: 'center',
       padding: '1rem', // p-4 equivalent
       boxSizing: 'border-box',
     };
 
+    // Adjusted scaleToFit calculation
     const scaleToFit = Math.min(
-      (PREVIEW_CONTAINER_HEIGHT_PX - 20) / flatLabelWidthPx, 
-      (PREVIEW_CONTAINER_WIDTH_PX - 20) / flatLabelHeightPx,
-      0.85 // Max scale to ensure it's not too large, slightly increased
-    ); 
-    
-    // Adjust beer name font size based on label width to prevent overflow
-    // This is a simple heuristic, more complex logic might be needed for perfect fit
-    const beerNameFontSize = Math.max(12, Math.min(flatLabelWidthPx / 8, 60)); // e.g. 500/8 = 62.5, capped at 60px
+        PREVIEW_CONTAINER_WIDTH_PX / flatLabelHeightPx, // After rotation, label's height becomes preview's width constraint
+        PREVIEW_CONTAINER_HEIGHT_PX / flatLabelWidthPx  // After rotation, label's width becomes preview's height constraint
+    ) * 0.93; // Apply a factor for some padding/margin inside the preview box
+
+    const beerNameFontSize = Math.max(12, Math.min(flatLabelWidthPx / 7, 70)); // Adjusted divisor and max
 
     return (
       <div className="w-full flex flex-col items-center">
@@ -127,27 +119,25 @@ export const LabelPreview = forwardRef<HTMLDivElement, LabelPreviewProps>(
                 />
               )}
 
-              {/* Content Wrapper for z-index and flex control */}
               <div style={{ position: 'relative', zIndex: 3, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center' }}>
-                {/* Top Row: IBU and Alc */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', padding: '0 0.5rem' }}>
-                  <p className="text-sm">IBU: {ibu}</p>
-                  <p className="text-sm">Alc: {abv}%</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', padding: '0 0.5rem', fontSize: '12px' }}> {/* Increased font size slightly */}
+                  <p>IBU: {ibu}</p>
+                  <p>Alc: {abv}%</p>
                 </div>
 
-                {/* Beer Name - Centered */}
-                <div style={{ textAlign: 'center', flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ textAlign: 'center', flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5rem 0' }}>
                   <h1
-                    className="font-bebas-neue leading-tight" // Use leading-tight or leading-none
-                    style={{ fontSize: `${beerNameFontSize}px`, wordBreak: 'break-word', hyphens: 'auto' }}
+                    className="font-bebas-neue leading-tight"
+                    style={{ fontSize: `${beerNameFontSize}px`, wordBreak: 'break-word', hyphens: 'auto', lineHeight: '1.0' }} // Ensure tight line height
                   >
-                    {beerName.split(' ').map((word, index) => <div key={index}>{word}</div>)}
+                    {beerName.split(' ').map((word, index, arr) => (
+                        <div key={index} style={{ display: 'block' }}>{word}</div>
+                    ))}
                   </h1>
                 </div>
 
-                {/* Bottom: Volume */}
-                <div style={{ width: '100%', textAlign: 'center', padding: '0 0.5rem' }}>
-                  <p className="text-sm">{volume}</p>
+                <div style={{ width: '100%', textAlign: 'center', padding: '0 0.5rem', fontSize: '12px' }}> {/* Increased font size slightly */}
+                  <p>{volume}</p>
                 </div>
               </div>
             </div>
