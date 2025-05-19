@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RECIPES>
+  <RECIPE>
+    <NAME>Golden Lion Blond</NAME>
+    <VERSION>1</VERSION>
+    <TYPE>All Grain</TYPE>
+    <BREWER>Pierre Dubois</BREWER>
+    <ASST_BREWER></ASST_BREWER>
+    <BATCH_SIZE>20.000000</BATCH_SIZE>
+    <BOIL_SIZE>26.000000</BOIL_SIZE>
+    <BOIL_TIME>75.000000</BOIL_TIME>
+    <EFFICIENCY>72.000000</EFFICIENCY>
+    <NOTES>A delightful Belgian Blond Ale with fruity esters and a hint of spice.
+    Ferment cool initially, then let rise to develop complexity.
+    Target high carbonation.</NOTES>
+    <OG>1.062</OG>
+    <FG>1.010</FG>
+    <STYLE>
+      <NAME>Belgian Blond Ale</NAME>
+      <VERSION>1</VERSION>
+      <CATEGORY>Strong Belgian Ale</CATEGORY>
+      <CATEGORY_NUMBER>25</CATEGORY_NUMBER>
+      <STYLE_LETTER>A</STYLE_LETTER>
+      <STYLE_GUIDE>BJCP 2015</STYLE_GUIDE>
+      <TYPE>Ale</TYPE>
+      <OG_MIN>1.062</OG_MIN>
+      <OG_MAX>1.075</OG_MAX>
+      <FG_MIN>1.008</FG_MIN>
+      <FG_MAX>1.016</FG_MAX>
+      <IBU_MIN>15.0</IBU_MIN>
+      <IBU_MAX>30.0</IBU_MAX>
+      <COLOR_MIN>4.0</COLOR_MIN>
+      <COLOR_MAX>7.0</COLOR_MAX>
+      <ABV_MIN>6.0</ABV_MIN>
+      <ABV_MAX>7.5</ABV_MAX>
+    </STYLE>
+    <FERMENTABLES>
+      <FERMENTABLE>
+        <NAME>Pilsner Malt (BE)</NAME>
+        <VERSION>1</VERSION>
+        <TYPE>Grain</TYPE>
+        <AMOUNT>5.000000</AMOUNT>
+        <YIELD>81.00</YIELD>
+        <COLOR>1.800000</COLOR>
+      </FERMENTABLE>
+      <FERMENTABLE>
+        <NAME>Aromatic Malt (BE)</NAME>
+        <VERSION>1</VERSION>
+        <TYPE>Grain</TYPE>
+        <AMOUNT>0.500000</AMOUNT>
+        <YIELD>78.00</YIELD>
+        <COLOR>20.000000</COLOR>
+      </FERMENTABLE>
+      <FERMENTABLE>
+        <NAME>Candi Sugar, Clear</NAME>
+        <VERSION>1</VERSION>
+        <TYPE>Sugar</TYPE>
+        <AMOUNT>0.500000</AMOUNT>
+        <YIELD>100.00</YIELD>
+        <COLOR>0.500000</COLOR>
+        <NOTES>Add last 15 minutes of boil.</NOTES>
+      </FERMENTABLE>
+    </FERMENTABLES>
+    <HOPS>
+      <HOP>
+        <NAME>Styrian Goldings</NAME>
+        <VERSION>1</VERSION>
+        <ALPHA>5.25</ALPHA>
+        <AMOUNT>0.040000</AMOUNT> <!-- 40g -->
+        <USE>Boil</USE>
+        <TIME>60.00</TIME>
+        <FORM>Pellet</FORM>
+      </HOP>
+      <HOP>
+        <NAME>Saaz (CZ)</NAME>
+        <VERSION>1</VERSION>
+        <ALPHA>3.50</ALPHA>
+        <AMOUNT>0.020000</AMOUNT> <!-- 20g -->
+        <USE>Boil</USE>
+        <TIME>15.00</TIME>
+        <FORM>Pellet</FORM>
+      </HOP>
+    </HOPS>
+    <YEASTS>
+      <YEAST>
+        <NAME>Belgian Ardennes</NAME>
+        <VERSION>1</VERSION>
+        <TYPE>Ale</TYPE>
+        <FORM>Liquid</FORM>
+        <AMOUNT>0.035000</AMOUNT>
+        <LABORATORY>Wyeast</LABORATORY>
+        <PRODUCT_ID>3522</PRODUCT_ID>
+        <ATTENUATION>76.0</ATTENUATION>
+        <NOTES>Produces distinctive fruitiness and complex esters.</NOTES>
+      </YEAST>
+    </YEASTS>
+    <MISCS>
+        <MISC>
+            <NAME>Coriander Seed (Crushed)</NAME>
+            <VERSION>1</VERSION>
+            <TYPE>Spice</TYPE>
+            <USE>Boil</USE>
+            <AMOUNT>0.005000</AMOUNT> <!-- 5g -->
+            <TIME>5.00</TIME>
+            <AMOUNT_IS_WEIGHT>TRUE</AMOUNT_IS_WEIGHT>
+            <NOTES>Lightly crushed, add at flameout or last 5 mins.</NOTES>
+        </MISC>
+    </MISCS>
+    <MASH>
+      <NAME>Step Mash for Belgian Ales</NAME>
+      <VERSION>1</VERSION>
+      <GRAIN_TEMP>20.00</GRAIN_TEMP>
+      <MASH_STEPS>
+        <MASH_STEP>
+          <NAME>Protein Rest</NAME>
+          <VERSION>1</VERSION>
+          <TYPE>Infusion</TYPE>
+          <STEP_TEMP>55</STEP_TEMP>
+          <STEP_TIME>15</STEP_TIME>
+          <INFUSE_AMOUNT>12.0</INFUSE_AMOUNT>
+        </MASH_STEP>
+        <MASH_STEP>
+          <NAME>Beta Amylase</NAME>
+          <VERSION>1</VERSION>
+          <TYPE>Temperature</TYPE> <!-- Assuming heating after infusion -->
+          <STEP_TEMP>63</STEP_TEMP>
+          <STEP_TIME>45</STEP_TIME>
+        </MASH_STEP>
+        <MASH_STEP>
+          <NAME>Alpha Amylase</NAME>
+          <VERSION>1</VERSION>
+          <TYPE>Temperature</TYPE>
+          <STEP_TEMP>72</STEP_TEMP>
+          <STEP_TIME>15</STEP_TIME>
+        </MASH_STEP>
+        <MASH_STEP>
+          <NAME>Mash Out</NAME>
+          <VERSION>1</VERSION>
+          <TYPE>Temperature</TYPE>
+          <STEP_TEMP>78</STEP_TEMP>
+          <STEP_TIME>10</STEP_TIME>
+        </MASH_STEP>
+      </MASH_STEPS>
+    </MASH>
+  </RECIPE>
+</RECIPES>
