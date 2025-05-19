@@ -9,7 +9,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { Home, UploadCloud, FilePlus2, Tags, CalculatorIcon as CalculatorLucideIcon } from 'lucide-react'; 
+import { Home, UploadCloud, FilePlus2, Tags, CalculatorIcon as CalculatorLucideIcon, BeerIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from "@/hooks/use-toast";
 import { usePathname, useRouter } from 'next/navigation';
@@ -116,8 +116,9 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-2">
-        <Link href="/" className="flex items-center gap-2 text-lg font-semibold text-sidebar-primary hover:text-sidebar-primary/90 transition-colors px-2 py-1">
-          <span>GitBrew Menu</span>
+        <Link href="/" className="flex items-center gap-2 text-xl font-semibold text-sidebar-primary hover:text-sidebar-primary/90 transition-colors px-2 py-1">
+          <BeerIcon className="h-7 w-7" />
+          <span>GitBrew</span>
         </Link>
       </SidebarHeader>
       <SidebarContent className="p-2">
