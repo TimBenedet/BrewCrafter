@@ -3,40 +3,40 @@
 @tailwind utilities;
 
 body {
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
 }
 
 @layer base {
   :root {
-    --background: 210 60% 97%; /* Very light cool blue-gray */
-    --foreground: 210 25% 20%; /* Dark desaturated blue */
+    --background: 37 40% 97%; /* Light tan (Paper) */
+    --foreground: 37 65% 20%; /* Darker amber/brown for text */
 
-    --card: 0 0% 100%; /* White */
-    --card-foreground: 210 25% 20%; /* Dark desaturated blue for card text */
+    --card: 0 0% 100%; /* White for cards, or a very light tint of tan */
+    --card-foreground: 37 65% 20%; 
 
     --popover: 0 0% 100%;
-    --popover-foreground: 210 25% 20%;
+    --popover-foreground: 37 65% 20%;
 
-    --primary: 210 100% 50%; /* #017aff */
+    --primary: 209 100% 50%; /* Electric Blue #007afe */
     --primary-foreground: 0 0% 100%; /* White */
 
-    --secondary: 210 95% 80%; /* Lighter blue */
-    --secondary-foreground: 210 100% 25%; /* Darker blue for text on light blue */
+    --secondary: 37 100% 85%; /* Lighter amber for secondary elements */
+    --secondary-foreground: 37 65% 25%; /* Darker amber for text on light amber */
 
-    --muted: 210 40% 93%; /* Light cool gray */
-    --muted-foreground: 210 20% 45%; /* Medium cool gray */
+    --muted: 37 30% 93%; /* Light tan-gray */
+    --muted-foreground: 37 25% 45%; /* Medium tan-gray */
 
-    --accent: 210 90% 60%; /* A slightly lighter/brighter blue than primary */
+    --accent: 30 80% 56%; /* Russet for CTAs */
     --accent-foreground: 0 0% 100%; /* White */
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 210 30% 88%; /* Light cool gray border */
-    --input: 210 35% 95%; /* Very light cool gray for input backgrounds */
-    --ring: 210 100% 50%; /* Primary blue for focus rings */
+    --border: 37 30% 88%; /* Light tan-gray border */
+    --input: 37 35% 95%; /* Very light tan-gray for input backgrounds */
+    --ring: 209 100% 50%; /* Electric Blue for focus rings */
 
-    --chart-1: 210 100% 55%;
+    --chart-1: 209 100% 55%;
     --chart-2: 190 80% 50%;
     --chart-3: 230 70% 60%;
     --chart-4: 200 90% 65%;
@@ -44,61 +44,60 @@ body {
     --radius: 0.5rem;
 
     /* Sidebar specific colors */
-    --sidebar-background: 210 50% 96%; /* Slightly off-white blue */
-    --sidebar-foreground: 210 25% 15%; /* Dark blue for text */
-    --sidebar-primary: 210 100% 50%; /* Main primary blue */
+    --sidebar-background: 37 50% 96%; /* Slightly off-white tan */
+    --sidebar-foreground: 37 65% 15%; /* Dark amber/brown for text */
+    --sidebar-primary: 209 100% 50%; /* Main primary blue */
     --sidebar-primary-foreground: 0 0% 100%; /* White */
-    --sidebar-accent: 210 80% 88%; /* Lighter blue for active/hover */
-    --sidebar-accent-foreground: 210 100% 30%; /* Darker blue for text on accent */
-    --sidebar-border: 210 30% 85%;
-    --sidebar-ring: 210 100% 50%;
+    --sidebar-accent: 37 80% 88%; /* Lighter tan for active/hover */
+    --sidebar-accent-foreground: 37 100% 30%; /* Darker amber for text on accent */
+    --sidebar-border: 37 30% 85%;
+    --sidebar-ring: 209 100% 50%;
   }
 
   .dark {
-    /* Keeping the existing dark theme structure, adjusted for a blue tone */
-    --background: 210 20% 10%; /* Dark deep blue */
-    --foreground: 210 20% 90%; /* Light cool gray */
+    --background: 37 20% 10%; /* Dark deep amber/brown */
+    --foreground: 37 20% 90%; /* Light tan-gray */
 
-    --card: 210 20% 15%; /* Darker blue-gray */
-    --card-foreground: 210 20% 90%;
+    --card: 37 20% 15%; /* Darker amber/brown-gray */
+    --card-foreground: 37 20% 90%;
 
-    --popover: 210 20% 15%;
-    --popover-foreground: 210 20% 90%;
+    --popover: 37 20% 15%;
+    --popover-foreground: 37 20% 90%;
 
-    --primary: 210 100% 55%; /* Brighter blue for dark mode */
-    --primary-foreground: 210 100% 15%; /* Very dark blue for text on primary */
+    --primary: 209 100% 55%; /* Brighter electric blue for dark mode */
+    --primary-foreground: 37 100% 15%; /* Very dark amber/brown for text on primary */
 
-    --secondary: 210 30% 25%; /* Muted dark blue */
-    --secondary-foreground: 210 20% 90%;
+    --secondary: 37 30% 25%; /* Muted dark amber/brown */
+    --secondary-foreground: 37 20% 90%;
 
-    --muted: 210 25% 30%; /* Darker muted blue */
-    --muted-foreground: 210 20% 65%;
+    --muted: 37 25% 30%; /* Darker muted amber/brown */
+    --muted-foreground: 37 20% 65%;
 
-    --accent: 210 90% 65%; /* Brighter accent blue for dark mode */
+    --accent: 30 70% 65%; /* Brighter russet for dark mode */
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 20% 25%;
-    --input: 210 25% 20%;
-    --ring: 210 100% 55%;
+    --border: 37 20% 25%;
+    --input: 37 25% 20%;
+    --ring: 209 100% 55%;
 
-    --chart-1: 210 100% 60%;
+    --chart-1: 209 100% 60%;
     --chart-2: 190 80% 55%;
     --chart-3: 230 70% 65%;
     --chart-4: 200 90% 70%;
     --chart-5: 220 85% 62%;
 
     /* Sidebar specific colors - dark theme */
-    --sidebar-background: 210 20% 12%; /* Darker blue for sidebar */
-    --sidebar-foreground: 210 20% 90%;
-    --sidebar-primary: 210 100% 55%;
-    --sidebar-primary-foreground: 210 100% 15%;
-    --sidebar-accent: 210 30% 22%; /* Muted dark blue for sidebar accent */
-    --sidebar-accent-foreground: 210 20% 90%;
-    --sidebar-border: 210 20% 25%;
-    --sidebar-ring: 210 100% 55%;
+    --sidebar-background: 37 20% 12%; /* Darker amber/brown for sidebar */
+    --sidebar-foreground: 37 20% 90%;
+    --sidebar-primary: 209 100% 55%;
+    --sidebar-primary-foreground: 37 100% 15%;
+    --sidebar-accent: 37 30% 22%; /* Muted dark amber/brown for sidebar accent */
+    --sidebar-accent-foreground: 37 20% 90%;
+    --sidebar-border: 37 20% 25%;
+    --sidebar-ring: 209 100% 55%;
   }
 }
 

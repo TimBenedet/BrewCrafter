@@ -4,6 +4,8 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { revalidatePath } from 'next/cache';
+import { getRecipeDetails } from '@/lib/recipe-utils';
+import type { BeerXMLRecipe } from '@/types/recipe';
 
 const recipesDir = path.join(process.cwd(), 'public', 'Recipes');
 
@@ -16,6 +18,7 @@ interface ActionResult {
   success: boolean;
   count?: number;
   error?: string;
+  recipe?: BeerXMLRecipe | null;
 }
 
 export async function addRecipesAction(recipeFiles: RecipeFile[]): Promise<ActionResult> {
@@ -39,7 +42,8 @@ export async function addRecipesAction(recipeFiles: RecipeFile[]): Promise<Actio
 
     if (filesWritten > 0) {
       revalidatePath('/'); 
-      revalidatePath('/recipes'); 
+      revalidatePath('/recipes');
+      revalidatePath('/label'); 
     }
     
     return { success: true, count: filesWritten };
@@ -53,12 +57,10 @@ export async function addRecipesAction(recipeFiles: RecipeFile[]): Promise<Actio
 export async function deleteRecipeAction(recipeSlug: string): Promise<ActionResult> {
   try {
     if (!recipeSlug || typeof recipeSlug !== 'string' || recipeSlug.includes('..')) {
-        // Basic validation to prevent path traversal or invalid slugs
         return { success: false, error: 'Invalid recipe slug provided.' };
     }
 
     const fileName = `${recipeSlug}.xml`;
-    // Sanitize filename again to be absolutely sure
     const safeFileName = path.basename(fileName); 
     
     if (!safeFileName.endsWith('.xml')) {
@@ -67,7 +69,6 @@ export async function deleteRecipeAction(recipeSlug: string): Promise<ActionResu
 
     const filePath = path.join(recipesDir, safeFileName);
 
-    // Optional: Check if file exists before attempting to delete, fs.unlink will error if not found anyway
     try {
         await fs.access(filePath);
     } catch (e) {
@@ -78,14 +79,28 @@ export async function deleteRecipeAction(recipeSlug: string): Promise<ActionResu
     await fs.unlink(filePath);
     console.log(`Recipe file ${safeFileName} deleted successfully.`);
 
-    revalidatePath('/'); // Revalidate the homepage
-    revalidatePath('/recipes'); // Revalidate generic recipe paths
-    revalidatePath(`/recipes/${recipeSlug}`); // Revalidate the specific recipe path, though it's now deleted
+    revalidatePath('/');
+    revalidatePath('/recipes'); 
+    revalidatePath(`/recipes/${recipeSlug}`);
+    revalidatePath('/label');
 
     return { success: true };
 
   } catch (error) {
     console.error('Error deleting recipe file:', error);
     return { success: false, error: (error as Error).message || 'Failed to delete recipe.' };
+  }
+}
+
+export async function getRecipeDetailsAction(slug: string): Promise<ActionResult> {
+  try {
+    const recipe = await getRecipeDetails(slug);
+    if (!recipe) {
+      return { success: false, error: 'Recipe not found.' };
+    }
+    return { success: true, recipe };
+  } catch (error) {
+    console.error(`Error fetching details for recipe ${slug}:`, error);
+    return { success: false, error: (error as Error).message || 'Failed to fetch recipe details.' };
   }
 }
