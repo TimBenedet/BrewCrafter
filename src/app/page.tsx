@@ -96,7 +96,7 @@ export default function HomePage() {
          <Button asChild variant="outline">
           <Link href="/recipes/new">
             <PlusCircle className="mr-2 h-4 w-4" />
-            Nouvelle recette
+            New recipe
           </Link>
         </Button>
       </div>
