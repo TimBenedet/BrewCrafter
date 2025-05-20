@@ -182,15 +182,12 @@ export default function HomePage() {
 
     const owner = match[1];
     const repo = match[2];
-    // For now, we assume recipes are in a root "Recipes" folder.
-    // A more advanced version could parse path from match[4] or allow user input.
     const basePath = "Recipes"; 
 
     setIsGitHubImportLoading(true);
     toast({ title: "Importation GitHub en cours...", description: "Récupération des recettes..." });
 
     try {
-      // 1. Get contents of the /Recipes directory
       const recipesDirUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${basePath}`;
       const recipesDirResponse = await fetch(recipesDirUrl);
       if (!recipesDirResponse.ok) {
@@ -208,39 +205,35 @@ export default function HomePage() {
       const recipeFilesToImport: RecipeFile[] = [];
 
       for (const folder of recipeFolders) {
-        // 2. For each recipe folder, get its contents
         const recipeFolderUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${folder.path}`;
         const recipeFolderResponse = await fetch(recipeFolderUrl);
         if (!recipeFolderResponse.ok) {
           console.warn(`Impossible de récupérer le contenu du dossier ${folder.path}. Statut: ${recipeFolderResponse.status}`);
-          continue; // Skip this recipe folder
+          continue; 
         }
         const recipeFolderItems: any[] = await recipeFolderResponse.json();
         
-        // 3. Find 'recipe.xml'
-        const xmlFileItem = recipeFolderItems.find(item => item.name === 'recipe.xml' && item.type === 'file' && item.download_url);
+        const xmlFileItem = recipeFolderItems.find(item => item.name.toLowerCase() === 'recette.xml' && item.type === 'file' && item.download_url);
         
         if (xmlFileItem) {
-          // 4. Fetch the content of recipe.xml
           const xmlFileResponse = await fetch(xmlFileItem.download_url);
           if (!xmlFileResponse.ok) {
             console.warn(`Impossible de télécharger ${xmlFileItem.path}. Statut: ${xmlFileResponse.status}`);
-            continue; // Skip this file
+            continue; 
           }
           const xmlContent = await xmlFileResponse.text();
           recipeFilesToImport.push({ fileName: `${folder.name}.xml`, content: xmlContent }); 
         } else {
-          console.warn(`Aucun fichier recipe.xml trouvé dans ${folder.path}`);
+          console.warn(`Aucun fichier Recette.xml trouvé dans ${folder.path}`);
         }
       }
 
       if (recipeFilesToImport.length === 0) {
-        toast({ title: "Aucun fichier recipe.xml valide", description: "Aucun fichier recipe.xml n'a pu être récupéré des sous-dossiers.", variant: "default" });
+        toast({ title: "Aucun fichier Recette.xml valide", description: "Aucun fichier Recette.xml n'a pu être récupéré des sous-dossiers.", variant: "default" });
         setIsGitHubImportLoading(false);
         return;
       }
 
-      // 5. Call addRecipesAction
       const result = await addRecipesAction(recipeFilesToImport);
       if (result.success) {
         toast({
@@ -343,7 +336,7 @@ export default function HomePage() {
                       <DialogHeader>
                         <DialogTitle>Importer depuis GitHub</DialogTitle>
                         <DialogDescription>
-                          Entrez l'URL complète du dépôt GitHub public (ex: https://github.com/owner/repo). Les recettes doivent être dans un dossier nommé &quot;Recipes&quot; à la racine, avec chaque recette dans son propre sous-dossier contenant un fichier `recipe.xml`.
+                          Entrez l'URL complète du dépôt GitHub public (ex: https://github.com/owner/repo). Les recettes doivent être dans un dossier nommé &quot;Recipes&quot; à la racine, avec chaque recette dans son propre sous-dossier (ex: `Ma_Recette`). Chaque sous-dossier doit contenir un fichier BeerXML (par exemple, `Recette.xml`).
                         </DialogDescription>
                       </DialogHeader>
                       <div className="grid gap-4 py-4">
@@ -416,9 +409,9 @@ export default function HomePage() {
                   <Cloud className="mr-2 h-4 w-4" /> Google Drive
                 </Button>
                 <Dialog open={isGitHubImportDialogOpen} onOpenChange={(open) => {
-                    if (!open && isGitHubImportLoading) return; // Prevent closing while loading
+                    if (!open && isGitHubImportLoading) return; 
                     setIsGitHubImportDialogOpen(open);
-                    if (open) setIsAddRecipeDialogOpen(false); // Close the outer dialog
+                    if (open) setIsAddRecipeDialogOpen(false); 
                   }}>
                   <DialogTrigger asChild>
                      <Button variant="outline" className="w-full">
@@ -429,7 +422,7 @@ export default function HomePage() {
                     <DialogHeader>
                       <DialogTitle>Importer depuis GitHub</DialogTitle>
                       <DialogDescription>
-                        Entrez l'URL complète du dépôt GitHub public (ex: https://github.com/owner/repo). Les recettes doivent être dans un dossier nommé &quot;Recipes&quot; à la racine, avec chaque recette dans son propre sous-dossier contenant un fichier `recipe.xml`.
+                        Entrez l'URL complète du dépôt GitHub public (ex: https://github.com/owner/repo). Les recettes doivent être dans un dossier nommé &quot;Recipes&quot; à la racine, avec chaque recette dans son propre sous-dossier (ex: `Ma_Recette`). Chaque sous-dossier doit contenir un fichier BeerXML (par exemple, `Recette.xml`).
                       </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -467,7 +460,7 @@ export default function HomePage() {
           </Button>
 
         {(uniqueStyles.length > 0 || recipes.length > 0) && (
-          <div className="flex items-center gap-2 ml-auto"> {/* ml-auto pushes this group to the right */}
+          <div className="flex items-center gap-2 ml-auto"> 
             {uniqueStyles.length > 0 && (
               <Select value={selectedStyle} onValueChange={setSelectedStyle}>
                 <SelectTrigger
