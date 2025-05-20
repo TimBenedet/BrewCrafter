@@ -28,6 +28,8 @@ import { SaveIcon, PlusCircleIcon, Trash2Icon, InfoIcon, ListChecksIcon, Wheat, 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useEffect } from 'react';
+import { addRecipesAction } from '@/app/actions/recipe-actions'; // Import server action
+import { useRouter } from 'next/navigation'; // Import useRouter
 
 // Sub-schemas for array elements
 const fermentableSchema = z.object({
@@ -83,7 +85,6 @@ const recipeFormSchema = z.object({
   efficiency: z.coerce.number().min(0).max(100).optional(),
   notes: z.string().optional(),
 
-  // Target Stats moved to their own section in UI, but remain top-level in schema for now
   og: z.coerce.number().min(0).optional(),
   fg: z.coerce.number().min(0).optional(),
   abv: z.coerce.number().min(0).optional(),
@@ -182,7 +183,6 @@ function generateBeerXml(data: RecipeFormValues): string {
   if (data.style.category) xml += `      <CATEGORY>${sanitizeForXml(data.style.category)}</CATEGORY>\n`;
   if (data.style.styleGuide) xml += `      <STYLE_GUIDE>${sanitizeForXml(data.style.styleGuide)}</STYLE_GUIDE>\n`;
   xml += `      <TYPE>${sanitizeForXml(data.style.type)}</TYPE>\n`;
-  // Removed categoryNumber, styleLetter, and style ranges (ogMin/Max etc.)
   xml += `    </STYLE>\n`;
 
   xml += `    <FERMENTABLES>\n`;
@@ -328,6 +328,7 @@ export function RecipeForm() {
     defaultValues,
     mode: 'onChange', 
   });
+  const router = useRouter();
 
   const { fields: fermentableFields, append: appendFermentable, remove: removeFermentable } = useFieldArray({
     control: form.control,
@@ -364,6 +365,8 @@ export function RecipeForm() {
     if (abv !== undefined) {
       form.setValue('abv', parseFloat(abv.toFixed(2)), { shouldValidate: true });
     } else {
+      // Explicitly set to an empty string or a default numeric value if the calculation fails
+      // to avoid 'undefined' which can cause uncontrolled to controlled input warnings.
       form.setValue('abv', 0, { shouldValidate: true });
     }
   }, [watchedOg, watchedFg, form]);
@@ -379,24 +382,29 @@ export function RecipeForm() {
   }, [watchedOg, watchedBoilSize, watchedHops, form]);
 
 
-  function onSubmit(data: RecipeFormValues) {
+  async function onSubmit(data: RecipeFormValues) {
     const xmlData = generateBeerXml(data);
-    const blob = new Blob([xmlData], { type: 'application/xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const fileNameBase = data.name || 'nouvelle-recette';
-    const sanitizedFileName = fileNameBase.replace(/[^a-z0-9À-ÿ_.-]/gi, '_').replace(/\.$/, '');
-    a.download = `${sanitizedFileName}.xml`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    toast({
-      title: "Recette générée !",
-      description: `Le fichier ${sanitizedFileName}.xml a été téléchargé.`,
-    });
+    
+    try {
+      const result = await addRecipesAction([{ fileName: data.name + ".xml", content: xmlData }]);
+      if (result.success) {
+        toast({
+          title: "Recette enregistrée !",
+          description: `La recette "${data.name}" a été enregistrée avec succès.`,
+        });
+        router.push('/');
+        router.refresh(); 
+      } else {
+        throw new Error(result.error || "Erreur lors de l'enregistrement de la recette.");
+      }
+    } catch (error) {
+      console.error("Error saving recipe:", error);
+      toast({
+        title: "Échec de l'enregistrement",
+        description: (error as Error).message || "Un problème est survenu lors de l'enregistrement de la recette.",
+        variant: "destructive",
+      });
+    }
   }
 
   return (
@@ -958,7 +966,7 @@ export function RecipeForm() {
 
         <Button type="submit" size="lg" className="w-full md:w-auto">
           <SaveIcon className="mr-2 h-5 w-5" />
-          Enregistrer et Télécharger la Recette (.xml)
+          Créer et Enregistrer la Recette
         </Button>
       </form>
     </Form>
