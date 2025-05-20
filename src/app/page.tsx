@@ -6,27 +6,12 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
 import type { RecipeSummary } from '@/types/recipe';
-import { FileWarning, FilterIcon, AlertTriangle, RefreshCw, PlusCircle, UploadCloud, Server } from 'lucide-react';
+import { FileWarning, FilterIcon, AlertTriangle, RefreshCw, PlusCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { addRecipesAction } from '@/app/actions/recipe-actions';
 
 export default function HomePage() {
   const [recipes, setRecipes] = useState<RecipeSummary[]>([]);
@@ -34,8 +19,6 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
   const { toast } = useToast();
   const router = useRouter();
 
@@ -149,12 +132,11 @@ export default function HomePage() {
       <div className="space-y-4">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-                {/* Placeholder for New Recipe button - adjusted width */}
-                <div className="animate-pulse h-10 w-36 bg-muted rounded-md"></div> 
+                 <div className="animate-pulse h-10 w-36 bg-muted rounded-md"></div> 
             </div>
             <div className="flex items-center gap-2">
-                <div className="animate-pulse h-10 w-[220px] bg-muted rounded-md"></div> {/* Placeholder for filter */}
-                <div className="animate-pulse h-10 w-10 bg-muted rounded-md"></div> {/* Placeholder for Refresh button */}
+                <div className="animate-pulse h-10 w-[220px] bg-muted rounded-md"></div> 
+                <div className="animate-pulse h-10 w-10 bg-muted rounded-md"></div>
             </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -212,7 +194,6 @@ export default function HomePage() {
 
       {!isLoading && recipes.length === 0 && !error && (
         <div className="flex flex-col items-center justify-center text-center py-10">
-          {/* renderTopBar() is already rendered above */}
           <FileWarning className="w-16 h-16 text-muted-foreground mb-4 mt-6" />
           <h2 className="text-2xl font-semibold mb-2">Aucune recette trouvée</h2>
           <p className="text-muted-foreground">
