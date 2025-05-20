@@ -5,11 +5,11 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
 import type { RecipeSummary } from '@/types/recipe';
-import { FileWarning, FilterIcon, AlertTriangle, RefreshCw, UploadCloud, FilePlus2, HardDriveIcon } from 'lucide-react';
+import { FileWarning, FilterIcon, AlertTriangle, RefreshCw, FilePlus2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Input } from '@/components/ui/input'; // Keep for GitHub import dialog
 import { useToast } from '@/hooks/use-toast';
 import { addRecipesAction } from '@/app/actions/recipe-actions';
 import {
@@ -53,9 +53,6 @@ export default function HomePage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isAddRecipeDialogOpen, setIsAddRecipeDialogOpen] = useState(false);
-
   const [isGitHubImportDialogOpen, setIsGitHubImportDialogOpen] = useState(false);
   const [githubRepoUrl, setGithubRepoUrl] = useState('');
   const [isGitHubLoading, setIsGitHubLoading] = useState(false);
@@ -64,13 +61,22 @@ export default function HomePage() {
   const loadRecipes = useCallback(async (showToast = false) => {
     setIsLoading(true);
     setError(null);
+    console.log("HomePage: Initiating loadRecipes...");
     try {
       const response = await fetch('/api/recipes/summaries');
+      console.log("HomePage: Fetch response status:", response.status);
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
+        let errorData = { error: `Failed to fetch recipes: ${response.statusText}` };
+        try {
+            errorData = await response.json();
+        } catch (parseError) {
+            console.error("HomePage: Failed to parse error response from API:", parseError);
+        }
+        console.error("HomePage: API error response data:", errorData);
         throw new Error(errorData.error || `Failed to fetch recipes: ${response.statusText}`);
       }
       const fetchedRecipes: RecipeSummary[] = await response.json();
+      console.log("HomePage: Fetched recipes count:", fetchedRecipes.length);
       setRecipes(fetchedRecipes);
       if (showToast) {
         toast({
@@ -79,10 +85,9 @@ export default function HomePage() {
         });
       }
     } catch (e) {
-      console.error("Error loading recipes:", e);
       const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while loading recipes.";
+      console.error("HomePage: Error in loadRecipes:", errorMessage, e);
       setError(errorMessage);
-      // Only show toast if it's a refresh action, not initial load
       if (showToast) {
         toast({
           title: 'Erreur de chargement',
@@ -92,6 +97,7 @@ export default function HomePage() {
       }
     } finally {
       setIsLoading(false);
+      console.log("HomePage: loadRecipes finished.");
     }
   }, [toast]);
 
@@ -118,100 +124,76 @@ export default function HomePage() {
     return recipes.filter(recipe => recipe.styleName === selectedStyle);
   }, [recipes, selectedStyle]);
 
-  const handleFilesSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    setIsAddRecipeDialogOpen(false);
-    const files = event.target.files;
-    if (!files || files.length === 0) {
-      toast({ title: "Aucun fichier sélectionné", description: "Veuillez sélectionner un ou plusieurs fichiers BeerXML.", variant: "destructive" });
-      return;
-    }
-
-    const recipeFilesToImport: RecipeFile[] = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (!file.name.toLowerCase().endsWith('.xml')) {
-        toast({ title: "Format de fichier invalide", description: `Le fichier "${file.name}" n'est pas un .xml et a été ignoré.`, variant: "destructive" });
-        continue;
-      }
-      try {
-        const content = await file.text();
-        recipeFilesToImport.push({ fileName: file.name, content });
-      } catch (error) {
-        console.error("Error reading file:", file.name, error);
-        toast({
-          title: "Erreur de lecture de fichier",
-          description: `Impossible de lire le contenu du fichier "${file.name}".`,
-          variant: "destructive",
-        });
-      }
-    }
-
-    if (recipeFilesToImport.length > 0) {
-      const result = await addRecipesAction(recipeFilesToImport);
-      if (result.success) {
-        toast({
-          title: `${result.count} recette(s) importée(s) !`,
-          description: `Les fichiers BeerXML ont été importés avec succès. (Note: La sauvegarde sur Vercel nécessite une configuration Blob adaptée)`,
-        });
-        loadRecipes(true);
-        router.refresh();
-      } else {
-        toast({
-          title: "Échec de l'importation",
-          description: result.error || "Un problème est survenu lors de l'importation des recettes.",
-          variant: "destructive",
-        });
-      }
-    } else if (files.length > 0) {
-        toast({ title: "Aucun fichier XML valide", description: "Aucun fichier XML valide n'a été trouvé pour l'importation.", variant: "default" });
-    }
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const selectFileFromComputer = () => {
-     if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
 
   const handleGitHubImport = async () => {
-    if (!githubRepoUrl.match(/^https:\/\/github\.com\/[^/]+\/[^/]+$/)) {
+    if (!githubRepoUrl.match(/^https:\/\/github\.com\/[^/]+\/[^/]+(\/tree\/[^/]+)?(\/)?$/i)) {
       toast({ title: "URL Invalide", description: "Veuillez entrer une URL de dépôt GitHub valide (ex: https://github.com/owner/repo).", variant: "destructive" });
       return;
     }
     setIsGitHubLoading(true);
-    const [owner, repo] = githubRepoUrl.replace('https://github.com/', '').split('/');
+    const urlParts = githubRepoUrl.replace(/^https:\/\/github\.com\//i, '').split('/');
+    const owner = urlParts[0];
+    const repo = urlParts[1];
+    let repoPath = 'Recipes'; // Default path within the repo
+    let branch = ''; // Will be fetched
+
+    // Check for /tree/branch/path structure
+    const treeIndex = urlParts.findIndex(part => part.toLowerCase() === 'tree');
+    if (treeIndex !== -1 && treeIndex + 1 < urlParts.length) {
+        branch = urlParts[treeIndex + 1];
+        if (treeIndex + 2 < urlParts.length) {
+            repoPath = urlParts.slice(treeIndex + 2).join('/').replace(/\/$/, ''); // Get path after /tree/branch/ and remove trailing slash
+        } else {
+          // If no path after branch, assume root for tree API but we are interested in 'Recipes' anyway
+        }
+    }
+    
+    console.log(`Importing from GitHub: owner=${owner}, repo=${repo}, branch=${branch || 'default'}, path=${repoPath}`);
 
     try {
-      // 1. Get default branch
-      const repoInfoResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
-      if (!repoInfoResponse.ok) {
-        throw new Error(`Dépôt GitHub non trouvé ou inaccessible: ${repoInfoResponse.statusText}`);
+      // 1. Get default branch if not specified
+      if (!branch) {
+        const repoInfoResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
+        if (!repoInfoResponse.ok) {
+          throw new Error(`Dépôt GitHub non trouvé ou inaccessible: ${repoInfoResponse.statusText}`);
+        }
+        const repoInfo = await repoInfoResponse.json();
+        branch = repoInfo.default_branch;
+        console.log(`Default branch fetched: ${branch}`);
       }
-      const repoInfo = await repoInfoResponse.json();
-      const defaultBranch = repoInfo.default_branch;
 
-      // 2. Get tree for Recipes directory recursively
-      const treeResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${defaultBranch}?recursive=1`);
-      if (!treeResponse.ok) throw new Error(`Impossible de lire l'arborescence du dépôt: ${treeResponse.statusText}`);
+      // 2. Get tree for the specified path (e.g., 'Recipes') recursively
+      const treeResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`);
+      if (!treeResponse.ok) throw new Error(`Impossible de lire l'arborescence du dépôt (branche: ${branch}): ${treeResponse.statusText}`);
       const treeData = await treeResponse.json();
 
-      if (!treeData.tree || treeData.truncated) {
-        throw new Error("L'arborescence du dépôt est trop grande ou inaccessible.");
+      if (!treeData.tree) {
+        throw new Error("L'arborescence du dépôt est vide ou inaccessible.");
+      }
+      if (treeData.truncated) {
+        console.warn("GitHub tree data was truncated. Some files might be missing.");
       }
 
-      const xmlFilesToFetch: { path: string; url: string }[] = [];
+      const xmlFilesToFetch: { path: string; url: string, name: string }[] = [];
       for (const item of treeData.tree) {
-        if (item.type === 'blob' && item.path.toLowerCase().startsWith('recipes/') && item.path.toLowerCase().endsWith('.xml')) {
-          xmlFilesToFetch.push({ path: item.path, url: item.url });
+        // Ensure item.path is relative to the repo root. We filter for items within the target repoPath.
+        if (item.type === 'blob' && 
+            item.path.toLowerCase().startsWith(repoPath.toLowerCase() + '/') && 
+            item.path.toLowerCase().endsWith('.xml')) {
+          
+          // Extract the recipe slug (folder name directly under repoPath)
+          // e.g. if repoPath = 'Recipes', item.path = 'Recipes/My-IPA/recipe.xml' -> slug = 'My-IPA'
+          // e.g. if repoPath = 'Beerrecipes/ales', item.path = 'Beerrecipes/ales/My-IPA/recipe.xml' -> slug = 'My-IPA'
+          const relativePath = item.path.substring(repoPath.length + 1); // Path relative to repoPath
+          const slugCandidate = relativePath.split('/')[0]; // First part is the slug folder
+          
+          xmlFilesToFetch.push({ path: item.path, url: item.url, name: slugCandidate || item.path.split('/').pop() || 'recette.xml' });
+          console.log(`Found XML file to fetch: ${item.path}, using slug candidate: ${slugCandidate}`);
         }
       }
 
       if (xmlFilesToFetch.length === 0) {
-        toast({ title: "Aucune recette trouvée", description: "Aucun fichier .xml trouvé dans le dossier 'Recipes/' du dépôt.", variant: "default" });
+        toast({ title: "Aucune recette trouvée", description: `Aucun fichier .xml trouvé dans le dossier '${repoPath}' du dépôt (branche: ${branch}).`, variant: "default" });
         setIsGitHubLoading(false);
         setIsGitHubImportDialogOpen(false);
         return;
@@ -219,17 +201,16 @@ export default function HomePage() {
 
       const recipeFilesToImport: RecipeFile[] = [];
       for (const fileInfo of xmlFilesToFetch) {
-        // For blobs, fileInfo.url is the API URL to get blob details, not direct content
-        const blobDetailResponse = await fetch(fileInfo.url); // This URL gives blob metadata including content or download_url
+        const blobDetailResponse = await fetch(fileInfo.url); 
         if (!blobDetailResponse.ok) {
           console.warn(`Impossible de récupérer les détails du blob ${fileInfo.path}: ${blobDetailResponse.statusText}`);
           continue;
         }
         const blobDetail = await blobDetailResponse.json();
         let content = '';
-        if (blobDetail.content) { // Content is base64 encoded
+        if (blobDetail.encoding === 'base64' && blobDetail.content) {
            content = b64DecodeUnicode(blobDetail.content);
-        } else if (blobDetail.download_url) { // Fallback if content is not directly in blobDetail (should not happen for small files)
+        } else if (blobDetail.download_url) { 
           const contentResponse = await fetch(blobDetail.download_url);
           if (contentResponse.ok) {
             content = await contentResponse.text();
@@ -238,41 +219,34 @@ export default function HomePage() {
             continue;
           }
         } else {
-            console.warn(`Aucun contenu ou download_url pour ${fileInfo.path}`);
-            continue;
+            // Try fetching directly if content is not base64 (e.g. for smaller files it might be plain text)
+            const directContentResponse = await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${fileInfo.path}`);
+            if (directContentResponse.ok) {
+                content = await directContentResponse.text();
+            } else {
+                console.warn(`Aucun contenu ou download_url pour ${fileInfo.path}, et direct fetch échoué.`);
+                continue;
+            }
         }
         
-        const fileName = fileInfo.path.split('/').pop() || 'recette.xml'; // Use actual filename
-        recipeFilesToImport.push({ fileName, content });
+        // Use the original XML filename for the RecipeFile object sent to addRecipesAction
+        // addRecipesAction will derive the slug from the <NAME> tag in the XML content
+        const originalFileName = fileInfo.path.split('/').pop() || 'recette_importee.xml';
+        recipeFilesToImport.push({ fileName: originalFileName, content });
+        console.log(`Prepared to import: ${originalFileName}`);
       }
       
       if (recipeFilesToImport.length > 0) {
-         // On Vercel, this won't write to filesystem. We will add to local state.
-        const isVercel = process.env.VERCEL === "1";
-        if (isVercel || true) { // Forcing this path for now for consistency
-            const newSummaries = recipeFilesToImport.map(rf => {
-                const slug = rf.fileName.replace(/\.xml$/i, '').toLowerCase().replace(/\s+/g, '-');
-                return parseXmlToRecipeSummary(rf.content, slug);
-            }).filter(Boolean) as RecipeSummary[];
-
-            setRecipes(prev => [...prev, ...newSummaries]);
+        const result = await addRecipesAction(recipeFilesToImport);
+        if (result.success) {
             toast({
-                title: `${newSummaries.length} recette(s) chargée(s) depuis GitHub`,
-                description: "Ces recettes sont disponibles pour cette session. Elles ne sont pas sauvegardées de manière permanente sur cette version déployée.",
+                title: `${result.count} recette(s) importée(s) depuis GitHub!`,
+                description: `Les fichiers BeerXML ont été importés et sauvegardés.`,
             });
+            loadRecipes(true); // Refresh the list from the backend (Vercel Blob)
+            router.refresh(); // Force refresh to ensure UI consistency
         } else {
-            // This path is for local dev if we ever re-enable direct writing
-            // const result = await addRecipesAction(recipeFilesToImport);
-            // if (result.success) {
-            //     toast({
-            //         title: `${result.count} recette(s) importée(s) depuis GitHub!`,
-            //         description: `Les fichiers BeerXML ont été importés.`,
-            //     });
-            //     loadRecipes(true);
-            //     router.refresh();
-            // } else {
-            //     throw new Error(result.error || "Échec de l'importation des recettes GitHub.");
-            // }
+            throw new Error(result.error || "Échec de l'importation des recettes GitHub.");
         }
       } else {
         toast({ title: "Aucune recette valide", description: "Aucun fichier XML valide n'a pu être traité depuis le dépôt GitHub.", variant: "default" });
@@ -291,43 +265,44 @@ export default function HomePage() {
 
   const renderTopBar = () => (
     <div className="mb-6 flex flex-wrap items-center justify-start gap-2">
-      <AlertDialog open={isAddRecipeDialogOpen} onOpenChange={setIsAddRecipeDialogOpen}>
-        <AlertDialogTrigger asChild>
+      <Dialog open={isGitHubImportDialogOpen} onOpenChange={setIsGitHubImportDialogOpen}>
+        <DialogTrigger asChild>
           <Button variant="outline">
-            <UploadCloud className="mr-2 h-4 w-4" /> Importer une recette
+             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="mr-2 bi bi-github" viewBox="0 0 16 16">
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/>
+            </svg>
+            Importer depuis GitHub
           </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Source d'importation</AlertDialogTitle>
-            <AlertDialogDescription>
-              Choisissez d'où importer votre fichier de recette BeerXML.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="flex flex-col space-y-2 pt-4">
-            <Button onClick={() => { selectFileFromComputer(); setIsAddRecipeDialogOpen(false); }} className="w-full justify-start">
-              <HardDriveIcon className="mr-2 h-4 w-4" /> Mon ordinateur
-            </Button>
-            {/* Placeholder for future Google Drive integration
-            <Button variant="outline" onClick={() => { toast({ title: "Google Drive à venir", description: "L'intégration est prévue."}); setIsAddRecipeDialogOpen(false); }} className="w-full justify-start">
-              <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M19.36 10.04C18.67 6.59 15.64 4 12 4C9.11 4 6.6 5.64 5.35 8.04C2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5c0-2.64-2.05-4.78-4.64-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
-              Google Drive
-            </Button>
-            */}
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[525px]">
+          <DialogHeader>
+            <DialogTitle>Importer des Recettes depuis GitHub</DialogTitle>
+            <DialogDescription>
+              Entrez l'URL d'un dépôt GitHub public (ex: https://github.com/owner/repo).
+              L'application cherchera des fichiers .xml dans le dossier `Recipes/` (et ses sous-dossiers) à la racine de la branche par défaut.
+              Vous pouvez aussi spécifier une branche et un chemin : https://github.com/owner/repo/tree/branch_name/chemin_vers_dossier_recipes
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Input
+              id="github-url"
+              placeholder="https://github.com/votre_nom/vos_recettes"
+              value={githubRepoUrl}
+              onChange={(e) => setGithubRepoUrl(e.target.value)}
+              disabled={isGitHubLoading}
+            />
           </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="w-full mt-2 sm:mt-0">Annuler</AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      <input
-        type="file"
-        ref={fileInputRef}
-        className="hidden"
-        accept=".xml"
-        multiple
-        onChange={handleFilesSelected}
-      />
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={isGitHubLoading}>Annuler</Button>
+            </DialogClose>
+            <Button type="button" onClick={handleGitHubImport} disabled={isGitHubLoading}>
+              {isGitHubLoading ? "Chargement..." : "Charger les recettes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
       <Button variant="outline" asChild>
         <Link href="/recipes/new">
           <FilePlus2 className="mr-2 h-4 w-4" /> Nouvelle recette
@@ -335,7 +310,7 @@ export default function HomePage() {
       </Button>
 
       <div className="flex items-center gap-2 ml-auto">
-        {uniqueStyles.length > 0 && (
+        {(uniqueStyles.length > 0 || recipes.length > 0) && (
           <Select value={selectedStyle} onValueChange={setSelectedStyle}>
             <SelectTrigger
               id="style-filter"
@@ -365,7 +340,8 @@ export default function HomePage() {
       <div className="space-y-4">
         <div className="flex justify-between items-center gap-2 mb-6">
           <div className="flex items-center gap-2">
-            <div className="animate-pulse h-10 w-[180px] bg-muted rounded-md"></div>
+            {/* Placeholders for buttons */}
+            <div className="animate-pulse h-10 w-[200px] bg-muted rounded-md"></div>
             <div className="animate-pulse h-10 w-[150px] bg-muted rounded-md"></div>
           </div>
           <div className="flex items-center gap-2 ml-auto">
@@ -409,7 +385,7 @@ export default function HomePage() {
     <div className="space-y-4">
       {renderTopBar()}
       
-      {error && recipes.length > 0 && ( // Display error inline if recipes were previously loaded
+      {error && recipes.length > 0 && ( 
          <div className="mb-4 p-4 border border-destructive/50 bg-destructive/10 text-destructive rounded-md flex items-start">
            <AlertTriangle className="h-5 w-5 mr-3 mt-0.5 shrink-0" />
            <div>
@@ -419,19 +395,19 @@ export default function HomePage() {
          </div>
       )}
 
-      {isLoading && recipes.length > 0 && ( // Display inline loading if refreshing existing list
+      {isLoading && recipes.length > 0 && (
         <div className="text-center py-4 text-muted-foreground">
           <RefreshCw className="h-6 w-6 animate-spin inline-block mr-2" />
           Chargement des recettes...
         </div>
       )}
 
-      {!isLoading && recipes.length === 0 && !error && ( // Message for no recipes after successful load
+      {!isLoading && recipes.length === 0 && !error && (
         <div className="flex flex-col items-center justify-center text-center py-10">
           <FileWarning className="w-16 h-16 text-muted-foreground mb-4" />
           <h2 className="text-2xl font-semibold mb-2">Aucune recette trouvée</h2>
           <p className="text-muted-foreground">
-            Importez ou créez votre première recette en utilisant les boutons ci-dessus.
+            Importez des recettes depuis GitHub ou créez votre première recette en utilisant les boutons ci-dessus.
           </p>
         </div>
       )}
@@ -443,7 +419,7 @@ export default function HomePage() {
           ))}
         </div>
       ) : (
-        !isLoading && !error && recipes.length > 0 && ( // Message if filters result in no matches
+        !isLoading && !error && recipes.length > 0 && ( 
           <div className="flex flex-col items-center justify-center text-center py-10">
             <FileWarning className="w-16 h-16 text-muted-foreground mb-4" />
             <h2 className="text-2xl font-semibold mb-2">Aucune recette ne correspond</h2>
@@ -456,3 +432,4 @@ export default function HomePage() {
     </div>
   );
 }
+
