@@ -28,8 +28,16 @@ import { useRouter } from 'next/navigation';
 
 
 interface RecipeFile {
-  fileName: string;
+  fileName: string; // This will be the path relative to the "Recipes" folder from GitHub
   content: string;
+}
+
+// Helper to decode base64
+function b64DecodeUnicode(str: string) {
+  // Going backwards: from bytestream, to percent-encoding, to original string.
+  return decodeURIComponent(atob(str).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+  }).join(''));
 }
 
 export default function HomePage() {
@@ -182,54 +190,80 @@ export default function HomePage() {
 
     const owner = match[1];
     const repo = match[2];
-    const basePath = "Recipes"; 
+    const basePath = "Recipes"; // Assuming recipes are in a "Recipes" folder at the root
 
     setIsGitHubImportLoading(true);
     toast({ title: "Importation GitHub en cours...", description: "Récupération des recettes..." });
 
     try {
-      const recipesDirUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${basePath}`;
-      const recipesDirResponse = await fetch(recipesDirUrl);
-      if (!recipesDirResponse.ok) {
-        throw new Error(`Impossible de récupérer le dossier ${basePath} du dépôt. (Statut: ${recipesDirResponse.status})`);
+      // 1. Get the SHA of the basePath directory
+      const baseDirUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${basePath}`;
+      const baseDirResponse = await fetch(baseDirUrl);
+      if (!baseDirResponse.ok) {
+        throw new Error(`Impossible de récupérer le dossier ${basePath} du dépôt. (Statut: ${baseDirResponse.status})`);
       }
-      const recipesDirItems: any[] = await recipesDirResponse.json();
-      const recipeFolders = recipesDirItems.filter(item => item.type === 'dir');
+      const baseDirData = await baseDirResponse.json();
+      if (baseDirData.type !== 'dir') {
+        throw new Error(`Le chemin ${basePath} n'est pas un dossier dans le dépôt.`);
+      }
+      const treeSha = baseDirData.sha;
 
-      if (recipeFolders.length === 0) {
-        toast({ title: "Aucune recette trouvée", description: `Aucun sous-dossier de recette trouvé dans ${basePath}.`, variant: "default" });
+      // 2. Fetch the recursive tree for this directory
+      const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${treeSha}?recursive=1`;
+      const treeResponse = await fetch(treeUrl);
+      if (!treeResponse.ok) {
+        throw new Error(`Impossible de récupérer l'arborescence du dossier ${basePath}. (Statut: ${treeResponse.status})`);
+      }
+      const treeData = await treeResponse.json();
+      
+      const xmlFilePathsInTree = treeData.tree
+        .filter((item: any) => item.type === 'blob' && item.path.toLowerCase().endsWith('.xml'))
+        .map((item: any) => item.path);
+
+      if (xmlFilePathsInTree.length === 0) {
+        toast({ title: "Aucune recette trouvée", description: `Aucun fichier .xml trouvé récursivement dans le dossier ${basePath}.`, variant: "default" });
         setIsGitHubImportLoading(false);
         return;
       }
-
+      
       const recipeFilesToImport: RecipeFile[] = [];
 
-      for (const folder of recipeFolders) {
-        const recipeFolderUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${folder.path}`;
-        const recipeFolderResponse = await fetch(recipeFolderUrl);
-        if (!recipeFolderResponse.ok) {
-          console.warn(`Impossible de récupérer le contenu du dossier ${folder.path}. Statut: ${recipeFolderResponse.status}`);
-          continue; 
-        }
-        const recipeFolderItems: any[] = await recipeFolderResponse.json();
+      for (const relativeXmlPath of xmlFilePathsInTree) {
+        const fullXmlPath = `${basePath}/${relativeXmlPath}`;
+        const fileContentUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${fullXmlPath}`;
         
-        const xmlFileItem = recipeFolderItems.find(item => item.name.toLowerCase().endsWith('.xml') && item.type === 'file' && item.download_url);
-        
-        if (xmlFileItem) {
-          const xmlFileResponse = await fetch(xmlFileItem.download_url);
-          if (!xmlFileResponse.ok) {
-            console.warn(`Impossible de télécharger ${xmlFileItem.path}. Statut: ${xmlFileResponse.status}`);
-            continue; 
+        try {
+          const fileContentResponse = await fetch(fileContentUrl);
+          if (!fileContentResponse.ok) {
+            console.warn(`Impossible de récupérer le contenu de ${fullXmlPath}. Statut: ${fileContentResponse.status}`);
+            continue;
           }
-          const xmlContent = await xmlFileResponse.text();
-          recipeFilesToImport.push({ fileName: `${folder.name}-${xmlFileItem.name}`, content: xmlContent }); 
-        } else {
-          console.warn(`Aucun fichier .xml trouvé dans ${folder.path}`);
+          const fileData = await fileContentResponse.json();
+          let xmlContent = '';
+
+          if (fileData.download_url) {
+            const downloadResponse = await fetch(fileData.download_url);
+            if (!downloadResponse.ok) {
+              console.warn(`Impossible de télécharger ${fileData.download_url}. Statut: ${downloadResponse.status}`);
+              continue;
+            }
+            xmlContent = await downloadResponse.text();
+          } else if (fileData.content && fileData.encoding === 'base64') {
+            xmlContent = b64DecodeUnicode(fileData.content);
+          } else {
+            console.warn(`Contenu non trouvé ou format non supporté pour ${fullXmlPath}`);
+            continue;
+          }
+          
+          recipeFilesToImport.push({ fileName: relativeXmlPath, content: xmlContent });
+        } catch (fileFetchError) {
+            console.error(`Erreur lors de la récupération du fichier ${fullXmlPath}:`, fileFetchError);
         }
       }
 
+
       if (recipeFilesToImport.length === 0) {
-        toast({ title: "Aucun fichier .xml valide", description: "Aucun fichier .xml n'a pu être récupéré des sous-dossiers.", variant: "default" });
+        toast({ title: "Aucun fichier .xml valide", description: "Aucun fichier .xml n'a pu être récupéré.", variant: "default" });
         setIsGitHubImportLoading(false);
         return;
       }
@@ -238,7 +272,7 @@ export default function HomePage() {
       if (result.success) {
         toast({
           title: `Importation GitHub réussie !`,
-          description: `${result.count} recette(s) importée(s) depuis ${repo}.`,
+          description: `${result.count} recette(s) importée(s) depuis ${repo}/${basePath}.`,
         });
         loadRecipes(true);
         router.refresh();
@@ -264,11 +298,15 @@ export default function HomePage() {
   if (isLoading && recipes.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="flex justify-end items-center gap-2 mb-6">
-          <div className="animate-pulse h-10 w-[150px] bg-muted rounded-md"></div>
-          <div className="animate-pulse h-10 w-[150px] bg-muted rounded-md"></div>
-          <div className="animate-pulse h-10 w-[200px] bg-muted rounded-md ml-auto"></div>
-          <div className="animate-pulse h-10 w-10 bg-muted rounded-md"></div>
+        <div className="flex justify-between items-center gap-2 mb-6">
+          <div className="flex items-center gap-2">
+            <div className="animate-pulse h-10 w-[180px] bg-muted rounded-md"></div>
+            <div className="animate-pulse h-10 w-[150px] bg-muted rounded-md"></div>
+          </div>
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="animate-pulse h-10 w-[200px] bg-muted rounded-md"></div>
+            <div className="animate-pulse h-10 w-10 bg-muted rounded-md"></div>
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(3)].map((_, i) => (
@@ -336,7 +374,7 @@ export default function HomePage() {
                       <DialogHeader>
                         <DialogTitle>Importer depuis GitHub</DialogTitle>
                         <DialogDescription>
-                          Entrez l'URL complète du dépôt GitHub public (ex: https://github.com/owner/repo). Les recettes doivent être dans un dossier nommé &quot;Recipes&quot; à la racine, avec chaque recette dans son propre sous-dossier (ex: `Ma_Recette`). Chaque sous-dossier doit contenir un fichier BeerXML (extension `.xml`).
+                          Entrez l'URL complète du dépôt GitHub public (ex: https://github.com/owner/repo). L'outil cherchera récursivement tous les fichiers BeerXML (extension `.xml`) à l'intérieur d'un dossier nommé "Recipes" à la racine du dépôt.
                         </DialogDescription>
                       </DialogHeader>
                       <div className="grid gap-4 py-4">
@@ -422,7 +460,7 @@ export default function HomePage() {
                     <DialogHeader>
                       <DialogTitle>Importer depuis GitHub</DialogTitle>
                       <DialogDescription>
-                        Entrez l'URL complète du dépôt GitHub public (ex: https://github.com/owner/repo). Les recettes doivent être dans un dossier nommé &quot;Recipes&quot; à la racine, avec chaque recette dans son propre sous-dossier (ex: `Ma_Recette`). Chaque sous-dossier doit contenir un fichier BeerXML (extension `.xml`).
+                        Entrez l'URL complète du dépôt GitHub public (ex: https://github.com/owner/repo). L'outil cherchera récursivement tous les fichiers BeerXML (extension `.xml`) à l'intérieur d'un dossier nommé "Recipes" à la racine du dépôt.
                       </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -522,6 +560,6 @@ export default function HomePage() {
     </div>
   );
 }
-
+    
 
     
