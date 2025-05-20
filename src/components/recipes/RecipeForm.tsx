@@ -277,13 +277,18 @@ function calculateAbv(ogInput?: number | string, fgInput?: number | string): num
   return undefined;
 }
 
-// OG must be a valid number >= 1.0
 function getBignessFactor(og: number): number {
+  if (isNaN(og) || og < 1.0) {
+    return NaN; 
+  }
   return 1.65 * Math.pow(0.000125, og - 1.0);
 }
 
-// boilTimeMinutes must be a valid number >= 0
 function getBoilTimeFactor(boilTimeMinutes: number): number {
+  if (isNaN(boilTimeMinutes) || boilTimeMinutes < 0) {
+    return NaN;
+  }
+  if (boilTimeMinutes === 0) return 0;
   return (1.0 - Math.exp(-0.04 * boilTimeMinutes)) / 4.15;
 }
 
@@ -301,28 +306,39 @@ function calculateIbuTinseth(
 
   let totalIbus = 0;
   const bignessFactor = getBignessFactor(numOg);
+  if (isNaN(bignessFactor)) {
+    return undefined; 
+  }
 
   hops.forEach(hop => {
     const currentAlpha = parseFloat(String(hop.alpha));
-    const currentAmount = parseFloat(String(hop.amount)); // Amount in kg from form
+    const currentAmount = parseFloat(String(hop.amount)); // Amount in kg
     const currentTime = parseFloat(String(hop.time));
 
-    if (hop.use === 'Boil' &&
-        !isNaN(currentAlpha) && // Alpha can be 0
-        !isNaN(currentAmount) && currentAmount > 0 && // Amount in kg must be positive
-        !isNaN(currentTime) && currentTime >= 0) { // Time can be 0 (e.g. flameout)
-
+    if (
+      hop.use === 'Boil' &&
+      !isNaN(currentAlpha) && 
+      !isNaN(currentAmount) && currentAmount > 0 && 
+      !isNaN(currentTime) && currentTime >= 0
+    ) {
       const alphaDecimal = currentAlpha / 100.0;
-      const amountGrams = currentAmount * 1000.0; // Convert kg to grams for formula
+      const amountGrams = currentAmount * 1000.0; 
       const boilTimeFactor = getBoilTimeFactor(currentTime);
-      
+
+      if (isNaN(boilTimeFactor)) {
+        return; // Skip this hop
+      }
+
       const utilization = bignessFactor * boilTimeFactor;
       
-      if (!isNaN(utilization)) {
-        const ibusForHop = (alphaDecimal * amountGrams * utilization * 1000) / numBoilSize;
-        if (!isNaN(ibusForHop)) {
-          totalIbus += ibusForHop;
-        }
+      if (isNaN(utilization)) {
+        return; // Skip this hop
+      }
+
+      const ibusForHop = (alphaDecimal * amountGrams * utilization * 1000) / numBoilSize;
+      
+      if (!isNaN(ibusForHop)) {
+        totalIbus += ibusForHop;
       }
     }
   });
@@ -979,5 +995,3 @@ export function RecipeForm() {
     </Form>
   );
 }
-
-    
