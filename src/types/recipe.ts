@@ -97,4 +97,6 @@ export interface BeerXMLRecipe {
   abv?: number;
   ibu?: number;
   color?: number; // SRM
+  stepsMarkdown?: string; // Added for recipe steps
 }
+

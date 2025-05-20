@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Wheat, 
-  Hop, // Corrected from HopIcon if it's not a direct export
+  Hop,
   InfoIcon, 
   ListChecksIcon, 
   Microscope, 
@@ -21,9 +21,10 @@ import {
   Percent,
   Palette,
   BarChart3,
-  FileText, // For Recipe Details tab
-  ListOrdered // For Recipe Steps tab
+  FileText, 
+  ListOrdered 
 } from 'lucide-react';
+import { RecipeStepsDisplay } from './RecipeStepsDisplay'; // Added import
 
 // Simple Beer Glass SVG Icon
 const BeerGlassIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -151,7 +152,6 @@ const normalizeColor = (srm?: number): number => {
 export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
   return (
     <div className="space-y-6">
-      {/* New Header Section */}
       <div className="bg-muted/30 p-6 rounded-lg shadow">
         <div className="flex items-center space-x-4">
           <BeerGlassIcon className="h-12 w-12 text-primary" />
@@ -326,18 +326,15 @@ export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
         </TabsContent>
         
         <TabsContent value="steps" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center text-xl">
-                <ListOrdered className="mr-3 h-6 w-6 text-primary" />
-                Recipe Steps
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Detailed recipe steps will be displayed here once implemented.</p>
-              {/* Placeholder for future steps display */}
-            </CardContent>
-          </Card>
+          {recipe.stepsMarkdown ? (
+            <RecipeStepsDisplay stepsMarkdown={recipe.stepsMarkdown} />
+          ) : (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-muted-foreground">No detailed steps file (.md) found for this recipe.</p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

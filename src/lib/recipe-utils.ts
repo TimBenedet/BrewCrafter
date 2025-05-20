@@ -127,11 +127,21 @@ export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
 }
 
 export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | null> {
-  const filePath = path.join(recipesDir, `${slug}.xml`);
+  const xmlFilePath = path.join(recipesDir, `${slug}.xml`);
+  const mdFilePath = path.join(recipesDir, `${slug}.md`);
+  let stepsMarkdown: string | undefined = undefined;
+
   try {
-    const fileContent = await fs.readFile(filePath, 'utf-8');
-    const recipeBlock = extractTagContent(fileContent, 'RECIPE');
+    const xmlFileContent = await fs.readFile(xmlFilePath, 'utf-8');
+    const recipeBlock = extractTagContent(xmlFileContent, 'RECIPE');
     if (!recipeBlock) return null;
+
+    try {
+      stepsMarkdown = await fs.readFile(mdFilePath, 'utf-8');
+    } catch (mdError) {
+      // Markdown file is optional, so we don't fail if it's not there.
+      // console.warn(`Markdown file for ${slug} not found or could not be read.`, mdError);
+    }
 
     const styleBlock = extractTagContent(recipeBlock, 'STYLE');
     const fermentablesBlock = extractTagContent(recipeBlock, 'FERMENTABLES');
@@ -183,9 +193,12 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
           grainTemp: extractTagContent(mashBlock, 'GRAIN_TEMP') ? parseFloat(extractTagContent(mashBlock, 'GRAIN_TEMP')!) : undefined,
           mashSteps: mashStepsBlock ? parseMashSteps(mashStepsBlock) : []
       } : undefined,
+      stepsMarkdown, // Added
     };
   } catch (error) {
+    // If XML file itself is not found or has issues, log and return null.
     console.error(`Failed to read or parse recipe ${slug}.xml:`, error);
     return null;
   }
 }
+
