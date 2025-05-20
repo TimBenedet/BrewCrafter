@@ -156,10 +156,10 @@ export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
     return summaries;
   } catch (error) {
     console.error("Failed to get recipe summaries from Vercel Blob:", error);
-    // Consider the case where BLOB_READ_WRITE_TOKEN might not be available during build on Vercel
-    // if this function is called at build time by a Server Component.
-    if (error instanceof Error && error.message.includes('Missing environment variable')) {
-        console.warn("Vercel Blob TOKEN likely missing. This might be normal during local build if .env.local is not set, or if env var is not set on Vercel for build stage.");
+    if (error instanceof Error && error.message.includes('BLOB_READ_WRITE_TOKEN')) {
+        console.warn("BLOB_READ_WRITE_TOKEN environment variable is likely missing or invalid. This is required to list blobs from Vercel Blob.");
+    } else if (error instanceof Error && (error.message.includes('forbidden') || error.message.includes('Unauthorized'))) {
+        console.warn("Access to Vercel Blob was forbidden or unauthorized. Check token permissions and blob security settings.");
     }
     return []; // Return empty array on error
   }
@@ -174,26 +174,31 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
     let stepsMarkdown: string | undefined = undefined;
 
     // Fetch XML content
-    const xmlBlobs = await list({ prefix: xmlPath });
-    if (xmlBlobs.blobs.length > 0 && xmlBlobs.blobs[0].pathname === xmlPath) {
-      xmlContent = await fetchBlobContent(xmlBlobs.blobs[0].url);
+    const xmlBlobsResult = await list({ prefix: xmlPath, limit: 1 }); // Add limit 1 as we expect one file
+    if (xmlBlobsResult.blobs.length > 0 && xmlBlobsResult.blobs[0].pathname === xmlPath) {
+      xmlContent = await fetchBlobContent(xmlBlobsResult.blobs[0].url);
     } else {
-      console.error(`recipe.xml not found in Vercel Blob for slug ${slug} at ${xmlPath}`);
-      return null;
+      console.warn(`recipe.xml not found in Vercel Blob for slug ${slug} at ${xmlPath}`);
+      // Do not return null immediately, allow checking for markdown, or maybe the user just uploaded markdown
     }
 
     if (!xmlContent) {
-      return null;
+       // If XML is crucial and not found, then return null
+       console.error(`Critical: recipe.xml content could not be fetched for slug ${slug}.`)
+       return null;
     }
 
     // Fetch Markdown content (optional)
-    const mdBlobs = await list({ prefix: mdPath });
-    if (mdBlobs.blobs.length > 0 && mdBlobs.blobs[0].pathname === mdPath) {
-      stepsMarkdown = await fetchBlobContent(mdBlobs.blobs[0].url) ?? undefined;
+    const mdBlobsResult = await list({ prefix: mdPath, limit: 1 });
+    if (mdBlobsResult.blobs.length > 0 && mdBlobsResult.blobs[0].pathname === mdPath) {
+      stepsMarkdown = await fetchBlobContent(mdBlobsResult.blobs[0].url) ?? undefined;
     }
 
     const recipeBlock = extractTagContent(xmlContent, 'RECIPE');
-    if (!recipeBlock) return null;
+    if (!recipeBlock) {
+        console.error(`No <RECIPE> block found in XML for slug ${slug}.`);
+        return null;
+    }
 
     const styleBlock = extractTagContent(recipeBlock, 'STYLE');
     const fermentablesBlock = extractTagContent(recipeBlock, 'FERMENTABLES');
@@ -248,6 +253,9 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
     };
   } catch (error) {
     console.error(`Failed to get recipe details for slug ${slug} from Vercel Blob:`, error);
+     if (error instanceof Error && error.message.includes('BLOB_READ_WRITE_TOKEN')) {
+        console.warn("BLOB_READ_WRITE_TOKEN environment variable is likely missing or invalid for getRecipeDetails.");
+    }
     return null;
   }
 }

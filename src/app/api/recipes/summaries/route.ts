@@ -3,6 +3,8 @@ import { getRecipeSummaries } from '@/lib/recipe-utils';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+export const dynamic = 'force-dynamic'; // Ensures the route is always executed dynamically
+
 export async function GET(request: NextRequest) {
   try {
     const summaries = await getRecipeSummaries();
@@ -18,3 +20,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
+
