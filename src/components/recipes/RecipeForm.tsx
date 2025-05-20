@@ -24,12 +24,12 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { SaveIcon, PlusCircleIcon, Trash2Icon, InfoIcon, ListChecksIcon, Wheat, Hop, Microscope, Package, Thermometer, StickyNote, BarChart3 } from 'lucide-react';
+import { SaveIcon, PlusCircleIcon, Trash2Icon, InfoIcon, ListChecksIcon, Wheat, Hop as HopIconLucide, Microscope, Package, Thermometer, StickyNote, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useEffect } from 'react';
-import { addRecipesAction } from '@/app/actions/recipe-actions'; // Import server action
-import { useRouter } from 'next/navigation'; // Import useRouter
+import { addRecipesAction } from '@/app/actions/recipe-actions';
+import { useRouter } from 'next/navigation';
 
 // Sub-schemas for array elements
 const fermentableSchema = z.object({
@@ -85,8 +85,8 @@ const recipeFormSchema = z.object({
   efficiency: z.coerce.number().min(0).max(100).optional(),
   notes: z.string().optional(),
 
-  og: z.coerce.number().min(0).optional(),
-  fg: z.coerce.number().min(0).optional(),
+  og: z.coerce.number().min(1.0, "OG doit être >= 1.000").max(2.0, "OG semble trop élevé").optional(),
+  fg: z.coerce.number().min(0.9, "FG semble trop bas").max(2.0, "FG semble trop élevé").optional(),
   abv: z.coerce.number().min(0).optional(),
   ibu: z.coerce.number().min(0).optional(),
   colorSrm: z.coerce.number().min(0).optional(),
@@ -121,8 +121,8 @@ const defaultValues: Partial<RecipeFormValues> = {
   efficiency: 72.0,
   og: 1.052,
   fg: 1.012,
-  abv: 5.25, 
-  ibu: 35.0, 
+  abv: 0, 
+  ibu: 0, 
   colorSrm: 14.0, 
   notes: '',
   style: {
@@ -166,11 +166,11 @@ function generateBeerXml(data: RecipeFormValues): string {
   xml += `    <BOIL_TIME>${data.boilTime}</BOIL_TIME>\n`;
   if (data.efficiency !== undefined) xml += `    <EFFICIENCY>${data.efficiency}</EFFICIENCY>\n`;
   
-  const og = data.og === undefined || data.og === null || data.og === '' ? undefined : data.og;
-  const fg = data.fg === undefined || data.fg === null || data.fg === '' ? undefined : data.fg;
-  const abv = data.abv === undefined || data.abv === null || data.abv === '' ? undefined : data.abv;
-  const ibu = data.ibu === undefined || data.ibu === null || data.ibu === '' ? undefined : data.ibu;
-  const colorSrm = data.colorSrm === undefined || data.colorSrm === null || data.colorSrm === '' ? undefined : data.colorSrm;
+  const og = data.og === undefined || data.og === null ? undefined : data.og;
+  const fg = data.fg === undefined || data.fg === null ? undefined : data.fg;
+  const abv = data.abv === undefined || data.abv === null ? undefined : data.abv;
+  const ibu = data.ibu === undefined || data.ibu === null ? undefined : data.ibu;
+  const colorSrm = data.colorSrm === undefined || data.colorSrm === null ? undefined : data.colorSrm;
 
   if (og !== undefined) xml += `    <OG>${Number(og).toFixed(3)}</OG>\n`;
   if (fg !== undefined) xml += `    <FG>${Number(fg).toFixed(3)}</FG>\n`;
@@ -191,9 +191,9 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `        <NAME>${sanitizeForXml(f.name)}</NAME>\n`;
     xml += `        <VERSION>1</VERSION>\n`;
     xml += `        <TYPE>${sanitizeForXml(f.type)}</TYPE>\n`;
-    xml += `        <AMOUNT>${f.amount.toFixed(3)}</AMOUNT>\n`;
-    xml += `        <YIELD>${f.yield.toFixed(1)}</YIELD>\n`;
-    xml += `        <COLOR>${f.color.toFixed(1)}</COLOR>\n`;
+    xml += `        <AMOUNT>${Number(f.amount).toFixed(3)}</AMOUNT>\n`;
+    xml += `        <YIELD>${Number(f.yield).toFixed(1)}</YIELD>\n`;
+    xml += `        <COLOR>${Number(f.color).toFixed(1)}</COLOR>\n`;
     xml += `      </FERMENTABLE>\n`;
   });
   xml += `    </FERMENTABLES>\n`;
@@ -203,10 +203,10 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `      <HOP>\n`;
     xml += `        <NAME>${sanitizeForXml(h.name)}</NAME>\n`;
     xml += `        <VERSION>1</VERSION>\n`;
-    xml += `        <ALPHA>${h.alpha.toFixed(1)}</ALPHA>\n`;
-    xml += `        <AMOUNT>${h.amount.toFixed(4)}</AMOUNT>\n`;
+    xml += `        <ALPHA>${Number(h.alpha).toFixed(1)}</ALPHA>\n`;
+    xml += `        <AMOUNT>${Number(h.amount).toFixed(4)}</AMOUNT>\n`; // Standard is kg for amount
     xml += `        <USE>${sanitizeForXml(h.use)}</USE>\n`;
-    xml += `        <TIME>${h.time.toFixed(0)}</TIME>\n`;
+    xml += `        <TIME>${Number(h.time).toFixed(0)}</TIME>\n`;
     xml += `        <FORM>${sanitizeForXml(h.form)}</FORM>\n`;
     xml += `      </HOP>\n`;
   });
@@ -219,10 +219,10 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `        <VERSION>1</VERSION>\n`;
     xml += `        <TYPE>${sanitizeForXml(y.type)}</TYPE>\n`;
     xml += `        <FORM>${sanitizeForXml(y.form)}</FORM>\n`;
-    xml += `        <AMOUNT>${y.amount.toFixed(4)}</AMOUNT>\n`;
+    xml += `        <AMOUNT>${Number(y.amount).toFixed(4)}</AMOUNT>\n`; // Units depend on form (L or pkg)
     if(y.laboratory) xml += `        <LABORATORY>${sanitizeForXml(y.laboratory)}</LABORATORY>\n`;
     if(y.productId) xml += `        <PRODUCT_ID>${sanitizeForXml(y.productId)}</PRODUCT_ID>\n`;
-    const attenuation = y.attenuation === undefined || y.attenuation === null || y.attenuation === '' ? undefined : y.attenuation;
+    const attenuation = y.attenuation === undefined || y.attenuation === null ? undefined : y.attenuation;
     if(attenuation !== undefined) xml += `        <ATTENUATION>${Number(attenuation).toFixed(1)}</ATTENUATION>\n`;
     xml += `      </YEAST>\n`;
   });
@@ -235,8 +235,8 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `        <VERSION>1</VERSION>\n`;
     xml += `        <TYPE>${sanitizeForXml(m.type)}</TYPE>\n`;
     xml += `        <USE>${sanitizeForXml(m.use)}</USE>\n`;
-    xml += `        <TIME>${m.time.toFixed(0)}</TIME>\n`;
-    xml += `        <AMOUNT>${m.amount.toFixed(4)}</AMOUNT>\n`;
+    xml += `        <TIME>${Number(m.time).toFixed(0)}</TIME>\n`;
+    xml += `        <AMOUNT>${Number(m.amount).toFixed(4)}</AMOUNT>\n`; // Units can vary
     xml += `      </MISC>\n`;
   });
   xml += `    </MISCS>\n`;
@@ -252,8 +252,8 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `          <NAME>${sanitizeForXml(ms.name)}</NAME>\n`;
     xml += `          <VERSION>1</VERSION>\n`;
     xml += `          <TYPE>${sanitizeForXml(ms.type)}</TYPE>\n`;
-    xml += `          <STEP_TEMP>${ms.stepTemp.toFixed(1)}</STEP_TEMP>\n`;
-    xml += `          <STEP_TIME>${ms.stepTime.toFixed(0)}</STEP_TIME>\n`;
+    xml += `          <STEP_TEMP>${Number(ms.stepTemp).toFixed(1)}</STEP_TEMP>\n`;
+    xml += `          <STEP_TIME>${Number(ms.stepTime).toFixed(0)}</STEP_TIME>\n`;
     xml += `        </MASH_STEP>\n`;
   });
   xml += `      </MASH_STEPS>\n`;
@@ -268,36 +268,34 @@ function generateBeerXml(data: RecipeFormValues): string {
   return xml;
 }
 
-function calculateAbv(og?: number | string, fg?: number | string): number | undefined {
-  const numOg = parseFloat(String(og));
-  const numFg = parseFloat(String(fg));
+function calculateAbv(ogInput?: number | string, fgInput?: number | string): number | undefined {
+  const numOg = parseFloat(String(ogInput));
+  const numFg = parseFloat(String(fgInput));
   if (!isNaN(numOg) && !isNaN(numFg) && numOg > 0 && numFg > 0 && numOg > numFg) {
     return (numOg - numFg) * 131.25;
   }
   return undefined;
 }
 
-function getBignessFactor(og?: number | string): number {
-  const numOg = parseFloat(String(og));
-  if (isNaN(numOg) || numOg < 1) return 1;
-  return 1.65 * Math.pow(0.000125, numOg - 1.0);
+// OG must be a valid number >= 1.0
+function getBignessFactor(og: number): number {
+  return 1.65 * Math.pow(0.000125, og - 1.0);
 }
 
-function getBoilTimeFactor(boilTimeMinutes?: number | string): number {
-  const numBoilTime = parseFloat(String(boilTimeMinutes));
-  if (isNaN(numBoilTime) || numBoilTime < 0) return 0;
-  return (1.0 - Math.exp(-0.04 * numBoilTime)) / 4.15;
+// boilTimeMinutes must be a valid number >= 0
+function getBoilTimeFactor(boilTimeMinutes: number): number {
+  return (1.0 - Math.exp(-0.04 * boilTimeMinutes)) / 4.15;
 }
 
 function calculateIbuTinseth(
   hops: z.infer<typeof hopSchema>[] = [],
-  boilSize?: number | string,
-  og?: number | string
+  boilSizeInput?: number | string,
+  ogInput?: number | string
 ): number | undefined {
-  const numBoilSize = parseFloat(String(boilSize));
-  const numOg = parseFloat(String(og));
+  const numBoilSize = parseFloat(String(boilSizeInput));
+  const numOg = parseFloat(String(ogInput));
 
-  if (isNaN(numBoilSize) || numBoilSize <= 0 ) {
+  if (isNaN(numBoilSize) || numBoilSize <= 0 || isNaN(numOg) || numOg < 1.0) {
     return undefined;
   }
 
@@ -305,15 +303,26 @@ function calculateIbuTinseth(
   const bignessFactor = getBignessFactor(numOg);
 
   hops.forEach(hop => {
-    if (hop.use === 'Boil' && typeof hop.alpha === 'number' && typeof hop.amount === 'number' && typeof hop.time === 'number') {
-      const alphaDecimal = hop.alpha / 100.0;
-      const amountGrams = hop.amount * 1000.0; 
-      const boilTimeFactor = getBoilTimeFactor(hop.time);
+    const currentAlpha = parseFloat(String(hop.alpha));
+    const currentAmount = parseFloat(String(hop.amount)); // Amount in kg from form
+    const currentTime = parseFloat(String(hop.time));
+
+    if (hop.use === 'Boil' &&
+        !isNaN(currentAlpha) && // Alpha can be 0
+        !isNaN(currentAmount) && currentAmount > 0 && // Amount in kg must be positive
+        !isNaN(currentTime) && currentTime >= 0) { // Time can be 0 (e.g. flameout)
+
+      const alphaDecimal = currentAlpha / 100.0;
+      const amountGrams = currentAmount * 1000.0; // Convert kg to grams for formula
+      const boilTimeFactor = getBoilTimeFactor(currentTime);
+      
       const utilization = bignessFactor * boilTimeFactor;
       
-      if (numBoilSize > 0) { 
-        const ibusForHop = (alphaDecimal * amountGrams * utilization * 1000) / numBoilSize; 
-        totalIbus += ibusForHop;
+      if (!isNaN(utilization)) {
+        const ibusForHop = (alphaDecimal * amountGrams * utilization * 1000) / numBoilSize;
+        if (!isNaN(ibusForHop)) {
+          totalIbus += ibusForHop;
+        }
       }
     }
   });
@@ -362,11 +371,9 @@ export function RecipeForm() {
 
   useEffect(() => {
     const abv = calculateAbv(watchedOg, watchedFg);
-    if (abv !== undefined) {
+    if (abv !== undefined && !isNaN(abv)) {
       form.setValue('abv', parseFloat(abv.toFixed(2)), { shouldValidate: true });
     } else {
-      // Explicitly set to an empty string or a default numeric value if the calculation fails
-      // to avoid 'undefined' which can cause uncontrolled to controlled input warnings.
       form.setValue('abv', 0, { shouldValidate: true });
     }
   }, [watchedOg, watchedFg, form]);
@@ -374,7 +381,7 @@ export function RecipeForm() {
   useEffect(() => {
     const hopsArray = Array.isArray(watchedHops) ? watchedHops : [];
     const ibu = calculateIbuTinseth(hopsArray, watchedBoilSize, watchedOg);
-    if (ibu !== undefined) {
+    if (ibu !== undefined && !isNaN(ibu)) {
       form.setValue('ibu', parseFloat(ibu.toFixed(1)), { shouldValidate: true });
     } else {
       form.setValue('ibu', 0, { shouldValidate: true }); 
@@ -734,7 +741,7 @@ export function RecipeForm() {
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center">
-                    <Hop className="mr-2 h-5 w-5 text-primary" />
+                    <HopIconLucide className="mr-2 h-5 w-5 text-primary" />
                     Houblons
                 </CardTitle>
                 <Button type="button" variant="outline" size="sm" onClick={() => appendHop({ name: '', alpha: 0, amount: 0, use: 'Boil', time: 60, form: 'Pellet' })}>
@@ -972,3 +979,5 @@ export function RecipeForm() {
     </Form>
   );
 }
+
+    
