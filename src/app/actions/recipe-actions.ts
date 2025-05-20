@@ -1,13 +1,10 @@
 
 'use server';
 
-import fs from 'fs/promises';
-import path from 'path';
 import { revalidatePath } from 'next/cache';
-import { getRecipeDetails } from '@/lib/recipe-utils'; // Keep if still used for getRecipeDetailsAction
+import { put, del, list } from '@vercel/blob';
 import type { BeerXMLRecipe } from '@/types/recipe';
-
-const recipesDir = path.join(process.cwd(), 'public', 'Recipes');
+import { getRecipeDetails } from '@/lib/recipe-utils'; // Keep for future use if needed, not directly used in add/delete now
 
 interface RecipeFile {
   fileName: string; // Original filename, might be used as fallback for slug if name not in XML
@@ -18,7 +15,7 @@ interface ActionResult {
   success: boolean;
   count?: number;
   error?: string;
-  recipe?: BeerXMLRecipe | null;
+  recipe?: BeerXMLRecipe | null; // Keep for getRecipeDetailsAction
 }
 
 const extractRecipeNameFromXml = (xmlContent: string): string | null => {
@@ -38,89 +35,117 @@ const sanitizeSlug = (name: string): string => {
 
 
 export async function addRecipesAction(recipeFiles: RecipeFile[]): Promise<ActionResult> {
-  try {
-    await fs.mkdir(recipesDir, { recursive: true });
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    console.error("addRecipesAction: CRITICAL - BLOB_READ_WRITE_TOKEN is not set.");
+    return { success: false, error: "Configuration serveur manquante pour le stockage." };
+  }
 
+  try {
     let filesWritten = 0;
     for (const file of recipeFiles) {
-      if (!file.fileName.endsWith('.xml')) {
-        console.warn(`Skipping non-XML file: ${file.fileName}`);
+      if (!file.fileName.toLowerCase().endsWith('.xml')) {
+        console.warn(`addRecipesAction: Skipping non-XML file: ${file.fileName}`);
         continue;
       }
       
       const recipeNameInXml = extractRecipeNameFromXml(file.content);
       
       if (!recipeNameInXml) {
-        console.warn(`Recipe name not found in XML content of ${file.fileName}. Skipping.`);
+        console.warn(`addRecipesAction: Recipe name not found in XML content of ${file.fileName}. Skipping.`);
         continue;
       }
 
       const slug = sanitizeSlug(recipeNameInXml);
       if (!slug) {
-        console.warn(`Could not generate a valid slug for recipe name "${recipeNameInXml}" from file ${file.fileName}. Skipping.`);
+        console.warn(`addRecipesAction: Could not generate a valid slug for recipe name "${recipeNameInXml}" from file ${file.fileName}. Skipping.`);
         continue;
       }
 
-      const recipeDirPath = path.join(recipesDir, slug);
-      await fs.mkdir(recipeDirPath, { recursive: true });
+      const blobPathname = `Recipes/${slug}/recipe.xml`;
       
-      const xmlFilePath = path.join(recipeDirPath, 'recipe.xml');
-      await fs.writeFile(xmlFilePath, file.content, 'utf-8');
+      console.log(`addRecipesAction: Attempting to upload to Vercel Blob: ${blobPathname}`);
+      await put(blobPathname, file.content, { 
+        access: 'public',
+        contentType: 'application/xml', // Explicitly set content type
+      });
+      
       filesWritten++;
-      console.log(`Recipe "${recipeNameInXml}" saved to ${slug}/recipe.xml`);
+      console.log(`addRecipesAction: Recipe "${recipeNameInXml}" saved to Vercel Blob at ${blobPathname}`);
     }
 
     if (filesWritten > 0) {
       revalidatePath('/'); 
-      revalidatePath('/recipes'); // For any page that lists recipes
+      revalidatePath('/recipes');
       revalidatePath('/label'); 
-      // Consider revalidating specific recipe detail pages if many are added,
-      // but for one or few, broad revalidation is simpler.
+      // Revalidate specific recipe pages if slug is known and consistent
+      // For now, broader revalidation is simpler.
+      // If recipeFiles contains only one file, we could revalidate `/recipes/${slug}`
+      if (recipeFiles.length === 1) {
+        const recipeNameInXml = extractRecipeNameFromXml(recipeFiles[0].content);
+        if (recipeNameInXml) {
+            const slug = sanitizeSlug(recipeNameInXml);
+            if (slug) revalidatePath(`/recipes/${slug}`);
+        }
+      }
     }
     
     return { success: true, count: filesWritten };
 
   } catch (error) {
-    console.error('Error saving recipe files:', error);
-    return { success: false, error: (error as Error).message || 'Failed to save recipes.' };
+    console.error('addRecipesAction: Error saving recipe files to Vercel Blob:', error);
+    return { success: false, error: (error as Error).message || 'Failed to save recipes to Vercel Blob.' };
   }
 }
 
 export async function deleteRecipeAction(recipeSlug: string): Promise<ActionResult> {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    console.error("deleteRecipeAction: CRITICAL - BLOB_READ_WRITE_TOKEN is not set.");
+    return { success: false, error: "Configuration serveur manquante pour le stockage." };
+  }
+
   try {
     if (!recipeSlug || typeof recipeSlug !== 'string' || recipeSlug.includes('..')) {
         return { success: false, error: 'Invalid recipe slug provided.' };
     }
     
-    const recipeDirPath = path.join(recipesDir, recipeSlug);
+    const blobFolderPrefix = `Recipes/${recipeSlug}/`;
+    console.log(`deleteRecipeAction: Attempting to delete folder from Vercel Blob: ${blobFolderPrefix}`);
 
-    try {
-        await fs.access(recipeDirPath); // Check if directory exists
-    } catch (e) {
-        console.warn(`Recipe directory ${recipeSlug} not found for deletion.`);
-        return { success: false, error: `Recipe directory ${recipeSlug} not found.`};
+    const { blobs } = await list({ prefix: blobFolderPrefix });
+    
+    if (blobs.length === 0) {
+      console.warn(`deleteRecipeAction: No blobs found with prefix ${blobFolderPrefix} to delete.`);
+      // Optionally, still revalidate paths in case there was a mismatch but the UI needs refresh
+      revalidatePath('/');
+      revalidatePath('/recipes'); 
+      revalidatePath(`/recipes/${recipeSlug}`);
+      revalidatePath('/label');
+      return { success: true, count: 0 }; // Success, as there's nothing to delete
     }
 
-    await fs.rm(recipeDirPath, { recursive: true, force: true });
-    console.log(`Recipe directory ${recipeSlug} deleted successfully.`);
+    const urlsToDelete = blobs.map(blob => blob.url);
+    console.log(`deleteRecipeAction: Deleting ${urlsToDelete.length} blobs from Vercel Blob:`, urlsToDelete);
+    await del(urlsToDelete);
+    
+    console.log(`deleteRecipeAction: Recipe folder ${blobFolderPrefix} and its contents deleted successfully from Vercel Blob.`);
 
     revalidatePath('/');
     revalidatePath('/recipes'); 
     revalidatePath(`/recipes/${recipeSlug}`); // This path will now be 404
     revalidatePath('/label');
 
-    return { success: true };
+    return { success: true, count: urlsToDelete.length };
 
   } catch (error) {
-    console.error('Error deleting recipe directory:', error);
-    return { success: false, error: (error as Error).message || 'Failed to delete recipe.' };
+    console.error('deleteRecipeAction: Error deleting recipe folder from Vercel Blob:', error);
+    return { success: false, error: (error as Error).message || 'Failed to delete recipe from Vercel Blob.' };
   }
 }
 
-// This action seems fine as is, assuming getRecipeDetails is updated to use the new slug (dir) structure
+// This action fetches details, primarily from Vercel Blob now via getRecipeDetails
 export async function getRecipeDetailsAction(slug: string): Promise<ActionResult> {
   try {
-    const recipe = await getRecipeDetails(slug); // getRecipeDetails needs to handle new structure
+    const recipe = await getRecipeDetails(slug); // getRecipeDetails reads from Vercel Blob
     if (!recipe) {
       return { success: false, error: 'Recipe not found.' };
     }
