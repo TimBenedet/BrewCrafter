@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
 import type { RecipeSummary } from '@/types/recipe';
@@ -9,38 +9,8 @@ import { FileWarning, FilterIcon, AlertTriangle, RefreshCw, FilePlus2 } from 'lu
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input'; // Keep for GitHub import dialog
 import { useToast } from '@/hooks/use-toast';
-import { addRecipesAction } from '@/app/actions/recipe-actions';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-  DialogTrigger, // Added DialogTrigger
-} from "@/components/ui/dialog";
 import { useRouter } from 'next/navigation';
-
-
-interface RecipeFile {
-  fileName: string;
-  content: string;
-}
-
-// Helper to decode base64 - useful if Vercel Blob client or GitHub API returns base64
-function b64DecodeUnicode(str: string) {
-  try {
-    return decodeURIComponent(atob(str).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
-  } catch (e) {
-    console.error("Failed to decode base64 string:", e);
-    return "";
-  }
-}
 
 
 export default function HomePage() {
@@ -50,10 +20,6 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
-
-  const [isGitHubImportDialogOpen, setIsGitHubImportDialogOpen] = useState(false);
-  const [githubRepoUrl, setGithubRepoUrl] = useState('');
-  const [isGitHubLoading, setIsGitHubLoading] = useState(false);
 
 
   const loadRecipes = useCallback(async (showToast = false) => {
@@ -123,189 +89,8 @@ export default function HomePage() {
   }, [recipes, selectedStyle]);
 
 
-  const handleGitHubImport = async () => {
-    if (!githubRepoUrl.match(/^https:\/\/github\.com\/[^/]+\/[^/]+(\/tree\/[^/]+(\/|\/Recipes\/?.*)?)?(\/)?$/i)) {
-      toast({ title: "URL Invalide", description: "Veuillez entrer une URL de dépôt GitHub valide (ex: https://github.com/owner/repo ou https://github.com/owner/repo/tree/branch/path/to/Recipes).", variant: "destructive" });
-      return;
-    }
-    setIsGitHubLoading(true);
-    const url = new URL(githubRepoUrl.replace(/\/$/, '')); // Remove trailing slash for consistency
-    const pathSegments = url.pathname.split('/').filter(Boolean);
-    const owner = pathSegments[0];
-    const repo = pathSegments[1];
-    let branch = ''; 
-    let repoPath = 'Recipes'; // Default base path to search within
-
-    const treeIndex = pathSegments.findIndex(part => part.toLowerCase() === 'tree');
-    if (treeIndex !== -1 && treeIndex + 1 < pathSegments.length) {
-        branch = pathSegments[treeIndex + 1];
-        if (treeIndex + 2 < pathSegments.length) {
-            // If a path is specified after the branch, it becomes the base for our "Recipes" search
-            // For example, if URL is .../tree/main/my/beer/recipes, repoPath becomes "my/beer/recipes"
-            repoPath = pathSegments.slice(treeIndex + 2).join('/');
-        }
-    }
-    
-    console.log(`Importing from GitHub: owner=${owner}, repo=${repo}, branch=${branch || 'default'}, path=${repoPath}`);
-
-    try {
-      // 1. Get default branch if not specified in URL
-      if (!branch) {
-        const repoInfoResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
-        if (!repoInfoResponse.ok) {
-          throw new Error(`Dépôt GitHub non trouvé ou inaccessible: ${repoInfoResponse.statusText}`);
-        }
-        const repoInfo = await repoInfoResponse.json();
-        branch = repoInfo.default_branch;
-        console.log(`Default branch fetched: ${branch}`);
-      }
-
-      // 2. Get tree for the default branch recursively
-      // We fetch the whole tree from the branch root to correctly identify files within the target repoPath
-      const treeResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`);
-      if (!treeResponse.ok) throw new Error(`Impossible de lire l'arborescence du dépôt (branche: ${branch}): ${treeResponse.statusText}`);
-      const treeData = await treeResponse.json();
-
-      if (!treeData.tree) {
-        throw new Error("L'arborescence du dépôt est vide ou inaccessible.");
-      }
-      if (treeData.truncated) {
-        console.warn("GitHub tree data was truncated. Some files might be missing if the repo is very large.");
-        toast({
-          title: "Données tronquées",
-          description: "L'arborescence du dépôt GitHub est très grande et a été tronquée. Certains fichiers pourraient manquer.",
-          variant: "default"
-        });
-      }
-
-      const xmlFilesToFetch: { path: string; url: string, name: string }[] = [];
-      const repoPathNormalized = repoPath.toLowerCase().endsWith('/') ? repoPath.toLowerCase() : repoPath.toLowerCase() + '/';
-
-      for (const item of treeData.tree) {
-        // Ensure item.path is relative to the repo root. We filter for items within the target repoPath.
-        if (item.type === 'blob' && 
-            item.path.toLowerCase().startsWith(repoPathNormalized) && 
-            item.path.toLowerCase().endsWith('.xml')) {
-          
-          xmlFilesToFetch.push({ path: item.path, url: item.url, name: item.path.split('/').pop() || 'recette_importee.xml' });
-          console.log(`Found XML file to fetch: ${item.path}`);
-        }
-      }
-
-      if (xmlFilesToFetch.length === 0) {
-        toast({ title: "Aucune recette trouvée", description: `Aucun fichier .xml trouvé dans le dossier '${repoPath}' du dépôt (branche: ${branch}).`, variant: "default" });
-        setIsGitHubLoading(false);
-        setIsGitHubImportDialogOpen(false);
-        return;
-      }
-
-      const recipeFilesToImport: RecipeFile[] = [];
-      for (const fileInfo of xmlFilesToFetch) {
-        // Use the direct blob content URL from GitHub API (item.url for blobs)
-        const blobDetailResponse = await fetch(fileInfo.url); 
-        if (!blobDetailResponse.ok) {
-          console.warn(`Impossible de récupérer les détails du blob ${fileInfo.path}: ${blobDetailResponse.statusText}`);
-          continue;
-        }
-        const blobDetail = await blobDetailResponse.json();
-        let content = '';
-
-        if (blobDetail.encoding === 'base64' && blobDetail.content) {
-           content = b64DecodeUnicode(blobDetail.content);
-        } else if (blobDetail.content) { // Sometimes content is plain text for smaller files, though API docs suggest it's usually base64
-           content = blobDetail.content;
-        } else {
-            // Fallback for unexpected content or if item.url isn't a blob API endpoint
-            // This usually happens if item.url was not the direct git/blobs/{sha} endpoint
-            console.warn(`Blob content for ${fileInfo.path} was not in expected format (base64 or direct). Trying raw content URL.`);
-            const rawContentResponse = await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${fileInfo.path}`);
-            if (rawContentResponse.ok) {
-                content = await rawContentResponse.text();
-            } else {
-                console.warn(`Impossible de télécharger le contenu brut de ${fileInfo.path}: ${rawContentResponse.statusText}`);
-                continue;
-            }
-        }
-        
-        if (!content) {
-          console.warn(`Empty content for ${fileInfo.path}`);
-          continue;
-        }
-        
-        // Use the original XML filename for the RecipeFile object sent to addRecipesAction
-        // addRecipesAction will derive the slug from the <NAME> tag in the XML content
-        const originalFileName = fileInfo.path.split('/').pop() || 'recette_importee.xml';
-        recipeFilesToImport.push({ fileName: originalFileName, content });
-        console.log(`Prepared to import: ${originalFileName} from path ${fileInfo.path}`);
-      }
-      
-      if (recipeFilesToImport.length > 0) {
-        const result = await addRecipesAction(recipeFilesToImport);
-        if (result.success) {
-            toast({
-                title: `${result.count} recette(s) importée(s) depuis GitHub!`,
-                description: `Les fichiers BeerXML ont été importés et sauvegardés localement.`,
-            });
-            loadRecipes(true); // Refresh the list
-            router.refresh(); 
-        } else {
-            throw new Error(result.error || "Échec de l'importation des recettes GitHub.");
-        }
-      } else {
-        toast({ title: "Aucune recette valide", description: "Aucun fichier XML valide n'a pu être traité depuis le dépôt GitHub.", variant: "default" });
-      }
-
-    } catch (error) {
-      console.error('Error importing from GitHub:', error);
-      toast({ title: "Erreur d'importation GitHub", description: (error as Error).message, variant: "destructive" });
-    } finally {
-      setIsGitHubLoading(false);
-      setIsGitHubImportDialogOpen(false);
-      setGithubRepoUrl('');
-    }
-  };
-
-
   const renderTopBar = () => (
     <div className="mb-6 flex flex-wrap items-center justify-start gap-2">
-      <Dialog open={isGitHubImportDialogOpen} onOpenChange={setIsGitHubImportDialogOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline">
-             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="mr-2 bi bi-github" viewBox="0 0 16 16">
-                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/>
-            </svg>
-            Importer depuis GitHub
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-[525px]">
-          <DialogHeader>
-            <DialogTitle>Importer des Recettes depuis GitHub</DialogTitle>
-            <DialogDescription>
-              Entrez l'URL d'un dépôt GitHub public (ex: https://github.com/owner/repo).
-              L'application cherchera des fichiers .xml dans un dossier nommé `Recipes/` (insensible à la casse) et dans tous ses sous-dossiers, quelle que soit leur profondeur.
-              Vous pouvez aussi spécifier une branche et un chemin vers le dossier parent de vos recettes : https://github.com/owner/repo/tree/branch_name/chemin_vers_dossier_parent_de_Recipes
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <Input
-              id="github-url"
-              placeholder="https://github.com/votre_nom/vos_recettes"
-              value={githubRepoUrl}
-              onChange={(e) => setGithubRepoUrl(e.target.value)}
-              disabled={isGitHubLoading}
-            />
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={isGitHubLoading}>Annuler</Button>
-            </DialogClose>
-            <Button type="button" onClick={handleGitHubImport} disabled={isGitHubLoading}>
-              {isGitHubLoading ? "Chargement..." : "Charger les recettes"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
       <Button variant="outline" asChild>
         <Link href="/recipes/new">
           <FilePlus2 className="mr-2 h-4 w-4" /> Nouvelle recette
@@ -344,7 +129,6 @@ export default function HomePage() {
         <div className="flex justify-between items-center gap-2 mb-6">
           <div className="flex items-center gap-2">
             {/* Placeholders for buttons */}
-            <div className="animate-pulse h-10 w-[200px] bg-muted rounded-md"></div>
             <div className="animate-pulse h-10 w-[150px] bg-muted rounded-md"></div>
           </div>
           <div className="flex items-center gap-2 ml-auto">
@@ -410,7 +194,7 @@ export default function HomePage() {
           <FileWarning className="w-16 h-16 text-muted-foreground mb-4" />
           <h2 className="text-2xl font-semibold mb-2">Aucune recette trouvée</h2>
           <p className="text-muted-foreground">
-            Importez des recettes depuis GitHub ou créez votre première recette en utilisant les boutons ci-dessus.
+            Créez votre première recette en utilisant le bouton ci-dessus.
           </p>
         </div>
       )}
@@ -435,4 +219,3 @@ export default function HomePage() {
     </div>
   );
 }
-
