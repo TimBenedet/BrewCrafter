@@ -16,15 +16,15 @@ export function TopTabs() {
   const pathname = usePathname();
 
   return (
-    <div className=""> {/* Removed mb-6 border-b */}
-      <Tabs value={pathname} className=""> {/* Removed container mx-auto px-0 sm:px-4, handled by Header now */}
-        <TabsList className="grid w-full grid-cols-3 md:w-auto md:inline-flex bg-transparent p-0 h-auto"> {/* Ensured bg-transparent, p-0, h-auto */}
+    <div className=""> 
+      <Tabs value={pathname} className=""> 
+        <TabsList className="flex flex-col space-y-1 md:space-y-0 md:flex-row md:space-x-1 md:w-auto bg-transparent p-0 h-auto">
           {navItems.map((item) => (
             <TabsTrigger 
               key={item.href} 
               value={item.href} 
               asChild
-              className="data-[state=active]:text-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-colors px-3 py-1.5 text-sm font-medium" // Adjusted active state: removed bg-secondary, changed text to text-primary
+              className="w-full md:w-auto justify-center data-[state=active]:text-primary data-[state=active]:shadow-none hover:bg-muted/50 transition-colors px-3 py-1.5 text-sm font-medium"
             >
               <Link href={item.href} className="flex items-center gap-2">
                 <item.icon className="h-4 w-4" />
