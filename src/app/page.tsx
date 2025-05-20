@@ -117,19 +117,19 @@ export default function HomePage() {
 
         if (result.success) {
           toast({
-            title: `Recette ajoutée !`,
-            description: `La recette "${file.name}" a été ajoutée avec succès.`,
+            title: `Recette importée !`,
+            description: `La recette "${file.name}" a été importée avec succès.`,
           });
           loadRecipes(); // Reload recipes to show the new one
           router.refresh(); 
         } else {
-          throw new Error(result.error || "Erreur lors de l'ajout de la recette.");
+          throw new Error(result.error || "Erreur lors de l'importation de la recette.");
         }
       } catch (error) {
         console.error("Error processing file:", error);
         toast({
-          title: "Échec de l'ajout",
-          description: (error as Error).message || "Un problème est survenu lors de l'ajout de la recette.",
+          title: "Échec de l'importation",
+          description: (error as Error).message || "Un problème est survenu lors de l'importation de la recette.",
           variant: "destructive",
         });
       }
@@ -204,12 +204,12 @@ export default function HomePage() {
             <AlertDialog open={isAddRecipeDialogOpen} onOpenChange={setIsAddRecipeDialogOpen}>
               <AlertDialogTrigger asChild>
                 <Button variant="outline">
-                  <UploadCloud className="mr-2 h-4 w-4" /> Ajouter une recette
+                  <UploadCloud className="mr-2 h-4 w-4" /> Importer une recette
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Ajouter une recette BeerXML</AlertDialogTitle>
+                  <AlertDialogTitle>Importer une recette BeerXML</AlertDialogTitle>
                   <AlertDialogDescription>
                     D'où souhaitez-vous charger votre fichier de recette ?
                   </AlertDialogDescription>
@@ -242,7 +242,7 @@ export default function HomePage() {
           <FileWarning className="w-16 h-16 text-muted-foreground mb-4" />
           <h2 className="text-2xl font-semibold mb-2">Aucune recette trouvée</h2>
           <p className="text-muted-foreground">
-            Ajoutez votre première recette en utilisant les boutons ci-dessus.
+            Importez ou créez votre première recette en utilisant les boutons ci-dessus.
           </p>
         </div>
       </div>
@@ -256,12 +256,12 @@ export default function HomePage() {
           <AlertDialog open={isAddRecipeDialogOpen} onOpenChange={setIsAddRecipeDialogOpen}>
             <AlertDialogTrigger asChild>
               <Button variant="outline">
-                <UploadCloud className="mr-2 h-4 w-4" /> Ajouter une recette
+                <UploadCloud className="mr-2 h-4 w-4" /> Importer une recette
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Ajouter une recette BeerXML</AlertDialogTitle>
+                <AlertDialogTitle>Importer une recette BeerXML</AlertDialogTitle>
                 <AlertDialogDescription>
                   D'où souhaitez-vous charger votre fichier de recette ?
                 </AlertDialogDescription>
@@ -353,3 +353,4 @@ export default function HomePage() {
     </div>
   );
 }
+
