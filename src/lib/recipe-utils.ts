@@ -2,8 +2,6 @@
 import type { BeerXMLRecipe, RecipeSummary, Fermentable, Hop, Yeast, Misc, MashStep } from '@/types/recipe';
 import { list } from '@vercel/blob';
 
-// Ensure BLOB_READ_WRITE_TOKEN environment variable is set in your Vercel project.
-
 // Helper function to safely extract single tag content
 const extractTagContent = (xml: string, tagName: string): string | undefined => {
   const regex = new RegExp(`<${tagName}>([\\s\\S]*?)<\/${tagName}>`, 'i');
@@ -145,37 +143,34 @@ export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
     console.error("getRecipeSummaries: CRITICAL - BLOB_READ_WRITE_TOKEN is not set. Vercel Blob operations will fail. Ensure this is set in your Vercel project environment variables.");
     return [];
   }
+  console.log("getRecipeSummaries: BLOB_READ_WRITE_TOKEN seems to be set.");
 
   const summaries: RecipeSummary[] = [];
   const processedSlugs = new Set<string>();
 
   try {
-    // Use 'Recipes/' with a trailing slash to indicate listing within this "folder".
-    // Let Vercel Blob use its default mode for listing.
-    const { blobs } = await list({ prefix: 'Recipes/' }); 
+    const { blobs } = await list({ prefix: 'Recipes/', mode: 'expanded' }); 
     console.log("getRecipeSummaries: Vercel Blob list response for prefix 'Recipes/':", { blobsCount: blobs.length });
+    if (blobs.length > 0) {
+        console.log("getRecipeSummaries: Raw blobs list from Vercel (first 10):", blobs.slice(0,10).map(b => b.pathname ));
+    }
+
 
     if (!blobs || blobs.length === 0) {
         console.warn("getRecipeSummaries: No blobs found matching prefix 'Recipes/' in Vercel Blob. This might mean the prefix is wrong, the Blob store is empty under this prefix, or there's an issue with the token/permissions.");
         return [];
     }
     
-    console.log("getRecipeSummaries: Raw blobs list from Vercel (first 10):", blobs.slice(0,10).map(b => ({ pathname: b.pathname, size: b.size, uploadedAt: b.uploadedAt, url: b.url }) ));
-
     for (const blob of blobs) {
-      console.log(`getRecipeSummaries: Processing blob path: ${blob.pathname}`); // e.g., Recipes/Amber-ale/recipe.xml
+      console.log(`getRecipeSummaries: Processing blob path: ${blob.pathname}`);
       
       const lowerPathname = blob.pathname.toLowerCase();
       
-      // Ensure it's an XML file and it's within a subfolder of 'recipes/'
       if (lowerPathname.startsWith('recipes/') && lowerPathname.endsWith('.xml')) {
-        // Remove 'recipes/' prefix and '/filename.xml' suffix to get potential slug path parts
-        const pathWithoutPrefix = blob.pathname.substring('Recipes/'.length); // e.g., Amber-ale/recipe.xml
-        const pathParts = pathWithoutPrefix.split('/'); // e.g., ['Amber-ale', 'recipe.xml']
+        const pathParts = blob.pathname.substring('Recipes/'.length).split('/'); // e.g., ['Amber-ale', 'recipe.xml']
         
-        // We expect at least 2 parts here: slugFolderName and filename.xml
-        if (pathParts.length >= 2) {
-          const slug = pathParts[0]; // The first part is the slug
+        if (pathParts.length >= 2) { // Expects at least slugFolderName and filename.xml
+          const slug = pathParts[0]; 
 
           if (!slug) { 
             console.warn(`getRecipeSummaries: Skipping blob, cannot derive slug from pathParts[0] for: ${blob.pathname}`);
@@ -183,7 +178,7 @@ export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
           }
 
           if (processedSlugs.has(slug)) {
-            console.log(`getRecipeSummaries: Slug ${slug} already processed, skipping additional XML file ${blob.pathname} in the same folder.`);
+            console.log(`getRecipeSummaries: Slug ${slug} already processed (found another .xml in its folder: ${blob.pathname}). Skipping.`);
             continue; 
           }
 
@@ -206,15 +201,15 @@ export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
           console.log(`getRecipeSummaries: Skipping blob, path structure not as expected (e.g., not Recipes/Slug/file.xml): ${blob.pathname}`);
         }
       } else {
-        console.log(`getRecipeSummaries: Skipping blob not starting with 'recipes/' or not ending with '.xml': ${blob.pathname}`);
+        // console.log(`getRecipeSummaries: Skipping blob not starting with 'recipes/' or not ending with '.xml': ${blob.pathname}`);
       }
     }
     console.log(`getRecipeSummaries: Finished processing. Found ${summaries.length} recipe summaries.`);
     return summaries;
   } catch (error) {
     console.error("getRecipeSummaries: Error fetching or processing recipe summaries from Vercel Blob:", error);
-    if (error instanceof Error && (error.message.includes('authorization') || error.message.includes('token'))) {
-        console.error("getRecipeSummaries: This might be related to an issue with the BLOB_READ_WRITE_TOKEN.");
+    if (error instanceof Error && (error.message.includes('authorization') || error.message.includes('token') || error.message.includes('BLOB_READ_WRITE_TOKEN'))) {
+        console.error("getRecipeSummaries: This might be related to an issue with the BLOB_READ_WRITE_TOKEN or permissions.");
     }
     return []; 
   }
@@ -225,33 +220,36 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
   console.log(`getRecipeDetails: Attempting to get details for slug: ${slug}`);
   
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    console.error("getRecipeDetails: CRITICAL - BLOB_READ_WRITE_TOKEN is not set. Vercel Blob operations will fail. Ensure this is set in your Vercel project environment variables.");
+    console.error("getRecipeDetails: CRITICAL - BLOB_READ_WRITE_TOKEN is not set. Vercel Blob operations will fail.");
     return null;
   }
+  console.log("getRecipeDetails: BLOB_READ_WRITE_TOKEN seems to be set for slug:", slug);
 
   try {
-    const recipeDirectoryPrefixWithSlash = `Recipes/${slug}/`; // e.g. Recipes/Amber-ale/
-    console.log(`getRecipeDetails: Listing blobs with prefix: '${recipeDirectoryPrefixWithSlash}'`);
+    const recipeDirectoryPrefix = `Recipes/${slug}/`;
+    console.log(`getRecipeDetails: Listing blobs with prefix: '${recipeDirectoryPrefix}' using mode: 'expanded'`);
+
+    const { blobs: dirBlobs } = await list({ prefix: recipeDirectoryPrefix, mode: 'expanded' });
+    console.log(`getRecipeDetails: Blob list for recipe directory prefix '${recipeDirectoryPrefix}':`, { count: dirBlobs.length });
+
+    if (dirBlobs.length > 0) {
+        console.log("getRecipeDetails: Raw blobs in recipe dir for slug '"+slug+"' (first 10):", dirBlobs.slice(0,10).map(b => ({ pathname: b.pathname, size: b.size, url: b.url }) ));
+    } else {
+        console.warn(`getRecipeDetails: No blobs found in directory prefix '${recipeDirectoryPrefix}' for slug '${slug}'.`);
+    }
 
     let xmlContent: string | null = null;
     let stepsMarkdown: string | undefined = undefined;
     let actualXmlPath: string | null = null;
 
-    // List blobs within the specific recipe slug directory
-    const { blobs: dirBlobs } = await list({ prefix: recipeDirectoryPrefixWithSlash }); // Default mode (folded)
-    console.log(`getRecipeDetails: Blob list for recipe directory prefix '${recipeDirectoryPrefixWithSlash}':`, { count: dirBlobs.length });
-    if (dirBlobs.length > 0) {
-        console.log("getRecipeDetails: Raw blobs in recipe dir (first 5):", dirBlobs.slice(0,5).map(b => ({ pathname: b.pathname, size: b.size, url: b.url }) ));
-    }
-
-    // Find the first XML file directly within this folder
     const xmlBlob = dirBlobs.find(b => {
-        const lowerPathname = b.pathname.toLowerCase();
-        if (lowerPathname.startsWith(recipeDirectoryPrefixWithSlash.toLowerCase()) && lowerPathname.endsWith('.xml')) {
-            const relativePath = b.pathname.substring(recipeDirectoryPrefixWithSlash.length);
-            return relativePath.split('/').length === 1; // Must be directly in the folder, not a sub-sub-folder
-        }
-        return false;
+      const lowerPathname = b.pathname.toLowerCase();
+      // Check if the file is directly in the slug folder and ends with .xml
+      if (lowerPathname.startsWith(recipeDirectoryPrefix.toLowerCase()) && lowerPathname.endsWith('.xml')) {
+        const relativePath = b.pathname.substring(recipeDirectoryPrefix.length);
+        return relativePath.split('/').length === 1; // Ensures it's not in a sub-sub-folder
+      }
+      return false;
     });
 
     if (xmlBlob) {
@@ -259,7 +257,10 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
       console.log(`getRecipeDetails: Found XML file for slug ${slug}: ${actualXmlPath} with URL ${xmlBlob.url}`);
       xmlContent = await fetchBlobContent(xmlBlob.url);
     } else {
-      console.warn(`getRecipeDetails: No XML file found directly in Vercel Blob for slug folder: ${recipeDirectoryPrefixWithSlash}`);
+      console.warn(`getRecipeDetails: No XML file found directly in Vercel Blob for slug folder: ${recipeDirectoryPrefix}`);
+      // Log all files found in the directory to help debug
+      const allFilesInDir = dirBlobs.map(b => b.pathname).join(', ');
+      console.log(`getRecipeDetails: Files found in ${recipeDirectoryPrefix}: ${allFilesInDir || 'None'}`);
       return null; 
     }
 
@@ -268,21 +269,26 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
        return null;
     }
     console.log(`getRecipeDetails: XML content fetched successfully for ${actualXmlPath} (length: ${xmlContent.length})`);
-
-    // Find steps.md specifically named 'steps.md'
-    const mdPathSpecific = `Recipes/${slug}/steps.md`;
-    const mdBlob = dirBlobs.find(b => b.pathname.toLowerCase() === mdPathSpecific.toLowerCase());
+    
+    const targetMdPath = `recipes/${slug}/steps.md`.toLowerCase();
+    const mdBlob = dirBlobs.find(
+      (b) => b.pathname.toLowerCase() === targetMdPath
+    );
     
     if (mdBlob) {
-      console.log(`getRecipeDetails: Found steps.md for slug ${slug}: ${mdBlob.pathname} with URL ${mdBlob.url}`);
-      stepsMarkdown = await fetchBlobContent(mdBlob.url) ?? undefined;
-      if (stepsMarkdown) {
-        console.log(`getRecipeDetails: steps.md content fetched (length: ${stepsMarkdown.length})`);
+      console.log(`getRecipeDetails: Found steps.md for slug ${slug}: ${mdBlob.pathname} at URL ${mdBlob.url}`);
+      const content = await fetchBlobContent(mdBlob.url);
+      if (content) {
+        stepsMarkdown = content;
+        console.log(`getRecipeDetails: Successfully fetched steps.md content for slug ${slug} (length: ${stepsMarkdown.length})`);
       } else {
-        console.warn(`getRecipeDetails: steps.md found at ${mdBlob.pathname} but content could not be fetched.`);
+        console.warn(`getRecipeDetails: Failed to fetch content for steps.md from ${mdBlob.url} for slug ${slug}, or content was empty.`);
       }
     } else {
-      console.log(`getRecipeDetails: No steps.md file found for slug ${slug} at path ${mdPathSpecific}`);
+      console.log(`getRecipeDetails: No steps.md file found at exact path ${targetMdPath} for slug ${slug}. Searched ${dirBlobs.length} blobs.`);
+      // To help debug, list all .md files found in the directory:
+      const allMdFilesInDir = dirBlobs.filter(b => b.pathname.toLowerCase().endsWith('.md')).map(b => b.pathname).join(', ');
+      console.log(`getRecipeDetails: All .md files found in ${recipeDirectoryPrefix}: ${allMdFilesInDir || 'None'}`);
     }
     
     const recipeBlock = extractTagContent(xmlContent, 'RECIPE');
@@ -343,13 +349,15 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
           grainTemp: extractTagContent(mashBlock, 'GRAIN_TEMP') ? parseFloat(extractTagContent(mashBlock, 'GRAIN_TEMP')!) : undefined,
           mashSteps: mashStepsBlock ? parseMashSteps(mashStepsBlock) : []
       } : undefined,
-      stepsMarkdown,
+      stepsMarkdown, // This is populated by the logic above for mdBlob
     };
   } catch (error) {
     console.error(`getRecipeDetails: Error fetching or processing details for slug ${slug} from Vercel Blob:`, error);
-     if (error instanceof Error && (error.message.includes('authorization') || error.message.includes('token'))) {
-        console.error("getRecipeDetails: This might be related to an issue with the BLOB_READ_WRITE_TOKEN.");
+     if (error instanceof Error && (error.message.includes('authorization') || error.message.includes('token') || error.message.includes('BLOB_READ_WRITE_TOKEN'))) {
+        console.error("getRecipeDetails: This might be related to an issue with the BLOB_READ_WRITE_TOKEN or permissions.");
     }
     return null;
   }
 }
+
+    
