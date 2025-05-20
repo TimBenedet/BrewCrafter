@@ -40,19 +40,33 @@ const getIconForSection = (title: string): LucideIcon => {
 const parseMarkdownToSections = (markdown: string): Section[] => {
   if (!markdown) return [];
   const sections: Section[] = [];
-  const rawSections = markdown.split(/^##\s+/m).filter(Boolean); // Split by H2 headers
+  
+  // Regex explanation:
+  // ^##\s*        : Matches "## " at the start of a line (with optional spaces after ##).
+  // (.+?)         : Group 1 (Title): Captures one or more characters, non-greedily. Ensures title is not empty.
+  // \s*\n         : Matches optional whitespace then a newline after the title.
+  // ([\s\S]*?)    : Group 2 (Content): Captures any characters (including newlines), non-greedily.
+  // (?=\n^##\s*|$) : Positive lookahead: asserts that the match is followed by:
+  //                 - \n^##\s* : A newline, then "## " at the start of a new line (next section).
+  //                 - |$       : OR the end of the string.
+  // gm flags      : g (global, find all matches), m (multiline, ^ and $ match start/end of lines).
+  const sectionRegex = /^##\s*(.+?)\s*\n([\s\S]*?)(?=\n^##\s*|$)/gm;
 
-  rawSections.forEach(rawSection => {
-    const lines = rawSection.trim().split('\n');
-    const title = lines.shift()?.trim() || 'Untitled Section';
-    const contentLines = lines.map(line => line.trim()).filter(Boolean);
+  let match;
+  while ((match = sectionRegex.exec(markdown)) !== null) {
+    const title = match[1].trim(); // Title from Group 1
+    const contentBlock = match[2].trim(); // Content from Group 2
+    
+    const contentLines = contentBlock.split('\n')
+      .map(line => line.trim()) // Trim each line of content
+      .filter(Boolean); // Remove any empty lines that result from trimming
+
     sections.push({
       title,
       icon: getIconForSection(title),
       contentLines,
     });
-  });
-
+  }
   return sections;
 };
 
