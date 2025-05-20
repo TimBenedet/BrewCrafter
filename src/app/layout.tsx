@@ -1,4 +1,3 @@
-
 import type { Metadata } from 'next';
 import { Inter, Bebas_Neue } from 'next/font/google';
 import './globals.css';
@@ -17,8 +16,8 @@ const bebasNeue = Bebas_Neue({
 });
 
 export const metadata: Metadata = {
-  title: 'GitBrew - Your Local Beer Recipe Book',
-  description: 'Display and browse your BeerXML recipes from a local GitHub repository.',
+  title: 'BrewCrafter - Your Local Beer Recipe Book',
+  description: 'Display and browse your BeerXML recipes from a local Vercel Blob store.',
 };
 
 export default function RootLayout({
