@@ -13,17 +13,15 @@ import { Input } from '@/components/ui/input'; // Keep for GitHub import dialog
 import { useToast } from '@/hooks/use-toast';
 import { addRecipesAction } from '@/app/actions/recipe-actions';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+  DialogTrigger, // Added DialogTrigger
+} from "@/components/ui/dialog";
 import { useRouter } from 'next/navigation';
 
 
@@ -126,32 +124,32 @@ export default function HomePage() {
 
 
   const handleGitHubImport = async () => {
-    if (!githubRepoUrl.match(/^https:\/\/github\.com\/[^/]+\/[^/]+(\/tree\/[^/]+)?(\/)?$/i)) {
-      toast({ title: "URL Invalide", description: "Veuillez entrer une URL de dépôt GitHub valide (ex: https://github.com/owner/repo).", variant: "destructive" });
+    if (!githubRepoUrl.match(/^https:\/\/github\.com\/[^/]+\/[^/]+(\/tree\/[^/]+(\/|\/Recipes\/?.*)?)?(\/)?$/i)) {
+      toast({ title: "URL Invalide", description: "Veuillez entrer une URL de dépôt GitHub valide (ex: https://github.com/owner/repo ou https://github.com/owner/repo/tree/branch/path/to/Recipes).", variant: "destructive" });
       return;
     }
     setIsGitHubLoading(true);
-    const urlParts = githubRepoUrl.replace(/^https:\/\/github\.com\//i, '').split('/');
-    const owner = urlParts[0];
-    const repo = urlParts[1];
-    let repoPath = 'Recipes'; // Default path within the repo
-    let branch = ''; // Will be fetched
+    const url = new URL(githubRepoUrl.replace(/\/$/, '')); // Remove trailing slash for consistency
+    const pathSegments = url.pathname.split('/').filter(Boolean);
+    const owner = pathSegments[0];
+    const repo = pathSegments[1];
+    let branch = ''; 
+    let repoPath = 'Recipes'; // Default base path to search within
 
-    // Check for /tree/branch/path structure
-    const treeIndex = urlParts.findIndex(part => part.toLowerCase() === 'tree');
-    if (treeIndex !== -1 && treeIndex + 1 < urlParts.length) {
-        branch = urlParts[treeIndex + 1];
-        if (treeIndex + 2 < urlParts.length) {
-            repoPath = urlParts.slice(treeIndex + 2).join('/').replace(/\/$/, ''); // Get path after /tree/branch/ and remove trailing slash
-        } else {
-          // If no path after branch, assume root for tree API but we are interested in 'Recipes' anyway
+    const treeIndex = pathSegments.findIndex(part => part.toLowerCase() === 'tree');
+    if (treeIndex !== -1 && treeIndex + 1 < pathSegments.length) {
+        branch = pathSegments[treeIndex + 1];
+        if (treeIndex + 2 < pathSegments.length) {
+            // If a path is specified after the branch, it becomes the base for our "Recipes" search
+            // For example, if URL is .../tree/main/my/beer/recipes, repoPath becomes "my/beer/recipes"
+            repoPath = pathSegments.slice(treeIndex + 2).join('/');
         }
     }
     
     console.log(`Importing from GitHub: owner=${owner}, repo=${repo}, branch=${branch || 'default'}, path=${repoPath}`);
 
     try {
-      // 1. Get default branch if not specified
+      // 1. Get default branch if not specified in URL
       if (!branch) {
         const repoInfoResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
         if (!repoInfoResponse.ok) {
@@ -162,7 +160,8 @@ export default function HomePage() {
         console.log(`Default branch fetched: ${branch}`);
       }
 
-      // 2. Get tree for the specified path (e.g., 'Recipes') recursively
+      // 2. Get tree for the default branch recursively
+      // We fetch the whole tree from the branch root to correctly identify files within the target repoPath
       const treeResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`);
       if (!treeResponse.ok) throw new Error(`Impossible de lire l'arborescence du dépôt (branche: ${branch}): ${treeResponse.statusText}`);
       const treeData = await treeResponse.json();
@@ -171,24 +170,25 @@ export default function HomePage() {
         throw new Error("L'arborescence du dépôt est vide ou inaccessible.");
       }
       if (treeData.truncated) {
-        console.warn("GitHub tree data was truncated. Some files might be missing.");
+        console.warn("GitHub tree data was truncated. Some files might be missing if the repo is very large.");
+        toast({
+          title: "Données tronquées",
+          description: "L'arborescence du dépôt GitHub est très grande et a été tronquée. Certains fichiers pourraient manquer.",
+          variant: "default"
+        });
       }
 
       const xmlFilesToFetch: { path: string; url: string, name: string }[] = [];
+      const repoPathNormalized = repoPath.toLowerCase().endsWith('/') ? repoPath.toLowerCase() : repoPath.toLowerCase() + '/';
+
       for (const item of treeData.tree) {
         // Ensure item.path is relative to the repo root. We filter for items within the target repoPath.
         if (item.type === 'blob' && 
-            item.path.toLowerCase().startsWith(repoPath.toLowerCase() + '/') && 
+            item.path.toLowerCase().startsWith(repoPathNormalized) && 
             item.path.toLowerCase().endsWith('.xml')) {
           
-          // Extract the recipe slug (folder name directly under repoPath)
-          // e.g. if repoPath = 'Recipes', item.path = 'Recipes/My-IPA/recipe.xml' -> slug = 'My-IPA'
-          // e.g. if repoPath = 'Beerrecipes/ales', item.path = 'Beerrecipes/ales/My-IPA/recipe.xml' -> slug = 'My-IPA'
-          const relativePath = item.path.substring(repoPath.length + 1); // Path relative to repoPath
-          const slugCandidate = relativePath.split('/')[0]; // First part is the slug folder
-          
-          xmlFilesToFetch.push({ path: item.path, url: item.url, name: slugCandidate || item.path.split('/').pop() || 'recette.xml' });
-          console.log(`Found XML file to fetch: ${item.path}, using slug candidate: ${slugCandidate}`);
+          xmlFilesToFetch.push({ path: item.path, url: item.url, name: item.path.split('/').pop() || 'recette_importee.xml' });
+          console.log(`Found XML file to fetch: ${item.path}`);
         }
       }
 
@@ -201,6 +201,7 @@ export default function HomePage() {
 
       const recipeFilesToImport: RecipeFile[] = [];
       for (const fileInfo of xmlFilesToFetch) {
+        // Use the direct blob content URL from GitHub API (item.url for blobs)
         const blobDetailResponse = await fetch(fileInfo.url); 
         if (!blobDetailResponse.ok) {
           console.warn(`Impossible de récupérer les détails du blob ${fileInfo.path}: ${blobDetailResponse.statusText}`);
@@ -208,32 +209,34 @@ export default function HomePage() {
         }
         const blobDetail = await blobDetailResponse.json();
         let content = '';
+
         if (blobDetail.encoding === 'base64' && blobDetail.content) {
            content = b64DecodeUnicode(blobDetail.content);
-        } else if (blobDetail.download_url) { 
-          const contentResponse = await fetch(blobDetail.download_url);
-          if (contentResponse.ok) {
-            content = await contentResponse.text();
-          } else {
-            console.warn(`Impossible de télécharger le contenu de ${fileInfo.path}: ${contentResponse.statusText}`);
-            continue;
-          }
+        } else if (blobDetail.content) { // Sometimes content is plain text for smaller files, though API docs suggest it's usually base64
+           content = blobDetail.content;
         } else {
-            // Try fetching directly if content is not base64 (e.g. for smaller files it might be plain text)
-            const directContentResponse = await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${fileInfo.path}`);
-            if (directContentResponse.ok) {
-                content = await directContentResponse.text();
+            // Fallback for unexpected content or if item.url isn't a blob API endpoint
+            // This usually happens if item.url was not the direct git/blobs/{sha} endpoint
+            console.warn(`Blob content for ${fileInfo.path} was not in expected format (base64 or direct). Trying raw content URL.`);
+            const rawContentResponse = await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${fileInfo.path}`);
+            if (rawContentResponse.ok) {
+                content = await rawContentResponse.text();
             } else {
-                console.warn(`Aucun contenu ou download_url pour ${fileInfo.path}, et direct fetch échoué.`);
+                console.warn(`Impossible de télécharger le contenu brut de ${fileInfo.path}: ${rawContentResponse.statusText}`);
                 continue;
             }
+        }
+        
+        if (!content) {
+          console.warn(`Empty content for ${fileInfo.path}`);
+          continue;
         }
         
         // Use the original XML filename for the RecipeFile object sent to addRecipesAction
         // addRecipesAction will derive the slug from the <NAME> tag in the XML content
         const originalFileName = fileInfo.path.split('/').pop() || 'recette_importee.xml';
         recipeFilesToImport.push({ fileName: originalFileName, content });
-        console.log(`Prepared to import: ${originalFileName}`);
+        console.log(`Prepared to import: ${originalFileName} from path ${fileInfo.path}`);
       }
       
       if (recipeFilesToImport.length > 0) {
@@ -241,10 +244,10 @@ export default function HomePage() {
         if (result.success) {
             toast({
                 title: `${result.count} recette(s) importée(s) depuis GitHub!`,
-                description: `Les fichiers BeerXML ont été importés et sauvegardés.`,
+                description: `Les fichiers BeerXML ont été importés et sauvegardés localement.`,
             });
-            loadRecipes(true); // Refresh the list from the backend (Vercel Blob)
-            router.refresh(); // Force refresh to ensure UI consistency
+            loadRecipes(true); // Refresh the list
+            router.refresh(); 
         } else {
             throw new Error(result.error || "Échec de l'importation des recettes GitHub.");
         }
@@ -279,8 +282,8 @@ export default function HomePage() {
             <DialogTitle>Importer des Recettes depuis GitHub</DialogTitle>
             <DialogDescription>
               Entrez l'URL d'un dépôt GitHub public (ex: https://github.com/owner/repo).
-              L'application cherchera des fichiers .xml dans le dossier `Recipes/` (et ses sous-dossiers) à la racine de la branche par défaut.
-              Vous pouvez aussi spécifier une branche et un chemin : https://github.com/owner/repo/tree/branch_name/chemin_vers_dossier_recipes
+              L'application cherchera des fichiers .xml dans un dossier nommé `Recipes/` (insensible à la casse) et dans tous ses sous-dossiers, quelle que soit leur profondeur.
+              Vous pouvez aussi spécifier une branche et un chemin vers le dossier parent de vos recettes : https://github.com/owner/repo/tree/branch_name/chemin_vers_dossier_parent_de_Recipes
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
