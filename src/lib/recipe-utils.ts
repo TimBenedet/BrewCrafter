@@ -80,43 +80,48 @@ const parseMashSteps = (xmlBlock: string): MashStep[] => {
 export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
   try {
     const dirents = await fs.readdir(recipesDir, { withFileTypes: true });
-    const xmlFiles = dirents
-      .filter(dirent => dirent.isFile() && dirent.name.endsWith('.xml'))
-      .map(dirent => dirent.name);
-
+    const recipeDirectories = dirents.filter(dirent => dirent.isDirectory());
     const summaries: RecipeSummary[] = [];
-    for (const fileName of xmlFiles) {
-      const filePath = path.join(recipesDir, fileName);
-      const fileContent = await fs.readFile(filePath, 'utf-8');
-      const recipeBlock = extractTagContent(fileContent, 'RECIPE'); // Operate on the RECIPE block
-      
-      if (recipeBlock) {
-        const recipeName = extractTagContent(recipeBlock, 'NAME');
-        const recipeType = extractTagContent(recipeBlock, 'TYPE');
-        const styleBlock = extractTagContent(recipeBlock, 'STYLE');
-        const styleName = styleBlock ? extractTagContent(styleBlock, 'NAME') : undefined;
 
-        const og = extractTagContent(recipeBlock, 'OG');
-        const fg = extractTagContent(recipeBlock, 'FG');
-        const ibu = extractTagContent(recipeBlock, 'IBU'); // Assumes IBU is Tinseth or pre-calculated in XML
-        const color = extractTagContent(recipeBlock, 'COLOR');
-        const abv = extractTagContent(recipeBlock, 'ABV');
-        const batchSize = extractTagContent(recipeBlock, 'BATCH_SIZE');
+    for (const dir of recipeDirectories) {
+      const slug = dir.name;
+      const xmlFilePath = path.join(recipesDir, slug, 'recipe.xml');
+      
+      try {
+        const fileContent = await fs.readFile(xmlFilePath, 'utf-8');
+        const recipeBlock = extractTagContent(fileContent, 'RECIPE');
         
-        if (recipeName) {
-          summaries.push({
-            slug: fileName.replace(/\.xml$/, ''),
-            name: recipeName,
-            type: recipeType || 'N/A',
-            styleName: styleName,
-            og: og ? parseFloat(og) : undefined,
-            fg: fg ? parseFloat(fg) : undefined,
-            ibu: ibu ? parseFloat(ibu) : undefined,
-            color: color ? parseFloat(color) : undefined,
-            abv: abv ? parseFloat(abv) : undefined,
-            batchSize: batchSize ? parseFloat(batchSize) : undefined,
-          });
+        if (recipeBlock) {
+          const recipeName = extractTagContent(recipeBlock, 'NAME');
+          const recipeType = extractTagContent(recipeBlock, 'TYPE');
+          const styleBlock = extractTagContent(recipeBlock, 'STYLE');
+          const styleName = styleBlock ? extractTagContent(styleBlock, 'NAME') : undefined;
+
+          const og = extractTagContent(recipeBlock, 'OG');
+          const fg = extractTagContent(recipeBlock, 'FG');
+          const ibu = extractTagContent(recipeBlock, 'IBU');
+          const color = extractTagContent(recipeBlock, 'COLOR');
+          const abv = extractTagContent(recipeBlock, 'ABV');
+          const batchSize = extractTagContent(recipeBlock, 'BATCH_SIZE');
+          
+          if (recipeName) {
+            summaries.push({
+              slug: slug, // Slug is the directory name
+              name: recipeName,
+              type: recipeType || 'N/A',
+              styleName: styleName,
+              og: og ? parseFloat(og) : undefined,
+              fg: fg ? parseFloat(fg) : undefined,
+              ibu: ibu ? parseFloat(ibu) : undefined,
+              color: color ? parseFloat(color) : undefined,
+              abv: abv ? parseFloat(abv) : undefined,
+              batchSize: batchSize ? parseFloat(batchSize) : undefined,
+            });
+          }
         }
+      } catch (fileError) {
+        // If recipe.xml is not found or unreadable in a directory, skip it.
+        console.warn(`Could not read recipe.xml in directory ${slug}:`, fileError);
       }
     }
     return summaries;
@@ -127,8 +132,8 @@ export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
 }
 
 export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | null> {
-  const xmlFilePath = path.join(recipesDir, `${slug}.xml`);
-  const mdFilePath = path.join(recipesDir, `${slug}.md`);
+  const xmlFilePath = path.join(recipesDir, slug, 'recipe.xml');
+  const mdFilePath = path.join(recipesDir, slug, 'steps.md');
   let stepsMarkdown: string | undefined = undefined;
 
   try {
@@ -139,8 +144,7 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
     try {
       stepsMarkdown = await fs.readFile(mdFilePath, 'utf-8');
     } catch (mdError) {
-      // Markdown file is optional, so we don't fail if it's not there.
-      // console.warn(`Markdown file for ${slug} not found or could not be read.`, mdError);
+      // Markdown file is optional
     }
 
     const styleBlock = extractTagContent(recipeBlock, 'STYLE');
@@ -193,12 +197,10 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
           grainTemp: extractTagContent(mashBlock, 'GRAIN_TEMP') ? parseFloat(extractTagContent(mashBlock, 'GRAIN_TEMP')!) : undefined,
           mashSteps: mashStepsBlock ? parseMashSteps(mashStepsBlock) : []
       } : undefined,
-      stepsMarkdown, // Added
+      stepsMarkdown,
     };
   } catch (error) {
-    // If XML file itself is not found or has issues, log and return null.
-    console.error(`Failed to read or parse recipe ${slug}.xml:`, error);
+    console.error(`Failed to read or parse recipe details for slug ${slug}:`, error);
     return null;
   }
 }
-

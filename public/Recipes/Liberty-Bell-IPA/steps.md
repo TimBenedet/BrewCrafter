@@ -1,3 +1,4 @@
+
 ## Brewer's Notes
 This is a classic American IPA recipe, aiming for a good balance of hop bitterness, flavor, and aroma, supported by a clean malt backbone. Water chemistry should be adjusted for a hop-forward beer (e.g., higher sulfate to chloride ratio).
 
