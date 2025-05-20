@@ -71,7 +71,7 @@ export default function HomePage() {
   }, [loadRecipes]);
 
   const uniqueStyles = useMemo(() => {
-    if (!recipes) return [];
+    if (!recipes || recipes.length === 0) return [];
     const styles = new Set<string>();
     recipes.forEach(recipe => {
       if (recipe.styleName) {
@@ -102,7 +102,7 @@ export default function HomePage() {
       </div>
 
       <div className="flex items-center gap-2">
-        {(uniqueStyles.length > 0 && recipes.length > 0) && (
+        {(recipes.length > 0) && ( 
           <Select value={selectedStyle} onValueChange={setSelectedStyle}>
             <SelectTrigger
               id="style-filter"
