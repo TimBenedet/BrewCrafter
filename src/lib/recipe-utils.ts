@@ -1,9 +1,58 @@
 
-import fs from 'fs/promises';
-import path from 'path';
 import type { BeerXMLRecipe, RecipeSummary, Fermentable, Hop, Yeast, Misc, MashStep } from '@/types/recipe';
 
-const recipesDir = path.join(process.cwd(), 'public', 'Recipes');
+// Configuration for the GitHub repository
+const GITHUB_OWNER = 'TimBenedet';
+const GITHUB_REPO = 'BrewRecipes';
+const RECIPES_BASE_PATH = 'Recipes'; // The folder in your repo where recipes are stored
+
+// Helper to decode base64
+function b64DecodeUnicode(str: string) {
+  // Going backwards: from bytestream, to percent-encoding, to original string.
+  return decodeURIComponent(atob(str).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+  }).join(''));
+}
+
+async function fetchFromGitHub(path: string): Promise<any> {
+  const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/${path}`;
+  try {
+    const response = await fetch(url, {
+      // Add headers if you have a token for higher rate limits, otherwise public API is used
+      // headers: {
+      //   'Authorization': `token YOUR_GITHUB_TOKEN_HERE` 
+      // }
+      next: { revalidate: 3600 } // Revalidate data from GitHub API every hour
+    });
+    if (!response.ok) {
+      if (response.status === 404) return null; // File or directory not found
+      throw new Error(`GitHub API request failed: ${response.status} ${response.statusText} for ${url}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error(`Error fetching from GitHub API (${url}):`, error);
+    throw error;
+  }
+}
+
+async function getFileContentFromGitHub(filePath: string): Promise<string | null> {
+  const fileData = await fetchFromGitHub(`contents/${filePath}`);
+  if (!fileData) return null;
+
+  if (fileData.download_url) {
+    const downloadResponse = await fetch(fileData.download_url);
+    if (!downloadResponse.ok) {
+      console.warn(`Failed to download ${fileData.download_url}: Status ${downloadResponse.status}`);
+      return null;
+    }
+    return await downloadResponse.text();
+  } else if (fileData.content && fileData.encoding === 'base64') {
+    return b64DecodeUnicode(fileData.content);
+  }
+  console.warn(`Content not found or unsupported format for ${filePath}`);
+  return null;
+}
+
 
 // Helper function to safely extract single tag content
 const extractTagContent = (xml: string, tagName: string): string | undefined => {
@@ -76,76 +125,106 @@ const parseMashSteps = (xmlBlock: string): MashStep[] => {
     }));
 };
 
+export function parseXmlToRecipeSummary(xmlContent: string, slug: string): RecipeSummary | null {
+  const recipeBlock = extractTagContent(xmlContent, 'RECIPE');
+  if (!recipeBlock) return null;
+
+  const recipeName = extractTagContent(recipeBlock, 'NAME');
+  if (!recipeName) return null;
+
+  const recipeType = extractTagContent(recipeBlock, 'TYPE');
+  const styleBlock = extractTagContent(recipeBlock, 'STYLE');
+  const styleName = styleBlock ? extractTagContent(styleBlock, 'NAME') : undefined;
+
+  const og = extractTagContent(recipeBlock, 'OG');
+  const fg = extractTagContent(recipeBlock, 'FG');
+  const ibu = extractTagContent(recipeBlock, 'IBU');
+  const color = extractTagContent(recipeBlock, 'COLOR');
+  const abv = extractTagContent(recipeBlock, 'ABV');
+  const batchSize = extractTagContent(recipeBlock, 'BATCH_SIZE');
+
+  return {
+    slug: slug,
+    name: recipeName,
+    type: recipeType || 'N/A',
+    styleName: styleName,
+    og: og ? parseFloat(og) : undefined,
+    fg: fg ? parseFloat(fg) : undefined,
+    ibu: ibu ? parseFloat(ibu) : undefined,
+    color: color ? parseFloat(color) : undefined,
+    abv: abv ? parseFloat(abv) : undefined,
+    batchSize: batchSize ? parseFloat(batchSize) : undefined,
+  };
+}
+
 
 export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
   try {
-    const dirents = await fs.readdir(recipesDir, { withFileTypes: true });
-    const recipeDirectories = dirents.filter(dirent => dirent.isDirectory());
+    const repoInfo = await fetchFromGitHub('');
+    if (!repoInfo || !repoInfo.default_branch) {
+      console.error('Failed to fetch repo info or default branch.');
+      return [];
+    }
+    const defaultBranch = repoInfo.default_branch;
+
+    const treeData = await fetchFromGitHub(`git/trees/${defaultBranch}?recursive=1`);
+    if (!treeData || !treeData.tree || !Array.isArray(treeData.tree)) {
+      console.error('Failed to fetch repository tree or tree data is invalid.');
+      return [];
+    }
+
+    const recipeFilesPaths: {path: string, slug: string}[] = treeData.tree
+      .filter((item: any) =>
+        item.type === 'blob' &&
+        item.path.toLowerCase().startsWith(RECIPES_BASE_PATH.toLowerCase() + '/') &&
+        item.path.toLowerCase().endsWith('/recipe.xml') // Ensure it's recipe.xml within a subfolder
+      )
+      .map((item: any) => {
+        // Path is like "Recipes/Amber-Ale/recipe.xml"
+        // Slug should be "Amber-Ale"
+        const pathParts = item.path.split('/');
+        // Expected: pathParts[0] = "Recipes", pathParts[1] = "slug", pathParts[2] = "recipe.xml"
+        const slug = pathParts.length > 2 ? pathParts[pathParts.length - 2] : 'unknown-slug';
+        return { path: item.path, slug: slug };
+      });
+
     const summaries: RecipeSummary[] = [];
-
-    for (const dir of recipeDirectories) {
-      const slug = dir.name;
-      const xmlFilePath = path.join(recipesDir, slug, 'recipe.xml');
-      
-      try {
-        const fileContent = await fs.readFile(xmlFilePath, 'utf-8');
-        const recipeBlock = extractTagContent(fileContent, 'RECIPE');
-        
-        if (recipeBlock) {
-          const recipeName = extractTagContent(recipeBlock, 'NAME');
-          const recipeType = extractTagContent(recipeBlock, 'TYPE');
-          const styleBlock = extractTagContent(recipeBlock, 'STYLE');
-          const styleName = styleBlock ? extractTagContent(styleBlock, 'NAME') : undefined;
-
-          const og = extractTagContent(recipeBlock, 'OG');
-          const fg = extractTagContent(recipeBlock, 'FG');
-          const ibu = extractTagContent(recipeBlock, 'IBU');
-          const color = extractTagContent(recipeBlock, 'COLOR');
-          const abv = extractTagContent(recipeBlock, 'ABV');
-          const batchSize = extractTagContent(recipeBlock, 'BATCH_SIZE');
-          
-          if (recipeName) {
-            summaries.push({
-              slug: slug, // Slug is the directory name
-              name: recipeName,
-              type: recipeType || 'N/A',
-              styleName: styleName,
-              og: og ? parseFloat(og) : undefined,
-              fg: fg ? parseFloat(fg) : undefined,
-              ibu: ibu ? parseFloat(ibu) : undefined,
-              color: color ? parseFloat(color) : undefined,
-              abv: abv ? parseFloat(abv) : undefined,
-              batchSize: batchSize ? parseFloat(batchSize) : undefined,
-            });
-          }
+    for (const file of recipeFilesPaths) {
+      const xmlContent = await getFileContentFromGitHub(file.path);
+      if (xmlContent) {
+        const summary = parseXmlToRecipeSummary(xmlContent, file.slug);
+        if (summary) {
+          summaries.push(summary);
         }
-      } catch (fileError) {
-        // If recipe.xml is not found or unreadable in a directory, skip it.
-        console.warn(`Could not read recipe.xml in directory ${slug}:`, fileError);
       }
     }
     return summaries;
+
   } catch (error) {
-    console.error("Failed to read recipe summaries:", error);
+    console.error("Failed to get recipe summaries from GitHub:", error);
     return [];
   }
 }
 
 export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | null> {
-  const xmlFilePath = path.join(recipesDir, slug, 'recipe.xml');
-  const mdFilePath = path.join(recipesDir, slug, 'steps.md');
-  let stepsMarkdown: string | undefined = undefined;
-
   try {
-    const xmlFileContent = await fs.readFile(xmlFilePath, 'utf-8');
+    const xmlFilePath = `${RECIPES_BASE_PATH}/${slug}/recipe.xml`;
+    const mdFilePath = `${RECIPES_BASE_PATH}/${slug}/steps.md`;
+
+    const xmlFileContent = await getFileContentFromGitHub(xmlFilePath);
+    if (!xmlFileContent) {
+      console.error(`recipe.xml not found for slug ${slug} at ${xmlFilePath}`);
+      return null;
+    }
+    
+    let stepsMarkdown: string | undefined = undefined;
+    const mdContent = await getFileContentFromGitHub(mdFilePath);
+    if (mdContent) {
+      stepsMarkdown = mdContent;
+    }
+
     const recipeBlock = extractTagContent(xmlFileContent, 'RECIPE');
     if (!recipeBlock) return null;
-
-    try {
-      stepsMarkdown = await fs.readFile(mdFilePath, 'utf-8');
-    } catch (mdError) {
-      // Markdown file is optional
-    }
 
     const styleBlock = extractTagContent(recipeBlock, 'STYLE');
     const fermentablesBlock = extractTagContent(recipeBlock, 'FERMENTABLES');
@@ -154,7 +233,6 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
     const miscsBlock = extractTagContent(recipeBlock, 'MISCS');
     const mashBlock = extractTagContent(recipeBlock, 'MASH');
     const mashStepsBlock = mashBlock ? extractTagContent(mashBlock, 'MASH_STEPS') : undefined;
-
 
     return {
       name: extractTagContent(recipeBlock, 'NAME') || 'Untitled Recipe',
@@ -200,7 +278,7 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
       stepsMarkdown,
     };
   } catch (error) {
-    console.error(`Failed to read or parse recipe details for slug ${slug}:`, error);
+    console.error(`Failed to get recipe details for slug ${slug} from GitHub:`, error);
     return null;
   }
 }
