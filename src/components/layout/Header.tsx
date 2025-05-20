@@ -32,21 +32,20 @@ export function Header() {
   return (
     <header className="bg-card border-b border-border shadow-sm sticky top-0 z-40">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        {/* Left section: Logo and App Name */}
+        {/* Left section: Logo and Name */}
         <Link href="/" className="flex items-center gap-1 text-xl font-semibold text-primary hover:text-primary/90 transition-colors">
           <GitBrewLogo className="h-8 w-8" />
           <span>GitBrew</span>
         </Link>
 
-        {/* Center section: Navigation Tabs */}
+        {/* Center section: Tabs */}
         <div className="absolute left-1/2 transform -translate-x-1/2">
           <TopTabs />
         </div>
 
-        {/* Right section: Kept empty to balance flex layout, can be used for future icons/buttons */}
-        <div className="w-[calc(theme(spacing.8)_+_theme(spacing.1)_+_max-content)]"> {/* Placeholder for balance */}
-          {/* Add User Profile/Settings icon here in future if needed */}
-        </div>
+        {/* Right section: Placeholder to balance flex layout and center tabs */}
+        {/* Adjust width as needed based on left section's width for better centering */}
+        <div className="w-[calc(theme(spacing.8)_+_theme(spacing.1)_+_max-content)]"> </div>
       </div>
     </header>
   );
