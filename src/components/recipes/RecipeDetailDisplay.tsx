@@ -22,30 +22,16 @@ import {
   Palette,
   BarChart3,
   FileText, 
-  ListOrdered 
+  ListOrdered,
+  GlassWater // Added GlassWater
 } from 'lucide-react';
-import { RecipeStepsDisplay } from './RecipeStepsDisplay'; // Added import
+import { RecipeStepsDisplay } from './RecipeStepsDisplay';
+import React, { useState, useEffect } from 'react'; // Added React, useState, useEffect
 
-// Simple Beer Glass SVG Icon
-const BeerGlassIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    width="24" 
-    height="24" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round"
-    {...props}
-  >
-    <path d="M8 22h8"/>
-    <path d="M7 12c0-2.76 2.24-5 5-5s5 2.24 5 5v7H7v-7Z"/>
-    <path d="M10 7V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3"/>
-  </svg>
-);
-
+interface SrmColorEntry {
+  srm: number;
+  hex: string;
+}
 
 interface SectionProps {
   title: string;
@@ -150,11 +136,79 @@ const normalizeColor = (srm?: number): number => {
 
 
 export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
+  const [srmColorData, setSrmColorData] = useState<SrmColorEntry[]>([]);
+  const [currentSrmHexColor, setCurrentSrmHexColor] = useState<string>('hsl(var(--primary))'); // Default to primary theme color or a neutral gray
+
+  useEffect(() => {
+    const fetchSrmData = async () => {
+      try {
+        const response = await fetch('/srm-color.csv');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch srm-color.csv: ${response.statusText}`);
+        }
+        const text = await response.text();
+        const rows = text.split('\\n').slice(1); // Remove header row
+        const parsedData: SrmColorEntry[] = rows
+          .map(row => {
+            const columns = row.split(',');
+            if (columns.length >= 3) {
+              const srmString = columns[0].trim();
+              // Handle "20+" by treating it as 20 for numerical comparison
+              const srm = parseInt(srmString.includes('+') ? srmString.replace('+', '') : srmString, 10);
+              const hex = columns[2].trim();
+              if (!isNaN(srm) && hex && hex.startsWith('#')) {
+                return { srm, hex };
+              }
+            }
+            return null;
+          })
+          .filter((item): item is SrmColorEntry => item !== null)
+          .sort((a, b) => a.srm - b.srm); // Ensure data is sorted by SRM
+        setSrmColorData(parsedData);
+      } catch (error) {
+        console.error("Error fetching or parsing SRM color data:", error);
+        setSrmColorData([]); // Set to empty array on error to prevent issues
+      }
+    };
+
+    fetchSrmData();
+  }, []);
+
+  useEffect(() => {
+    const getSrmHexColor = (recipeSrmValue?: number, srmMap?: SrmColorEntry[]): string => {
+      if (recipeSrmValue === undefined || recipeSrmValue === null || isNaN(recipeSrmValue) || !srmMap || srmMap.length === 0) {
+        return 'hsl(var(--primary))'; // Default color if data is unavailable or recipe SRM is not set
+      }
+
+      let bestMatchHex = srmMap[0].hex; // Default to the first color if recipeSrm is very low
+
+      for (const entry of srmMap) {
+        if (recipeSrmValue >= entry.srm) {
+          bestMatchHex = entry.hex;
+        } else {
+          // Since the map is sorted, if recipeSrmValue < entry.srm,
+          // the previous entry's color (bestMatchHex) is the correct one.
+          break;
+        }
+      }
+      return bestMatchHex;
+    };
+
+    if (srmColorData.length > 0) {
+      const hexColor = getSrmHexColor(recipe.color, srmColorData);
+      setCurrentSrmHexColor(hexColor);
+    } else {
+       // Fallback if SRM data isn't loaded or recipe has no color
+      setCurrentSrmHexColor('hsl(var(--primary))');
+    }
+  }, [recipe.color, srmColorData]);
+
+
   return (
     <div className="space-y-6">
       <div className="bg-muted/30 p-6 rounded-lg shadow">
         <div className="flex items-center space-x-4">
-          <BeerGlassIcon className="h-12 w-12 text-primary" />
+          <GlassWater className="h-12 w-12" style={{ color: currentSrmHexColor, strokeWidth: 1.5 }} />
           <div>
             <h1 className="text-3xl font-bold text-primary">{recipe.name}</h1>
             {recipe.style?.name && (
@@ -178,151 +232,188 @@ export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
         </TabsList>
 
         <TabsContent value="details" className="mt-4">
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center text-xl">
-                  <InfoIcon className="mr-3 h-5 w-5 text-primary" />
-                  Metadata
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-1 pt-2">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-center sm:text-left">
-                  <div className="py-2">
-                    <Container className="mx-auto sm:mx-0 mb-1 h-6 w-6 text-primary" />
-                    <p className="text-xs text-muted-foreground">Batch Volume</p>
-                    <p className="text-lg font-semibold">{renderValue(recipe.batchSize, 'L', 1)}</p>
-                  </div>
-                  <div className="py-2">
-                    <Clock className="mx-auto sm:mx-0 mb-1 h-6 w-6 text-primary" />
-                    <p className="text-xs text-muted-foreground">Boil Time</p>
-                    <p className="text-lg font-semibold">{renderValue(recipe.boilTime, 'min', 0)}</p>
-                  </div>
-                  <div className="py-2">
-                    <Percent className="mx-auto sm:mx-0 mb-1 h-6 w-6 text-primary" />
-                    <p className="text-xs text-muted-foreground">Efficiency</p>
-                    <p className="text-lg font-semibold">{renderValue(recipe.efficiency, '%', 0)}</p>
-                  </div>
-                  {recipe.boilSize && (
+           <Accordion type="multiple" defaultValue={['item-metadata', 'item-target-stats']}>
+            <AccordionItem value="item-metadata">
+              <AccordionTrigger>
+                  <CardTitle className="flex items-center text-xl">
+                    <InfoIcon className="mr-3 h-5 w-5 text-primary" />
+                    Metadata
+                  </CardTitle>
+              </AccordionTrigger>
+              <AccordionContent>
+                <CardContent className="space-y-1 pt-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-center sm:text-left">
                     <div className="py-2">
-                      <ListChecksIcon className="mx-auto sm:mx-0 mb-1 h-6 w-6 text-primary" />
-                      <p className="text-xs text-muted-foreground">Boil Volume</p>
-                      <p className="text-lg font-semibold">{renderValue(recipe.boilSize, 'L', 1)}</p>
+                      <Container className="mx-auto sm:mx-0 mb-1 h-6 w-6 text-primary" />
+                      <p className="text-xs text-muted-foreground">Batch Volume</p>
+                      <p className="text-lg font-semibold">{renderValue(recipe.batchSize, 'L', 1)}</p>
                     </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center text-xl">
-                  <BarChart3 className="mr-3 h-5 w-5 text-primary" />
-                  Target Stats
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 pt-2">
-                <TargetStatItem 
-                  icon={Thermometer} 
-                  label="Original Gravity" 
-                  value={recipe.og}
-                  valueDisplayOverride={recipe.og !== undefined ? recipe.og.toFixed(3) : undefined}
-                  progressValue={normalizeGravity(recipe.og)} 
-                />
-                <Separator />
-                <TargetStatItem 
-                  icon={Thermometer} 
-                  label="Final Gravity" 
-                  value={recipe.fg}
-                  valueDisplayOverride={recipe.fg !== undefined ? recipe.fg.toFixed(3) : undefined}
-                  progressValue={normalizeGravity(recipe.fg)} 
-                />
-                <Separator />
-                <TargetStatItem 
-                  icon={Percent} 
-                  label="Alcohol By Volume" 
-                  value={recipe.abv} 
-                  unit="%" 
-                  precision={1} 
-                  progressValue={normalizeAbv(recipe.abv)} 
-                />
-                <Separator />
-                <TargetStatItem 
-                  icon={Hop} 
-                  label="Bitterness (IBU)" 
-                  value={recipe.ibu} 
-                  precision={0} 
-                  progressValue={normalizeIbu(recipe.ibu)} 
-                />
-                <Separator />
-                <TargetStatItem 
-                  icon={Palette} 
-                  label="Color (SRM)" 
-                  value={recipe.color} 
-                  precision={0} 
-                  progressValue={normalizeColor(recipe.color)} 
-                />
-              </CardContent>
-            </Card>
+                     {recipe.boilSize && (
+                      <div className="py-2">
+                        <ListChecksIcon className="mx-auto sm:mx-0 mb-1 h-6 w-6 text-primary" />
+                        <p className="text-xs text-muted-foreground">Boil Volume</p>
+                        <p className="text-lg font-semibold">{renderValue(recipe.boilSize, 'L', 1)}</p>
+                      </div>
+                    )}
+                    <div className="py-2">
+                      <Clock className="mx-auto sm:mx-0 mb-1 h-6 w-6 text-primary" />
+                      <p className="text-xs text-muted-foreground">Boil Time</p>
+                      <p className="text-lg font-semibold">{renderValue(recipe.boilTime, 'min', 0)}</p>
+                    </div>
+                    <div className="py-2">
+                      <Percent className="mx-auto sm:mx-0 mb-1 h-6 w-6 text-primary" />
+                      <p className="text-xs text-muted-foreground">Efficiency</p>
+                      <p className="text-lg font-semibold">{renderValue(recipe.efficiency, '%', 0)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </AccordionContent>
+            </AccordionItem>
+            
+            <AccordionItem value="item-target-stats">
+               <AccordionTrigger>
+                  <CardTitle className="flex items-center text-xl">
+                    <BarChart3 className="mr-3 h-5 w-5 text-primary" />
+                    Target Stats
+                  </CardTitle>
+               </AccordionTrigger>
+               <AccordionContent>
+                <CardContent className="space-y-2 pt-4">
+                  <TargetStatItem 
+                    icon={Thermometer} 
+                    label="Original Gravity" 
+                    value={recipe.og}
+                    valueDisplayOverride={recipe.og !== undefined ? recipe.og.toFixed(3) : undefined}
+                    progressValue={normalizeGravity(recipe.og)} 
+                  />
+                  <Separator />
+                  <TargetStatItem 
+                    icon={Thermometer} 
+                    label="Final Gravity" 
+                    value={recipe.fg}
+                    valueDisplayOverride={recipe.fg !== undefined ? recipe.fg.toFixed(3) : undefined}
+                    progressValue={normalizeGravity(recipe.fg)} 
+                  />
+                  <Separator />
+                  <TargetStatItem 
+                    icon={Percent} 
+                    label="Alcohol By Volume" 
+                    value={recipe.abv} 
+                    unit="%" 
+                    precision={1} 
+                    progressValue={normalizeAbv(recipe.abv)} 
+                  />
+                  <Separator />
+                  <TargetStatItem 
+                    icon={Hop} 
+                    label="Bitterness (IBU)" 
+                    value={recipe.ibu} 
+                    precision={0} 
+                    progressValue={normalizeIbu(recipe.ibu)} 
+                  />
+                  <Separator />
+                  <TargetStatItem 
+                    icon={Palette} 
+                    label="Color (SRM)" 
+                    value={recipe.color} 
+                    precision={0} 
+                    progressValue={normalizeColor(recipe.color)} 
+                  />
+                </CardContent>
+              </AccordionContent>
+            </AccordionItem>
             
             {recipe.fermentables.length > 0 && (
-              <DetailSection title="Fermentables" icon={Wheat}>
-                <Table>
-                  <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Amount</TableHead><TableHead>Type</TableHead><TableHead>Yield</TableHead><TableHead>Color</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {recipe.fermentables.map((f, i) => (
-                      <TableRow key={i}><TableCell>{f.name}</TableCell><TableCell>{renderValue(f.amount, 'kg')}</TableCell><TableCell>{f.type}</TableCell><TableCell>{renderValue(f.yieldPercentage, '%')}</TableCell><TableCell>{renderValue(f.color, 'SRM')}</TableCell></TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </DetailSection>
+               <AccordionItem value="item-fermentables">
+                <AccordionTrigger>
+                  <DetailSectionTitle icon={Wheat} title="Fermentables" />
+                </AccordionTrigger>
+                <AccordionContent>
+                  <CardContent className="pt-4">
+                    <Table>
+                      <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Amount</TableHead><TableHead>Type</TableHead><TableHead>Yield</TableHead><TableHead>Color</TableHead></TableRow></TableHeader>
+                      <TableBody>
+                        {recipe.fermentables.map((f, i) => (
+                          <TableRow key={i}><TableCell>{f.name}</TableCell><TableCell>{renderValue(f.amount, 'kg')}</TableCell><TableCell>{f.type}</TableCell><TableCell>{renderValue(f.yieldPercentage, '%')}</TableCell><TableCell>{renderValue(f.color, 'SRM')}</TableCell></TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </AccordionContent>
+              </AccordionItem>
             )}
 
             {recipe.hops.length > 0 && (
-              <DetailSection title="Hops" icon={Hop}>
-                <Table>
-                  <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Amount</TableHead><TableHead>Use</TableHead><TableHead>Time</TableHead><TableHead>Alpha</TableHead><TableHead>Form</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {recipe.hops.map((h, i) => (
-                      <TableRow key={i}><TableCell>{h.name}</TableCell><TableCell>{renderValue(h.amount * 1000, 'g')}</TableCell><TableCell>{h.use}</TableCell><TableCell>{renderValue(h.time, 'min')}</TableCell><TableCell>{renderValue(h.alpha, '%')}</TableCell><TableCell>{h.form || 'N/A'}</TableCell></TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </DetailSection>
+              <AccordionItem value="item-hops">
+                <AccordionTrigger>
+                  <DetailSectionTitle icon={Hop} title="Hops" />
+                </AccordionTrigger>
+                <AccordionContent>
+                  <CardContent className="pt-4">
+                    <Table>
+                      <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Amount</TableHead><TableHead>Use</TableHead><TableHead>Time</TableHead><TableHead>Alpha</TableHead><TableHead>Form</TableHead></TableRow></TableHeader>
+                      <TableBody>
+                        {recipe.hops.map((h, i) => (
+                          <TableRow key={i}><TableCell>{h.name}</TableCell><TableCell>{renderValue(h.amount * 1000, 'g')}</TableCell><TableCell>{h.use}</TableCell><TableCell>{renderValue(h.time, 'min')}</TableCell><TableCell>{renderValue(h.alpha, '%')}</TableCell><TableCell>{h.form || 'N/A'}</TableCell></TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </AccordionContent>
+              </AccordionItem>
             )}
 
             {recipe.yeasts.length > 0 && (
-              <DetailSection title="Yeasts" icon={Microscope}>
-                <Table>
-                  <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Amount</TableHead><TableHead>Type</TableHead><TableHead>Form</TableHead><TableHead>Lab</TableHead><TableHead>Product ID</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {recipe.yeasts.map((y, i) => (
-                      <TableRow key={i}><TableCell>{y.name}</TableCell><TableCell>{renderValue(y.amount, y.form === 'Liquid' ? 'L' : 'g')}</TableCell><TableCell>{y.type}</TableCell><TableCell>{y.form}</TableCell><TableCell>{y.laboratory || 'N/A'}</TableCell><TableCell>{y.productId || 'N/A'}</TableCell></TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </DetailSection>
+              <AccordionItem value="item-yeasts">
+                <AccordionTrigger>
+                  <DetailSectionTitle icon={Microscope} title="Yeasts" />
+                </AccordionTrigger>
+                <AccordionContent>
+                  <CardContent className="pt-4">
+                    <Table>
+                      <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Amount</TableHead><TableHead>Type</TableHead><TableHead>Form</TableHead><TableHead>Lab</TableHead><TableHead>Product ID</TableHead></TableRow></TableHeader>
+                      <TableBody>
+                        {recipe.yeasts.map((y, i) => (
+                          <TableRow key={i}><TableCell>{y.name}</TableCell><TableCell>{renderValue(y.amount, y.form === 'Liquid' ? 'L' : 'g')}</TableCell><TableCell>{y.type}</TableCell><TableCell>{y.form}</TableCell><TableCell>{y.laboratory || 'N/A'}</TableCell><TableCell>{y.productId || 'N/A'}</TableCell></TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </AccordionContent>
+              </AccordionItem>
             )}
             
             {recipe.miscs.length > 0 && (
-              <DetailSection title="Miscs" icon={Package}>
-                 <Table>
-                  <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Amount</TableHead><TableHead>Use</TableHead><TableHead>Time</TableHead><TableHead>Type</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {recipe.miscs.map((m, i) => (
-                      <TableRow key={i}><TableCell>{m.name}</TableCell><TableCell>{renderValue(m.amount)}</TableCell><TableCell>{m.use}</TableCell><TableCell>{renderValue(m.time, 'min')}</TableCell><TableCell>{m.type}</TableCell></TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </DetailSection>
+               <AccordionItem value="item-miscs">
+                <AccordionTrigger>
+                  <DetailSectionTitle icon={Package} title="Miscs" />
+                </AccordionTrigger>
+                <AccordionContent>
+                  <CardContent className="pt-4">
+                    <Table>
+                      <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Amount</TableHead><TableHead>Use</TableHead><TableHead>Time</TableHead><TableHead>Type</TableHead></TableRow></TableHeader>
+                      <TableBody>
+                        {recipe.miscs.map((m, i) => (
+                          <TableRow key={i}><TableCell>{m.name}</TableCell><TableCell>{renderValue(m.amount)}</TableCell><TableCell>{m.use}</TableCell><TableCell>{renderValue(m.time, 'min')}</TableCell><TableCell>{m.type}</TableCell></TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </AccordionContent>
+              </AccordionItem>
             )}
 
             {recipe.notes && (
-              <DetailSection title="Notes" icon={StickyNote}>
-                <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: recipe.notes.replace(/\n/g, '<br />') }} />
-              </DetailSection>
+              <AccordionItem value="item-notes">
+                <AccordionTrigger>
+                  <DetailSectionTitle icon={StickyNote} title="Notes" />
+                </AccordionTrigger>
+                <AccordionContent>
+                  <CardContent className="pt-4 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: recipe.notes.replace(/\\n/g, '<br />') }} />
+                </AccordionContent>
+              </AccordionItem>
             )}
-          </div>
+          </Accordion>
         </TabsContent>
         
         <TabsContent value="steps" className="mt-4">
@@ -340,4 +431,11 @@ export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
     </div>
   );
 }
-    
+
+// Helper component for AccordionTrigger titles to avoid repeating CardTitle structure
+const DetailSectionTitle: React.FC<{ icon: React.ElementType; title: string }> = ({ icon: Icon, title }) => (
+  <CardTitle className="flex items-center text-xl py-0"> {/* Removed CardHeader padding */}
+    <Icon className="mr-3 h-6 w-6 text-primary" />
+    {title}
+  </CardTitle>
+);
