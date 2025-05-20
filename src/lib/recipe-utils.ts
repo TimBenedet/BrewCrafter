@@ -3,7 +3,6 @@ import type { BeerXMLRecipe, RecipeSummary, Fermentable, Hop, Yeast, Misc, MashS
 import { list } from '@vercel/blob';
 
 // Ensure BLOB_READ_WRITE_TOKEN environment variable is set in your Vercel project.
-// Without it, 'list' and other Vercel Blob operations will fail.
 
 // Helper function to safely extract single tag content
 const extractTagContent = (xml: string, tagName: string): string | undefined => {
@@ -117,7 +116,7 @@ export function parseXmlToRecipeSummary(xmlContent: string, slug: string): Recip
 }
 
 async function fetchBlobContent(blobUrl: string): Promise<string | null> {
-  // console.log(`fetchBlobContent: Attempting to fetch content from URL: ${blobUrl}`);
+  console.log(`fetchBlobContent: Attempting to fetch content from URL: ${blobUrl}`);
   try {
     const response = await fetch(blobUrl);
     if (!response.ok) {
@@ -127,7 +126,7 @@ async function fetchBlobContent(blobUrl: string): Promise<string | null> {
       return null;
     }
     const textContent = await response.text();
-    // console.log(`fetchBlobContent: Successfully fetched content from ${blobUrl} (length: ${textContent.length})`);
+    console.log(`fetchBlobContent: Successfully fetched content from ${blobUrl} (length: ${textContent.length})`);
     return textContent;
   } catch (error) {
     console.error(`fetchBlobContent: Error fetching blob content from ${blobUrl}:`, error);
@@ -142,7 +141,7 @@ export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
 
   try {
     // List blobs with the prefix 'Recipes' (no trailing slash). mode: 'folded' is default.
-    const { blobs } = await list({ prefix: 'Recipes' }); 
+    const { blobs } = await list({ prefix: 'Recipes', mode: 'folded' }); 
     console.log("getRecipeSummaries: Vercel Blob list response for prefix 'Recipes':", { blobsCount: blobs.length });
 
     if (!blobs || blobs.length === 0) {
@@ -219,17 +218,17 @@ export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
 export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | null> {
   console.log(`getRecipeDetails: Attempting to get details for slug: ${slug}`);
   try {
-    const recipeDirectoryPrefix = `Recipes/${slug}`; // Prefix for the directory, no trailing slash
-    const xmlPathPrefixWithSlash = `Recipes/${slug}/`; // For startsWith checks
-    const mdPathSpecific = `Recipes/${slug}/steps.md`; // Specific name for markdown
+    const recipeDirectoryPrefixWithSlash = `Recipes/${slug}/`; // e.g. Recipes/Amber-ale/
+    const mdPathSpecific = `Recipes/${slug}/steps.md`; // e.g. Recipes/Amber-ale/steps.md
 
     let xmlContent: string | null = null;
     let stepsMarkdown: string | undefined = undefined;
     let actualXmlPath: string | null = null;
 
     // List all files in the slug's directory
-    const { blobs: dirBlobs } = await list({ prefix: recipeDirectoryPrefix, mode: 'folded' });
-    console.log(`getRecipeDetails: Blob list for recipe directory prefix '${recipeDirectoryPrefix}':`, { count: dirBlobs.length });
+    // Using prefix with trailing slash to list items *inside* the directory
+    const { blobs: dirBlobs } = await list({ prefix: recipeDirectoryPrefixWithSlash, mode: 'folded' });
+    console.log(`getRecipeDetails: Blob list for recipe directory prefix '${recipeDirectoryPrefixWithSlash}':`, { count: dirBlobs.length });
     if (dirBlobs.length > 0) {
         console.log("getRecipeDetails: Raw blobs in recipe dir (first 5):", dirBlobs.slice(0,5).map(b => b.pathname));
     }
@@ -238,11 +237,10 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
     const xmlBlob = dirBlobs.find(b => {
         const lowerPathname = b.pathname.toLowerCase();
         // Check if it starts with the directory (with a slash) and ends with .xml
-        if (lowerPathname.startsWith(xmlPathPrefixWithSlash.toLowerCase()) && lowerPathname.endsWith('.xml')) {
+        if (lowerPathname.startsWith(recipeDirectoryPrefixWithSlash.toLowerCase()) && lowerPathname.endsWith('.xml')) {
             // Check if it's directly in this folder (not a sub-sub-folder)
             // e.g. "Recipes/slug/file.xml" -> "file.xml".split('/') -> length 1
-            // e.g. "Recipes/slug/sub/file.xml" -> "sub/file.xml".split('/') -> length 2
-            const relativePath = b.pathname.substring(xmlPathPrefixWithSlash.length);
+            const relativePath = b.pathname.substring(recipeDirectoryPrefixWithSlash.length);
             return relativePath.split('/').length === 1;
         }
         return false;
@@ -254,7 +252,7 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
       console.log(`getRecipeDetails: Found XML file for slug ${slug}: ${actualXmlPath}`);
       xmlContent = await fetchBlobContent(xmlBlob.url);
     } else {
-      console.warn(`getRecipeDetails: No XML file found directly in Vercel Blob for slug folder ${slug} (e.g., Recipes/${slug}/somefile.xml)`);
+      console.warn(`getRecipeDetails: No XML file found directly in Vercel Blob for slug folder ${slug} (e.g., ${recipeDirectoryPrefixWithSlash}somefile.xml)`);
       return null; 
     }
 
