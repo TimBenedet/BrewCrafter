@@ -61,7 +61,7 @@ export const BackLabelPreview = forwardRef<HTMLDivElement, BackLabelPreviewProps
     <div className="w-full flex flex-col items-center">
       <h3 className="text-lg font-semibold mb-2 text-center">Back Label Preview</h3>
       <div 
-        className="bg-card border-2 border-primary rounded-md shadow-lg flex items-center justify-center overflow-hidden"
+        className="bg-card border-2 border-primary rounded-md shadow-lg flex items-center justify-center overflow-hidden max-w-full"
         style={{
           width: `${PREVIEW_CONTAINER_WIDTH_PX}px`, // 300px
           height: `${PREVIEW_CONTAINER_HEIGHT_PX}px`, // 400px
