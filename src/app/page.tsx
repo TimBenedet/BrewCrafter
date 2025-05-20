@@ -1,28 +1,16 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
 import type { RecipeSummary } from '@/types/recipe';
-import { FileWarning, FilterIcon, AlertTriangle, RefreshCw, FilePlus2, UploadCloud, HardDriveIcon } from 'lucide-react';
+import { FileWarning, FilterIcon, AlertTriangle, RefreshCw } from 'lucide-react'; // Removed FilePlus2, UploadCloud, HardDriveIcon as they are no longer used directly here
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-
+// Removed unused imports for AlertDialog, Dialog, Input, Label, addRecipesAction if they were only for removed features
 
 export default function HomePage() {
   const [recipes, setRecipes] = useState<RecipeSummary[]>([]);
@@ -101,35 +89,28 @@ export default function HomePage() {
 
 
   const renderTopBar = () => (
-    <div className="mb-6 flex flex-wrap items-center justify-start gap-2">
-        <Button variant="outline" asChild>
-            <Link href="/recipes/new">
-            <FilePlus2 className="mr-2 h-4 w-4" /> Nouvelle recette
-            </Link>
-        </Button>
+    <div className="mb-6 flex flex-wrap items-center justify-end gap-2"> {/* Changed justify-start to justify-end */}
+      {/* "Nouvelle recette" button removed */}
 
-      <div className="flex items-center gap-2 ml-auto">
-        {(uniqueStyles.length > 0 && recipes.length > 0) && ( // Show filter only if there are styles and recipes
-          <Select value={selectedStyle} onValueChange={setSelectedStyle}>
-            <SelectTrigger
-              id="style-filter"
-              className="w-auto sm:w-[220px] bg-background text-sm"
-            >
-              <FilterIcon className="h-4 w-4 mr-2 text-muted-foreground" />
-              <SelectValue placeholder="Filtrer par style" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tous les styles</SelectItem>
-              {uniqueStyles.map(style => (
-                <SelectItem key={style} value={style}>{style}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        <Button onClick={() => loadRecipes(true)} variant="outline" size="icon" aria-label="Rafraîchir les recettes" disabled={isLoading}>
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-        </Button>
-      </div>
+      {/* Filter section - kept on the right */}
+      {(uniqueStyles.length > 0 && recipes.length > 0) && ( // Show filter only if there are styles and recipes
+        <Select value={selectedStyle} onValueChange={setSelectedStyle}>
+          <SelectTrigger
+            id="style-filter"
+            className="w-auto sm:w-[220px] bg-background text-sm"
+          >
+            <FilterIcon className="h-4 w-4 mr-2 text-muted-foreground" />
+            <SelectValue placeholder="Filtrer par style" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tous les styles</SelectItem>
+            {uniqueStyles.map(style => (
+              <SelectItem key={style} value={style}>{style}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+      {/* "Refresh" button removed */}
     </div>
   );
 
@@ -137,15 +118,9 @@ export default function HomePage() {
   if (isLoading && recipes.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="flex justify-between items-center gap-2 mb-6">
-          <div className="flex items-center gap-2">
-            {/* Placeholders for buttons */}
-            <div className="animate-pulse h-10 w-[150px] bg-muted rounded-md"></div>
-          </div>
-          <div className="flex items-center gap-2 ml-auto">
-            <div className="animate-pulse h-10 w-[200px] bg-muted rounded-md"></div>
-            <div className="animate-pulse h-10 w-10 bg-muted rounded-md"></div>
-          </div>
+        <div className="flex justify-end items-center gap-2 mb-6"> {/* Adjusted placeholder layout */}
+          {/* Placeholder for filter */}
+          <div className="animate-pulse h-10 w-[220px] bg-muted rounded-md"></div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(3)].map((_, i) => (
@@ -202,11 +177,11 @@ export default function HomePage() {
 
       {!isLoading && recipes.length === 0 && !error && (
         <div className="flex flex-col items-center justify-center text-center py-10">
-          {renderTopBar()} {/* Ensure top bar is also visible here */}
-          <FileWarning className="w-16 h-16 text-muted-foreground mb-4 mt-6" /> {/* Added margin-top */}
+          {renderTopBar()}
+          <FileWarning className="w-16 h-16 text-muted-foreground mb-4 mt-6" />
           <h2 className="text-2xl font-semibold mb-2">Aucune recette trouvée</h2>
           <p className="text-muted-foreground">
-            Créez votre première recette en utilisant le bouton ci-dessus.
+            Il n'y a pas de recettes à afficher.
           </p>
         </div>
       )}
