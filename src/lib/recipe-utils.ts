@@ -1,58 +1,19 @@
 
 import type { BeerXMLRecipe, RecipeSummary, Fermentable, Hop, Yeast, Misc, MashStep } from '@/types/recipe';
+import { list } from '@vercel/blob';
+// Note: Ensure BLOB_READ_WRITE_TOKEN environment variable is set in your Vercel project for these operations.
 
-// Configuration for the GitHub repository
-const GITHUB_OWNER = 'TimBenedet';
-const GITHUB_REPO = 'BrewRecipes';
-const RECIPES_BASE_PATH = 'Recipes'; // The folder in your repo where recipes are stored
-
-// Helper to decode base64
+// Helper to decode base64 - useful if Vercel Blob client or GitHub API returns base64
 function b64DecodeUnicode(str: string) {
-  // Going backwards: from bytestream, to percent-encoding, to original string.
-  return decodeURIComponent(atob(str).split('').map(function(c) {
-      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-  }).join(''));
-}
-
-async function fetchFromGitHub(path: string): Promise<any> {
-  const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/${path}`;
   try {
-    const response = await fetch(url, {
-      // Add headers if you have a token for higher rate limits, otherwise public API is used
-      // headers: {
-      //   'Authorization': `token YOUR_GITHUB_TOKEN_HERE` 
-      // }
-      next: { revalidate: 3600 } // Revalidate data from GitHub API every hour
-    });
-    if (!response.ok) {
-      if (response.status === 404) return null; // File or directory not found
-      throw new Error(`GitHub API request failed: ${response.status} ${response.statusText} for ${url}`);
-    }
-    return await response.json();
-  } catch (error) {
-    console.error(`Error fetching from GitHub API (${url}):`, error);
-    throw error;
+    return decodeURIComponent(atob(str).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+  } catch (e) {
+    console.error("Failed to decode base64 string:", e);
+    return ""; // Return empty string or handle error as appropriate
   }
 }
-
-async function getFileContentFromGitHub(filePath: string): Promise<string | null> {
-  const fileData = await fetchFromGitHub(`contents/${filePath}`);
-  if (!fileData) return null;
-
-  if (fileData.download_url) {
-    const downloadResponse = await fetch(fileData.download_url);
-    if (!downloadResponse.ok) {
-      console.warn(`Failed to download ${fileData.download_url}: Status ${downloadResponse.status}`);
-      return null;
-    }
-    return await downloadResponse.text();
-  } else if (fileData.content && fileData.encoding === 'base64') {
-    return b64DecodeUnicode(fileData.content);
-  }
-  console.warn(`Content not found or unsupported format for ${filePath}`);
-  return null;
-}
-
 
 // Helper function to safely extract single tag content
 const extractTagContent = (xml: string, tagName: string): string | undefined => {
@@ -121,7 +82,6 @@ const parseMashSteps = (xmlBlock: string): MashStep[] => {
         stepTemp: parseFloat(extractTagContent(block, 'STEP_TEMP') || '0'),
         stepTime: parseFloat(extractTagContent(block, 'STEP_TIME') || '0'),
         infuseAmount: extractTagContent(block, 'INFUSE_AMOUNT') ? parseFloat(extractTagContent(block, 'INFUSE_AMOUNT')!) : undefined,
-
     }));
 };
 
@@ -157,73 +117,82 @@ export function parseXmlToRecipeSummary(xmlContent: string, slug: string): Recip
   };
 }
 
+async function fetchBlobContent(blobUrl: string): Promise<string | null> {
+  try {
+    const response = await fetch(blobUrl);
+    if (!response.ok) {
+      console.error(`Failed to fetch blob content from ${blobUrl}: ${response.status} ${response.statusText}`);
+      return null;
+    }
+    return await response.text();
+  } catch (error) {
+    console.error(`Error fetching blob content from ${blobUrl}:`, error);
+    return null;
+  }
+}
+
 
 export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
+  const summaries: RecipeSummary[] = [];
   try {
-    const repoInfo = await fetchFromGitHub('');
-    if (!repoInfo || !repoInfo.default_branch) {
-      console.error('Failed to fetch repo info or default branch.');
-      return [];
-    }
-    const defaultBranch = repoInfo.default_branch;
+    // List all blobs under the 'Recipes/' prefix.
+    // Vercel Blob does not have true "folders", so we list files and infer structure.
+    const { blobs } = await list({ prefix: 'Recipes/' });
 
-    const treeData = await fetchFromGitHub(`git/trees/${defaultBranch}?recursive=1`);
-    if (!treeData || !treeData.tree || !Array.isArray(treeData.tree)) {
-      console.error('Failed to fetch repository tree or tree data is invalid.');
-      return [];
-    }
-
-    const recipeFilesPaths: {path: string, slug: string}[] = treeData.tree
-      .filter((item: any) =>
-        item.type === 'blob' &&
-        item.path.toLowerCase().startsWith(RECIPES_BASE_PATH.toLowerCase() + '/') &&
-        item.path.toLowerCase().endsWith('/recipe.xml') // Ensure it's recipe.xml within a subfolder
-      )
-      .map((item: any) => {
-        // Path is like "Recipes/Amber-Ale/recipe.xml"
-        // Slug should be "Amber-Ale"
-        const pathParts = item.path.split('/');
-        // Expected: pathParts[0] = "Recipes", pathParts[1] = "slug", pathParts[2] = "recipe.xml"
-        const slug = pathParts.length > 2 ? pathParts[pathParts.length - 2] : 'unknown-slug';
-        return { path: item.path, slug: slug };
-      });
-
-    const summaries: RecipeSummary[] = [];
-    for (const file of recipeFilesPaths) {
-      const xmlContent = await getFileContentFromGitHub(file.path);
-      if (xmlContent) {
-        const summary = parseXmlToRecipeSummary(xmlContent, file.slug);
-        if (summary) {
-          summaries.push(summary);
+    for (const blob of blobs) {
+      // Example pathname: "Recipes/my-recipe-slug/recipe.xml"
+      const pathParts = blob.pathname.split('/');
+      if (pathParts.length === 3 && pathParts[0] === 'Recipes' && pathParts[2].toLowerCase() === 'recipe.xml') {
+        const slug = pathParts[1];
+        const xmlContent = await fetchBlobContent(blob.url);
+        if (xmlContent) {
+          const summary = parseXmlToRecipeSummary(xmlContent, slug);
+          if (summary) {
+            summaries.push(summary);
+          }
         }
       }
     }
     return summaries;
-
   } catch (error) {
-    console.error("Failed to get recipe summaries from GitHub:", error);
-    return [];
+    console.error("Failed to get recipe summaries from Vercel Blob:", error);
+    // Consider the case where BLOB_READ_WRITE_TOKEN might not be available during build on Vercel
+    // if this function is called at build time by a Server Component.
+    if (error instanceof Error && error.message.includes('Missing environment variable')) {
+        console.warn("Vercel Blob TOKEN likely missing. This might be normal during local build if .env.local is not set, or if env var is not set on Vercel for build stage.");
+    }
+    return []; // Return empty array on error
   }
 }
 
 export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | null> {
   try {
-    const xmlFilePath = `${RECIPES_BASE_PATH}/${slug}/recipe.xml`;
-    const mdFilePath = `${RECIPES_BASE_PATH}/${slug}/steps.md`;
+    const xmlPath = `Recipes/${slug}/recipe.xml`;
+    const mdPath = `Recipes/${slug}/steps.md`;
 
-    const xmlFileContent = await getFileContentFromGitHub(xmlFilePath);
-    if (!xmlFileContent) {
-      console.error(`recipe.xml not found for slug ${slug} at ${xmlFilePath}`);
+    let xmlContent: string | null = null;
+    let stepsMarkdown: string | undefined = undefined;
+
+    // Fetch XML content
+    const xmlBlobs = await list({ prefix: xmlPath });
+    if (xmlBlobs.blobs.length > 0 && xmlBlobs.blobs[0].pathname === xmlPath) {
+      xmlContent = await fetchBlobContent(xmlBlobs.blobs[0].url);
+    } else {
+      console.error(`recipe.xml not found in Vercel Blob for slug ${slug} at ${xmlPath}`);
       return null;
     }
-    
-    let stepsMarkdown: string | undefined = undefined;
-    const mdContent = await getFileContentFromGitHub(mdFilePath);
-    if (mdContent) {
-      stepsMarkdown = mdContent;
+
+    if (!xmlContent) {
+      return null;
     }
 
-    const recipeBlock = extractTagContent(xmlFileContent, 'RECIPE');
+    // Fetch Markdown content (optional)
+    const mdBlobs = await list({ prefix: mdPath });
+    if (mdBlobs.blobs.length > 0 && mdBlobs.blobs[0].pathname === mdPath) {
+      stepsMarkdown = await fetchBlobContent(mdBlobs.blobs[0].url) ?? undefined;
+    }
+
+    const recipeBlock = extractTagContent(xmlContent, 'RECIPE');
     if (!recipeBlock) return null;
 
     const styleBlock = extractTagContent(recipeBlock, 'STYLE');
@@ -278,7 +247,8 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
       stepsMarkdown,
     };
   } catch (error) {
-    console.error(`Failed to get recipe details for slug ${slug} from GitHub:`, error);
+    console.error(`Failed to get recipe details for slug ${slug} from Vercel Blob:`, error);
     return null;
   }
 }
+
