@@ -1,3 +1,4 @@
+
 # GitBrew - Your Cloud-Based Beer Recipe Book
 
 GitBrew is a modern web application designed for homebrewers and craft beer enthusiasts to manage, create, and explore beer recipes. It leverages a cloud-based approach for recipe storage, making your recipes accessible anywhere.
@@ -28,7 +29,15 @@ GitBrew offers the following key functionalities:
         *   **Target Stats**: OG, FG, ABV, IBU, Color (SRM) with visual progress bars.
         *   **Ingredients**: Detailed lists for Fermentables, Hops, Yeasts, and Miscs, showing amounts, types, usage, etc.
         *   **Notes**: Brewer's notes from the recipe.
-    *   **Recipe Steps Tab**: If a corresponding `steps.md` file exists in the recipe's folder on Vercel Blob, it displays formatted brewing steps with icons for each section (Brewer's Notes, Mashing, Boil, Whirlpool, Cooling, Fermentation, Bottling/Kegging).
+    *   **Recipe Steps Tab**: If a corresponding `steps.md` file exists in the recipe's folder on Vercel Blob, it displays formatted brewing steps.
+        *   **Important for `steps.md` formatting**: For the steps to be displayed correctly with associated icons, your `.md` file should ideally use the following H2 headers for sections:
+            *   `## Brewer's Notes`
+            *   `## Mashing`
+            *   `## Boil`
+            *   `## Whirlpool / Aroma Additions`
+            *   `## Cooling`
+            *   `## Fermentation`
+            *   `## Bottling/Kegging`
 
 *   **New Recipe Creation**:
     *   A dedicated "New Recipe" page with a comprehensive form.
