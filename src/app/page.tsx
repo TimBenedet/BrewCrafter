@@ -5,10 +5,11 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
 import type { RecipeSummary } from '@/types/recipe';
-import { FileWarning, FilterIcon, AlertTriangle, RefreshCw, UploadCloud, FilePlus2, HardDriveIcon, Cloud } from 'lucide-react';
+import { FileWarning, FilterIcon, AlertTriangle, RefreshCw, UploadCloud, FilePlus2, HardDriveIcon, Cloud, GithubIcon } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { addRecipesAction } from '@/app/actions/recipe-actions';
 import {
@@ -22,8 +23,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { useRouter } from 'next/navigation';
 
+
+interface RecipeFile {
+  fileName: string;
+  content: string;
+}
 
 export default function HomePage() {
   const [recipes, setRecipes] = useState<RecipeSummary[]>([]);
@@ -35,6 +42,10 @@ export default function HomePage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAddRecipeDialogOpen, setIsAddRecipeDialogOpen] = useState(false);
+  const [isGitHubImportDialogOpen, setIsGitHubImportDialogOpen] = useState(false);
+  const [gitHubRepoUrl, setGitHubRepoUrl] = useState('');
+  const [isGitHubImportLoading, setIsGitHubImportLoading] = useState(false);
+
 
   const loadRecipes = useCallback(async (showToast = false) => {
     setIsLoading(true);
@@ -120,7 +131,7 @@ export default function HomePage() {
             title: `Recette importée !`,
             description: `La recette "${file.name}" a été importée avec succès.`,
           });
-          loadRecipes(); // Reload recipes to show the new one
+          loadRecipes(true); 
           router.refresh(); 
         } else {
           throw new Error(result.error || "Erreur lors de l'importation de la recette.");
@@ -153,6 +164,107 @@ export default function HomePage() {
       title: "Fonctionnalité à venir",
       description: "L'intégration avec Google Drive est prévue prochainement.",
     });
+  };
+
+  const handleGitHubImport = async () => {
+    if (!gitHubRepoUrl) {
+      toast({ title: "URL manquante", description: "Veuillez entrer l'URL du dépôt GitHub.", variant: "destructive" });
+      return;
+    }
+
+    const urlPattern = /^https:\/\/github\.com\/([^\/]+)\/([^\/]+)(\/tree\/[^\/]+\/(.*))?$/;
+    const match = gitHubRepoUrl.match(urlPattern);
+
+    if (!match) {
+      toast({ title: "URL invalide", description: "Veuillez entrer une URL de dépôt GitHub valide (ex: https://github.com/owner/repo).", variant: "destructive" });
+      return;
+    }
+
+    const owner = match[1];
+    const repo = match[2];
+    // For now, we assume recipes are in a root "Recipes" folder.
+    // A more advanced version could parse path from match[4] or allow user input.
+    const basePath = "Recipes"; 
+
+    setIsGitHubImportLoading(true);
+    toast({ title: "Importation GitHub en cours...", description: "Récupération des recettes..." });
+
+    try {
+      // 1. Get contents of the /Recipes directory
+      const recipesDirUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${basePath}`;
+      const recipesDirResponse = await fetch(recipesDirUrl);
+      if (!recipesDirResponse.ok) {
+        throw new Error(`Impossible de récupérer le dossier ${basePath} du dépôt. (Statut: ${recipesDirResponse.status})`);
+      }
+      const recipesDirItems: any[] = await recipesDirResponse.json();
+      const recipeFolders = recipesDirItems.filter(item => item.type === 'dir');
+
+      if (recipeFolders.length === 0) {
+        toast({ title: "Aucune recette trouvée", description: `Aucun sous-dossier de recette trouvé dans ${basePath}.`, variant: "default" });
+        setIsGitHubImportLoading(false);
+        return;
+      }
+
+      const recipeFilesToImport: RecipeFile[] = [];
+
+      for (const folder of recipeFolders) {
+        // 2. For each recipe folder, get its contents
+        const recipeFolderUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${folder.path}`;
+        const recipeFolderResponse = await fetch(recipeFolderUrl);
+        if (!recipeFolderResponse.ok) {
+          console.warn(`Impossible de récupérer le contenu du dossier ${folder.path}. Statut: ${recipeFolderResponse.status}`);
+          continue; // Skip this recipe folder
+        }
+        const recipeFolderItems: any[] = await recipeFolderResponse.json();
+        
+        // 3. Find 'recipe.xml'
+        const xmlFileItem = recipeFolderItems.find(item => item.name === 'recipe.xml' && item.type === 'file' && item.download_url);
+        
+        if (xmlFileItem) {
+          // 4. Fetch the content of recipe.xml
+          const xmlFileResponse = await fetch(xmlFileItem.download_url);
+          if (!xmlFileResponse.ok) {
+            console.warn(`Impossible de télécharger ${xmlFileItem.path}. Statut: ${xmlFileResponse.status}`);
+            continue; // Skip this file
+          }
+          const xmlContent = await xmlFileResponse.text();
+          recipeFilesToImport.push({ fileName: `${folder.name}.xml`, content: xmlContent }); 
+        } else {
+          console.warn(`Aucun fichier recipe.xml trouvé dans ${folder.path}`);
+        }
+      }
+
+      if (recipeFilesToImport.length === 0) {
+        toast({ title: "Aucun fichier recipe.xml valide", description: "Aucun fichier recipe.xml n'a pu être récupéré des sous-dossiers.", variant: "default" });
+        setIsGitHubImportLoading(false);
+        return;
+      }
+
+      // 5. Call addRecipesAction
+      const result = await addRecipesAction(recipeFilesToImport);
+      if (result.success) {
+        toast({
+          title: `Importation GitHub réussie !`,
+          description: `${result.count} recette(s) importée(s) depuis ${repo}.`,
+        });
+        loadRecipes(true);
+        router.refresh();
+        setIsGitHubImportDialogOpen(false);
+        setGitHubRepoUrl('');
+      } else {
+        throw new Error(result.error || "Erreur lors de l'importation des recettes depuis GitHub.");
+      }
+
+    } catch (error) {
+      console.error("Erreur lors de l'importation GitHub:", error);
+      toast({
+        title: "Échec de l'importation GitHub",
+        description: (error as Error).message || "Un problème est survenu.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGitHubImportLoading(false);
+    }
   };
 
 
@@ -221,6 +333,36 @@ export default function HomePage() {
                   <Button onClick={handleGoogleDriveSelect} variant="outline" className="w-full">
                     <Cloud className="mr-2 h-4 w-4" /> Google Drive
                   </Button>
+                   <Dialog open={isGitHubImportDialogOpen} onOpenChange={setIsGitHubImportDialogOpen}>
+                    <DialogTrigger asChild>
+                       <Button variant="outline" className="w-full" onClick={() => { setIsAddRecipeDialogOpen(false); setIsGitHubImportDialogOpen(true); }}>
+                        <GithubIcon className="mr-2 h-4 w-4" /> Depuis un dépôt GitHub
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Importer depuis GitHub</DialogTitle>
+                        <DialogDescription>
+                          Entrez l'URL complète du dépôt GitHub public (ex: https://github.com/owner/repo). Les recettes doivent être dans un dossier nommé &quot;Recipes&quot; à la racine, avec chaque recette dans son propre sous-dossier contenant un fichier `recipe.xml`.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <Input
+                          id="github-url"
+                          placeholder="https://github.com/owner/repo"
+                          value={gitHubRepoUrl}
+                          onChange={(e) => setGitHubRepoUrl(e.target.value)}
+                          disabled={isGitHubImportLoading}
+                        />
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsGitHubImportDialogOpen(false)} disabled={isGitHubImportLoading}>Annuler</Button>
+                        <Button type="button" onClick={handleGitHubImport} disabled={isGitHubImportLoading}>
+                          {isGitHubImportLoading ? <><RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Chargement...</> : "Charger les recettes"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                   <AlertDialogCancel className="w-full mt-2 sm:mt-2">Annuler</AlertDialogCancel>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -266,14 +408,48 @@ export default function HomePage() {
                   D'où souhaitez-vous charger votre fichier de recette ?
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              <AlertDialogFooter className="flex-col sm:flex-col sm:space-x-0 gap-2">
+               <AlertDialogFooter className="flex-col sm:flex-col sm:space-x-0 gap-2">
                 <Button onClick={selectFileFromComputer} className="w-full">
                   <HardDriveIcon className="mr-2 h-4 w-4" /> Mon ordinateur
                 </Button>
                 <Button onClick={handleGoogleDriveSelect} variant="outline" className="w-full">
                   <Cloud className="mr-2 h-4 w-4" /> Google Drive
                 </Button>
-                <AlertDialogCancel className="w-full mt-2 sm:mt-2">Annuler</AlertDialogCancel>
+                <Dialog open={isGitHubImportDialogOpen} onOpenChange={(open) => {
+                    if (!open && isGitHubImportLoading) return; // Prevent closing while loading
+                    setIsGitHubImportDialogOpen(open);
+                    if (open) setIsAddRecipeDialogOpen(false); // Close the outer dialog
+                  }}>
+                  <DialogTrigger asChild>
+                     <Button variant="outline" className="w-full">
+                      <GithubIcon className="mr-2 h-4 w-4" /> Depuis un dépôt GitHub
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Importer depuis GitHub</DialogTitle>
+                      <DialogDescription>
+                        Entrez l'URL complète du dépôt GitHub public (ex: https://github.com/owner/repo). Les recettes doivent être dans un dossier nommé &quot;Recipes&quot; à la racine, avec chaque recette dans son propre sous-dossier contenant un fichier `recipe.xml`.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <Input
+                        id="github-url-main"
+                        placeholder="https://github.com/owner/repo"
+                        value={gitHubRepoUrl}
+                        onChange={(e) => setGitHubRepoUrl(e.target.value)}
+                        disabled={isGitHubImportLoading}
+                      />
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsGitHubImportDialogOpen(false)} disabled={isGitHubImportLoading}>Annuler</Button>
+                      <Button type="button" onClick={handleGitHubImport} disabled={isGitHubImportLoading}>
+                        {isGitHubImportLoading ? <><RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Chargement...</> : "Charger les recettes"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+                <AlertDialogCancel className="w-full mt-2 sm:mt-2" onClick={() => setIsAddRecipeDialogOpen(false)}>Annuler</AlertDialogCancel>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -353,4 +529,3 @@ export default function HomePage() {
     </div>
   );
 }
-
