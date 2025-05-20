@@ -211,7 +211,7 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
       <div className="md:col-span-2 space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="font-bebas-neue text-xl uppercase tracking-wider text-foreground">Label Previews</CardTitle>
+            <CardTitle className="text-lg font-semibold uppercase text-foreground">Label Previews</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start justify-center"> 
