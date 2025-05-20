@@ -213,7 +213,7 @@ export default function HomePage() {
         }
         const recipeFolderItems: any[] = await recipeFolderResponse.json();
         
-        const xmlFileItem = recipeFolderItems.find(item => item.name.toLowerCase() === 'recette.xml' && item.type === 'file' && item.download_url);
+        const xmlFileItem = recipeFolderItems.find(item => item.name.toLowerCase().endsWith('.xml') && item.type === 'file' && item.download_url);
         
         if (xmlFileItem) {
           const xmlFileResponse = await fetch(xmlFileItem.download_url);
@@ -222,14 +222,14 @@ export default function HomePage() {
             continue; 
           }
           const xmlContent = await xmlFileResponse.text();
-          recipeFilesToImport.push({ fileName: `${folder.name}.xml`, content: xmlContent }); 
+          recipeFilesToImport.push({ fileName: `${folder.name}-${xmlFileItem.name}`, content: xmlContent }); 
         } else {
-          console.warn(`Aucun fichier Recette.xml trouvé dans ${folder.path}`);
+          console.warn(`Aucun fichier .xml trouvé dans ${folder.path}`);
         }
       }
 
       if (recipeFilesToImport.length === 0) {
-        toast({ title: "Aucun fichier Recette.xml valide", description: "Aucun fichier Recette.xml n'a pu être récupéré des sous-dossiers.", variant: "default" });
+        toast({ title: "Aucun fichier .xml valide", description: "Aucun fichier .xml n'a pu être récupéré des sous-dossiers.", variant: "default" });
         setIsGitHubImportLoading(false);
         return;
       }
@@ -336,7 +336,7 @@ export default function HomePage() {
                       <DialogHeader>
                         <DialogTitle>Importer depuis GitHub</DialogTitle>
                         <DialogDescription>
-                          Entrez l'URL complète du dépôt GitHub public (ex: https://github.com/owner/repo). Les recettes doivent être dans un dossier nommé &quot;Recipes&quot; à la racine, avec chaque recette dans son propre sous-dossier (ex: `Ma_Recette`). Chaque sous-dossier doit contenir un fichier BeerXML (par exemple, `Recette.xml`).
+                          Entrez l'URL complète du dépôt GitHub public (ex: https://github.com/owner/repo). Les recettes doivent être dans un dossier nommé &quot;Recipes&quot; à la racine, avec chaque recette dans son propre sous-dossier (ex: `Ma_Recette`). Chaque sous-dossier doit contenir un fichier BeerXML (extension `.xml`).
                         </DialogDescription>
                       </DialogHeader>
                       <div className="grid gap-4 py-4">
@@ -422,7 +422,7 @@ export default function HomePage() {
                     <DialogHeader>
                       <DialogTitle>Importer depuis GitHub</DialogTitle>
                       <DialogDescription>
-                        Entrez l'URL complète du dépôt GitHub public (ex: https://github.com/owner/repo). Les recettes doivent être dans un dossier nommé &quot;Recipes&quot; à la racine, avec chaque recette dans son propre sous-dossier (ex: `Ma_Recette`). Chaque sous-dossier doit contenir un fichier BeerXML (par exemple, `Recette.xml`).
+                        Entrez l'URL complète du dépôt GitHub public (ex: https://github.com/owner/repo). Les recettes doivent être dans un dossier nommé &quot;Recipes&quot; à la racine, avec chaque recette dans son propre sous-dossier (ex: `Ma_Recette`). Chaque sous-dossier doit contenir un fichier BeerXML (extension `.xml`).
                       </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -522,3 +522,6 @@ export default function HomePage() {
     </div>
   );
 }
+
+
+    
