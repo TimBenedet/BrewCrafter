@@ -5,12 +5,23 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
 import type { RecipeSummary } from '@/types/recipe';
-import { FileWarning, FilterIcon, AlertTriangle, RefreshCw, FilePlus2 } from 'lucide-react';
+import { FileWarning, FilterIcon, AlertTriangle, RefreshCw, FilePlus2, UploadCloud, HardDriveIcon } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 
 export default function HomePage() {
@@ -25,7 +36,7 @@ export default function HomePage() {
   const loadRecipes = useCallback(async (showToast = false) => {
     setIsLoading(true);
     setError(null);
-    console.log("HomePage: Initiating loadRecipes...");
+    console.log("HomePage: Initiating loadRecipes... Attempting to fetch from /api/recipes/summaries to display recipes from configured storage (e.g., Vercel Blob).");
     try {
       const response = await fetch('/api/recipes/summaries');
       console.log("HomePage: Fetch response status:", response.status);
@@ -91,14 +102,14 @@ export default function HomePage() {
 
   const renderTopBar = () => (
     <div className="mb-6 flex flex-wrap items-center justify-start gap-2">
-      <Button variant="outline" asChild>
-        <Link href="/recipes/new">
-          <FilePlus2 className="mr-2 h-4 w-4" /> Nouvelle recette
-        </Link>
-      </Button>
+        <Button variant="outline" asChild>
+            <Link href="/recipes/new">
+            <FilePlus2 className="mr-2 h-4 w-4" /> Nouvelle recette
+            </Link>
+        </Button>
 
       <div className="flex items-center gap-2 ml-auto">
-        {(uniqueStyles.length > 0 || recipes.length > 0) && (
+        {(uniqueStyles.length > 0 && recipes.length > 0) && ( // Show filter only if there are styles and recipes
           <Select value={selectedStyle} onValueChange={setSelectedStyle}>
             <SelectTrigger
               id="style-filter"
@@ -191,7 +202,8 @@ export default function HomePage() {
 
       {!isLoading && recipes.length === 0 && !error && (
         <div className="flex flex-col items-center justify-center text-center py-10">
-          <FileWarning className="w-16 h-16 text-muted-foreground mb-4" />
+          {renderTopBar()} {/* Ensure top bar is also visible here */}
+          <FileWarning className="w-16 h-16 text-muted-foreground mb-4 mt-6" /> {/* Added margin-top */}
           <h2 className="text-2xl font-semibold mb-2">Aucune recette trouvée</h2>
           <p className="text-muted-foreground">
             Créez votre première recette en utilisant le bouton ci-dessus.
