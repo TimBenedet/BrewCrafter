@@ -23,15 +23,11 @@ import {
   BarChart3,
   FileText, 
   ListOrdered,
-  GlassWater // Added GlassWater
+  GlassWater
 } from 'lucide-react';
 import { RecipeStepsDisplay } from './RecipeStepsDisplay';
-import React, { useState, useEffect } from 'react'; // Added React, useState, useEffect
-
-interface SrmColorEntry {
-  srm: number;
-  hex: string;
-}
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import React from 'react'; // Keep React for JSX
 
 interface SectionProps {
   title: string;
@@ -39,19 +35,13 @@ interface SectionProps {
   children: React.ReactNode;
 }
 
-const DetailSection: React.FC<SectionProps> = ({ title, icon: Icon, children }) => (
-  <Card>
-    <CardHeader>
-      <CardTitle className="flex items-center text-xl">
-        <Icon className="mr-3 h-6 w-6 text-primary" />
-        {title}
-      </CardTitle>
-    </CardHeader>
-    <CardContent>
-      {children}
-    </CardContent>
-  </Card>
+const DetailSectionTitle: React.FC<{ icon: React.ElementType; title: string }> = ({ icon: Icon, title }) => (
+  <CardTitle className="flex items-center text-xl py-0">
+    <Icon className="mr-3 h-6 w-6 text-primary" />
+    {title}
+  </CardTitle>
 );
+
 
 const renderValue = (value: string | number | undefined, unit: string = '', precision: number = 2, showUnitBefore: boolean = false) => {
   if (value === undefined || value === null || (typeof value === 'number' && isNaN(value))) return <span className="text-muted-foreground">N/A</span>;
@@ -136,79 +126,12 @@ const normalizeColor = (srm?: number): number => {
 
 
 export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
-  const [srmColorData, setSrmColorData] = useState<SrmColorEntry[]>([]);
-  const [currentSrmHexColor, setCurrentSrmHexColor] = useState<string>('hsl(var(--primary))'); // Default to primary theme color or a neutral gray
-
-  useEffect(() => {
-    const fetchSrmData = async () => {
-      try {
-        const response = await fetch('/srm-color.csv');
-        if (!response.ok) {
-          throw new Error(`Failed to fetch srm-color.csv: ${response.statusText}`);
-        }
-        const text = await response.text();
-        const rows = text.split('\\n').slice(1); // Remove header row
-        const parsedData: SrmColorEntry[] = rows
-          .map(row => {
-            const columns = row.split(',');
-            if (columns.length >= 3) {
-              const srmString = columns[0].trim();
-              // Handle "20+" by treating it as 20 for numerical comparison
-              const srm = parseInt(srmString.includes('+') ? srmString.replace('+', '') : srmString, 10);
-              const hex = columns[2].trim();
-              if (!isNaN(srm) && hex && hex.startsWith('#')) {
-                return { srm, hex };
-              }
-            }
-            return null;
-          })
-          .filter((item): item is SrmColorEntry => item !== null)
-          .sort((a, b) => a.srm - b.srm); // Ensure data is sorted by SRM
-        setSrmColorData(parsedData);
-      } catch (error) {
-        console.error("Error fetching or parsing SRM color data:", error);
-        setSrmColorData([]); // Set to empty array on error to prevent issues
-      }
-    };
-
-    fetchSrmData();
-  }, []);
-
-  useEffect(() => {
-    const getSrmHexColor = (recipeSrmValue?: number, srmMap?: SrmColorEntry[]): string => {
-      if (recipeSrmValue === undefined || recipeSrmValue === null || isNaN(recipeSrmValue) || !srmMap || srmMap.length === 0) {
-        return 'hsl(var(--primary))'; // Default color if data is unavailable or recipe SRM is not set
-      }
-
-      let bestMatchHex = srmMap[0].hex; // Default to the first color if recipeSrm is very low
-
-      for (const entry of srmMap) {
-        if (recipeSrmValue >= entry.srm) {
-          bestMatchHex = entry.hex;
-        } else {
-          // Since the map is sorted, if recipeSrmValue < entry.srm,
-          // the previous entry's color (bestMatchHex) is the correct one.
-          break;
-        }
-      }
-      return bestMatchHex;
-    };
-
-    if (srmColorData.length > 0) {
-      const hexColor = getSrmHexColor(recipe.color, srmColorData);
-      setCurrentSrmHexColor(hexColor);
-    } else {
-       // Fallback if SRM data isn't loaded or recipe has no color
-      setCurrentSrmHexColor('hsl(var(--primary))');
-    }
-  }, [recipe.color, srmColorData]);
-
 
   return (
     <div className="space-y-6">
       <div className="bg-muted/30 p-6 rounded-lg shadow">
         <div className="flex items-center space-x-4">
-          <GlassWater className="h-12 w-12" style={{ color: currentSrmHexColor, strokeWidth: 1.5 }} />
+          <GlassWater className="h-12 w-12 text-primary" style={{ strokeWidth: 1.5 }} />
           <div>
             <h1 className="text-3xl font-bold text-primary">{recipe.name}</h1>
             {recipe.style?.name && (
@@ -232,7 +155,7 @@ export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
         </TabsList>
 
         <TabsContent value="details" className="mt-4">
-           <Accordion type="multiple" defaultValue={['item-metadata', 'item-target-stats']}>
+           <Accordion type="multiple" defaultValue={['item-metadata', 'item-target-stats']} className="w-full">
             <AccordionItem value="item-metadata">
               <AccordionTrigger>
                   <CardTitle className="flex items-center text-xl">
@@ -323,7 +246,7 @@ export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
               </AccordionContent>
             </AccordionItem>
             
-            {recipe.fermentables.length > 0 && (
+            {recipe.fermentables && recipe.fermentables.length > 0 && (
                <AccordionItem value="item-fermentables">
                 <AccordionTrigger>
                   <DetailSectionTitle icon={Wheat} title="Fermentables" />
@@ -343,7 +266,7 @@ export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
               </AccordionItem>
             )}
 
-            {recipe.hops.length > 0 && (
+            {recipe.hops && recipe.hops.length > 0 && (
               <AccordionItem value="item-hops">
                 <AccordionTrigger>
                   <DetailSectionTitle icon={Hop} title="Hops" />
@@ -363,7 +286,7 @@ export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
               </AccordionItem>
             )}
 
-            {recipe.yeasts.length > 0 && (
+            {recipe.yeasts && recipe.yeasts.length > 0 && (
               <AccordionItem value="item-yeasts">
                 <AccordionTrigger>
                   <DetailSectionTitle icon={Microscope} title="Yeasts" />
@@ -383,7 +306,7 @@ export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
               </AccordionItem>
             )}
             
-            {recipe.miscs.length > 0 && (
+            {recipe.miscs && recipe.miscs.length > 0 && (
                <AccordionItem value="item-miscs">
                 <AccordionTrigger>
                   <DetailSectionTitle icon={Package} title="Miscs" />
@@ -431,11 +354,3 @@ export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
     </div>
   );
 }
-
-// Helper component for AccordionTrigger titles to avoid repeating CardTitle structure
-const DetailSectionTitle: React.FC<{ icon: React.ElementType; title: string }> = ({ icon: Icon, title }) => (
-  <CardTitle className="flex items-center text-xl py-0"> {/* Removed CardHeader padding */}
-    <Icon className="mr-3 h-6 w-6 text-primary" />
-    {title}
-  </CardTitle>
-);
