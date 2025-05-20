@@ -20,19 +20,15 @@ export default async function BrewCrafterLabelPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center text-2xl font-bebas-neue tracking-wide text-primary">
-            <Paintbrush className="mr-3 h-7 w-7" />
-            BrewCrafter Label
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">
-            Design simple front and back labels for your craft beer. Experiment with text, colors, and background images.
-          </p>
-        </CardContent>
-      </Card>
+      <header className="mb-6">
+        <h1 className="text-3xl font-bold text-primary flex items-center">
+          <Paintbrush className="mr-3 h-8 w-8" />
+          BrewCrafter Label
+        </h1>
+        <p className="text-muted-foreground mt-1">
+          Design simple front and back labels for your craft beer. Experiment with text, colors, and background images.
+        </p>
+      </header>
 
       {error && (
         <Card className="border-destructive bg-destructive/10">
@@ -46,4 +42,3 @@ export default async function BrewCrafterLabelPage() {
     </div>
   );
 }
-
