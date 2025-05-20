@@ -65,7 +65,7 @@ export function LabelControls({ form, recipes, onRecipeSelect, selectedRecipeSlu
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle className="font-bebas-neue tracking-wide">Label Configuration</CardTitle>
+        <CardTitle className="font-semibold uppercase tracking-wide text-foreground">Label Configuration</CardTitle>
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-[calc(100vh-220px)] pr-4"> {/* Adjust height as needed */}

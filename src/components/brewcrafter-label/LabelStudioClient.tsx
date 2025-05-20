@@ -181,7 +181,7 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
         height: elementHeight,
         backgroundColor: null, 
         useCORS: true, 
-        logging: false, // Set to true for debugging if needed
+        logging: false, 
         scrollX: 0, 
         scrollY: 0,
         windowWidth: elementWidth, 
@@ -229,7 +229,7 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
       <div className="md:col-span-2 space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="font-bebas-neue tracking-wide">Label Previews</CardTitle>
+            <CardTitle className="font-semibold uppercase tracking-wide text-foreground">Label Previews</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start justify-center"> 
