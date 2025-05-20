@@ -28,7 +28,6 @@ const DESIGN_CANVAS_WIDTH_PX = 300;
 const DESIGN_CANVAS_HEIGHT_PX = 400;
 
 // Physical dimensions for a typical VERTICAL label on a bottle
-// Adjusted 33CL width to maintain 0.75 aspect ratio (300/400)
 const PHYSICAL_LABEL_DIMENSIONS = {
   '33CL': { widthCM: 7.5, heightCM: 10 }, 
   '75CL': { widthCM: 9, heightCM: 12 }, 
@@ -38,12 +37,6 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
   const { toast } = useToast();
   const [recipes, setRecipes] = useState<RecipeSummary[]>(initialRecipes);
   const [selectedRecipeSlug, setSelectedRecipeSlug] = useState<string | undefined>(undefined);
-  
-  const [displayIbu, setDisplayIbu] = useState<string>('N/A');
-  const [displaySrm, setDisplaySrm] = useState<string>('N/A'); 
-  const [currentSrmHexColor, setCurrentSrmHexColor] = useState<string>('#CCCCCC');
-  const [ingredientsSummaryForLabel, setIngredientsSummaryForLabel] = useState<string>('N/A');
-  const [displayAbv, setDisplayAbv] = useState<string>('N/A');
   
   const frontLabelContentRef = useRef<HTMLDivElement>(null);
   const backLabelContentRef = useRef<HTMLDivElement>(null);
@@ -90,7 +83,7 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
         const result = await getRecipeDetailsAction(selectedRecipeSlug);
         if (result.success && result.recipe) {
           const recipeData = result.recipe;
-          form.reset({
+          form.reset({ 
             ...form.getValues(), 
             selectedRecipeSlug: selectedRecipeSlug,
             beerName: recipeData.name || form.getValues('beerName'),
@@ -107,47 +100,36 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
             brewingLocation: form.getValues('brewingLocation'), 
             volume: form.getValues('volume'),
           });
-
-          setDisplayIbu(recipeData.ibu?.toFixed(0) || 'N/A');
-          setDisplaySrm(recipeData.color?.toFixed(0) || 'N/A');
-          setCurrentSrmHexColor(srmToHex(recipeData.color));
-          setIngredientsSummaryForLabel(summarizeIngredients(recipeData.fermentables, recipeData.hops, recipeData.yeasts));
-          setDisplayAbv(recipeData.abv?.toFixed(1) || 'N/A');
           
           toast({ title: "Recipe Loaded", description: `${recipeData.name} data has been pre-filled.` });
         } else {
           toast({ title: "Error", description: `Failed to load recipe: ${result.error}`, variant: "destructive" });
-          setDisplayIbu('N/A');
-          setDisplaySrm('N/A');
-          setCurrentSrmHexColor('#CCCCCC');
-          setIngredientsSummaryForLabel('N/A');
-          setDisplayAbv('N/A');
         }
       } else if (selectedRecipeSlug === 'none') { 
          form.reset({
             ...LabelFormSchema.parse({ 
+                beerName: 'My Awesome Beer',
                 ibuForLabel: 'N/A',
                 abvForLabel: 'N/A',
+                description: 'Handcrafted with care.',
+                ingredients: 'Water, Malt, Hops, Yeast.',
+                brewingDate: `Brewed on: ${new Date().toLocaleDateString()}`,
+                brewingLocation: 'My Home Brewery',
             }), 
             selectedRecipeSlug: 'none', 
             volume: form.getValues('volume'),
             backgroundColor: form.getValues('backgroundColor'),
             textColor: form.getValues('textColor'),
             backgroundImage: form.getValues('backgroundImage'),
-            breweryName: form.getValues('breweryName'),
-            tagline: form.getValues('tagline'),
+            breweryName: form.getValues('breweryName') || 'My Brewery Co.',
+            tagline: form.getValues('tagline') || 'Simply the best.',
          });
-        setDisplayIbu('N/A');
-        setDisplaySrm('N/A');
-        setCurrentSrmHexColor('#CCCCCC'); 
-        setIngredientsSummaryForLabel('N/A');
-        setDisplayAbv('N/A');
         toast({ title: "Manual Entry", description: "Fields cleared for manual input (design choices preserved)." });
       }
     };
     fetchAndSetRecipeData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedRecipeSlug, form.reset, toast]); 
+  }, [selectedRecipeSlug, form.reset]); 
 
   const handleDownloadImage = async (labelContentRef: React.RefObject<HTMLDivElement>, labelName: string) => {
     if (!labelContentRef.current) {
@@ -172,7 +154,7 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
 
     const scaleX = targetPixelWidth / elementWidth;
     const scaleY = targetPixelHeight / elementHeight;
-    const scale = Math.min(scaleX, scaleY, 8); 
+    const scale = Math.min(scaleX, scaleY); 
 
     try {
       const canvas = await html2canvas(elementToCapture, {
@@ -229,7 +211,7 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
       <div className="md:col-span-2 space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="font-semibold uppercase tracking-wide text-foreground">Label Previews</CardTitle>
+            <CardTitle className="font-bebas-neue text-xl uppercase tracking-wider text-foreground">Label Previews</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start justify-center"> 

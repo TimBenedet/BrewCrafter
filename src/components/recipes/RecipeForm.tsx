@@ -121,9 +121,9 @@ const defaultValues: Partial<RecipeFormValues> = {
   efficiency: 72.0,
   og: 1.052,
   fg: 1.012,
-  abv: 0, 
-  ibu: 0, 
-  colorSrm: 14.0, 
+  abv: 0,
+  ibu: 0,
+  colorSrm: 14.0,
   notes: '',
   style: {
     name: 'American Amber Ale',
@@ -165,7 +165,7 @@ function generateBeerXml(data: RecipeFormValues): string {
   xml += `    <BOIL_SIZE>${data.boilSize}</BOIL_SIZE>\n`;
   xml += `    <BOIL_TIME>${data.boilTime}</BOIL_TIME>\n`;
   if (data.efficiency !== undefined) xml += `    <EFFICIENCY>${data.efficiency}</EFFICIENCY>\n`;
-  
+
   const og = data.og === undefined || data.og === null ? undefined : data.og;
   const fg = data.fg === undefined || data.fg === null ? undefined : data.fg;
   const abv = data.abv === undefined || data.abv === null ? undefined : data.abv;
@@ -240,8 +240,8 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `      </MISC>\n`;
   });
   xml += `    </MISCS>\n`;
-  
-  xml += `    <WATERS/>\n`; 
+
+  xml += `    <WATERS/>\n`;
 
   xml += `    <MASH>\n`;
   xml += `      <NAME>${sanitizeForXml(data.mash.name)}</NAME>\n`;
@@ -262,7 +262,7 @@ function generateBeerXml(data: RecipeFormValues): string {
   if (data.notes) {
     xml += `    <NOTES>${sanitizeForXml(data.notes)}</NOTES>\n`;
   }
-  
+
   xml += `  </RECIPE>\n`;
   xml += `</RECIPES>\n`;
   return xml;
@@ -279,7 +279,7 @@ function calculateAbv(ogInput?: number | string, fgInput?: number | string): num
 
 function getBignessFactor(og: number): number {
   if (isNaN(og) || og < 1.0) {
-    return NaN; 
+    return NaN;
   }
   return 1.65 * Math.pow(0.000125, og - 1.0);
 }
@@ -307,42 +307,42 @@ function calculateIbuTinseth(
   let totalIbus = 0;
   const bignessFactor = getBignessFactor(numOg);
   if (isNaN(bignessFactor)) {
-    return undefined; 
+    return undefined;
   }
 
-  hops.forEach(hop => {
+  (hops || []).forEach(hop => {
     const currentAlpha = parseFloat(String(hop.alpha));
-    const currentAmount = parseFloat(String(hop.amount)); // Amount in kg
+    const currentAmount = parseFloat(String(hop.amount));
     const currentTime = parseFloat(String(hop.time));
 
     if (
       hop.use === 'Boil' &&
-      !isNaN(currentAlpha) && 
-      !isNaN(currentAmount) && currentAmount > 0 && 
+      !isNaN(currentAlpha) && currentAlpha > 0 &&
+      !isNaN(currentAmount) && currentAmount > 0 &&
       !isNaN(currentTime) && currentTime >= 0
     ) {
       const alphaDecimal = currentAlpha / 100.0;
-      const amountGrams = currentAmount * 1000.0; 
+      const amountGrams = currentAmount * 1000.0;
       const boilTimeFactor = getBoilTimeFactor(currentTime);
 
       if (isNaN(boilTimeFactor)) {
-        return; // Skip this hop
+        return;
       }
 
       const utilization = bignessFactor * boilTimeFactor;
-      
+
       if (isNaN(utilization)) {
-        return; // Skip this hop
+        return;
       }
 
       const ibusForHop = (alphaDecimal * amountGrams * utilization * 1000) / numBoilSize;
-      
+
       if (!isNaN(ibusForHop)) {
         totalIbus += ibusForHop;
       }
     }
   });
-  
+
   return isNaN(totalIbus) ? undefined : totalIbus;
 }
 
@@ -351,9 +351,10 @@ export function RecipeForm() {
   const form = useForm<RecipeFormValues>({
     resolver: zodResolver(recipeFormSchema),
     defaultValues,
-    mode: 'onChange', 
+    mode: 'onChange',
   });
   const router = useRouter();
+  const { setValue } = form;
 
   const { fields: fermentableFields, append: appendFermentable, remove: removeFermentable } = useFieldArray({
     control: form.control,
@@ -383,31 +384,33 @@ export function RecipeForm() {
   const watchedOg = form.watch('og');
   const watchedFg = form.watch('fg');
   const watchedBoilSize = form.watch('boilSize');
-  const watchedHops = form.watch('hops'); 
+  const watchedHops = form.watch('hops');
+
 
   useEffect(() => {
     const abv = calculateAbv(watchedOg, watchedFg);
     if (abv !== undefined && !isNaN(abv)) {
-      form.setValue('abv', parseFloat(abv.toFixed(2)), { shouldValidate: true });
+      setValue('abv', parseFloat(abv.toFixed(2)), { shouldValidate: false });
     } else {
-      form.setValue('abv', 0, { shouldValidate: true });
+      setValue('abv', 0, { shouldValidate: false });
     }
-  }, [watchedOg, watchedFg, form]);
+  }, [watchedOg, watchedFg, setValue]);
 
   useEffect(() => {
     const hopsArray = Array.isArray(watchedHops) ? watchedHops : [];
     const ibu = calculateIbuTinseth(hopsArray, watchedBoilSize, watchedOg);
+
     if (ibu !== undefined && !isNaN(ibu)) {
-      form.setValue('ibu', parseFloat(ibu.toFixed(1)), { shouldValidate: true });
+      setValue('ibu', parseFloat(ibu.toFixed(1)), { shouldValidate: false });
     } else {
-      form.setValue('ibu', 0, { shouldValidate: true }); 
+      setValue('ibu', 0, { shouldValidate: false });
     }
-  }, [watchedOg, watchedBoilSize, watchedHops, form]);
+  }, [watchedOg, watchedBoilSize, watchedHops, setValue]);
 
 
   async function onSubmit(data: RecipeFormValues) {
     const xmlData = generateBeerXml(data);
-    
+
     try {
       const result = await addRecipesAction([{ fileName: data.name + ".xml", content: xmlData }]);
       if (result.success) {
@@ -416,7 +419,7 @@ export function RecipeForm() {
           description: `La recette "${data.name}" a été enregistrée avec succès.`,
         });
         router.push('/');
-        router.refresh(); 
+        router.refresh();
       } else {
         throw new Error(result.error || "Erreur lors de l'enregistrement de la recette.");
       }
@@ -626,7 +629,7 @@ export function RecipeForm() {
             />
           </CardContent>
         </Card>
-        
+
         {/* Target Stats Card */}
         <Card>
             <CardHeader>
