@@ -211,31 +211,33 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
       <div className="md:col-span-2 space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg font-semibold uppercase text-foreground">Label Previews</CardTitle>
+            <CardTitle className="font-bebas-neue text-xl uppercase tracking-wider text-foreground">Label Previews</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start justify-center"> 
-              <LabelPreview {...labelDataForPreview} ref={frontLabelContentRef} />
-              <BackLabelPreview {...labelDataForPreview} ref={backLabelContentRef} />
-            </div>
-            <div className="flex flex-col items-center space-y-2 mt-4">
-              <Button 
-                onClick={() => handleDownloadImage(frontLabelContentRef, 'front_label')} 
-                className="w-full sm:w-auto"
-                disabled={!frontLabelContentRef.current}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download Front Label
-              </Button>
-              <Button 
-                onClick={() => handleDownloadImage(backLabelContentRef, 'back_label')} 
-                className="w-full sm:w-auto"
-                variant="outline"
-                disabled={!backLabelContentRef.current}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download Back Label
-              </Button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start justify-center"> 
+              <div className="flex flex-col items-center space-y-3">
+                <LabelPreview {...labelDataForPreview} ref={frontLabelContentRef} />
+                <Button 
+                  onClick={() => handleDownloadImage(frontLabelContentRef, 'front_label')} 
+                  className="w-full max-w-[200px]"
+                  disabled={!frontLabelContentRef.current}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download Front Label
+                </Button>
+              </div>
+              <div className="flex flex-col items-center space-y-3">
+                <BackLabelPreview {...labelDataForPreview} ref={backLabelContentRef} />
+                 <Button 
+                  onClick={() => handleDownloadImage(backLabelContentRef, 'back_label')} 
+                  className="w-full max-w-[200px]"
+                  variant="outline"
+                  disabled={!backLabelContentRef.current}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download Back Label
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -243,5 +245,4 @@ export function LabelStudioClient({ initialRecipes }: LabelStudioClientProps) {
     </div>
   );
 }
-
     
