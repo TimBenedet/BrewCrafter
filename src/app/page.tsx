@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'; // Add
 import Link from 'next/link';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
 import type { RecipeSummary } from '@/types/recipe';
-import { FileWarning, FilterIcon, AlertTriangle, RefreshCw, PlusCircle, LogIn } from 'lucide-react';
+import { FileWarning, FilterIcon, AlertTriangle, RefreshCw, PlusCircle, LogIn, LogOut } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -120,20 +120,18 @@ export default function HomePage() {
   }, [recipes, selectedStyle]);
 
   const renderTopBar = () => (
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
-       <div className="flex items-center gap-2">
-         {isAdminAuthenticated && (
-            <Button asChild variant="outline">
-              <Link href="/recipes/new">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                New recipe
-              </Link>
-            </Button>
-         )}
-      </div>
-
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+      {/* Left-aligned items */}
       <div className="flex items-center gap-2">
-        {(recipes.length > 0) && ( 
+        {isAdminAuthenticated && (
+          <Button asChild variant="outline">
+            <Link href="/recipes/new">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              New recipe
+            </Link>
+          </Button>
+        )}
+        {recipes.length > 0 && ( 
           <Select value={selectedStyle} onValueChange={setSelectedStyle}>
             <SelectTrigger
               id="style-filter"
@@ -153,6 +151,10 @@ export default function HomePage() {
         <Button onClick={() => loadRecipes(true)} variant="outline" size="icon" aria-label="Rafraîchir les recettes" disabled={isLoading}>
           <RefreshCw className={`h-4 w-4 ${isLoading && recipes.length > 0 ? 'animate-spin' : ''}`} />
         </Button>
+      </div>
+
+      {/* Right-aligned item */}
+      <div className="flex items-center">
         {!isAdminAuthenticated && (
           <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
             <DialogTrigger asChild>
@@ -193,11 +195,11 @@ export default function HomePage() {
           </Dialog>
         )}
          {isAdminAuthenticated && (
-            <Button variant="outline" size="sm" onClick={() => {
+            <Button variant="outline" size="icon" aria-label="Déconnexion Admin" onClick={() => {
                 setIsAdminAuthenticated(false);
                 toast({ title: 'Déconnexion Admin', description: 'Vous êtes déconnecté.' });
             }}>
-                Déconnexion Admin
+                <LogOut className="h-4 w-4" />
             </Button>
         )}
       </div>
@@ -209,12 +211,12 @@ export default function HomePage() {
       <div className="space-y-4">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-                 <div className="animate-pulse h-10 w-36 bg-muted rounded-md"></div> 
+                 <div className="animate-pulse h-10 w-36 bg-muted rounded-md"></div> {/* Placeholder for New Recipe */}
+                 <div className="animate-pulse h-10 w-[220px] bg-muted rounded-md"></div> {/* Placeholder for Filter */}
+                 <div className="animate-pulse h-10 w-10 bg-muted rounded-md"></div> {/* Placeholder for Refresh */}
             </div>
             <div className="flex items-center gap-2">
-                <div className="animate-pulse h-10 w-[220px] bg-muted rounded-md"></div> 
-                <div className="animate-pulse h-10 w-10 bg-muted rounded-md"></div>
-                <div className="animate-pulse h-10 w-10 bg-muted rounded-md"></div>
+                <div className="animate-pulse h-10 w-10 bg-muted rounded-md"></div> {/* Placeholder for Admin Login */}
             </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -238,7 +240,8 @@ export default function HomePage() {
   if (error && recipes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center text-center py-10">
-        <AlertTriangle className="w-16 h-16 text-destructive mb-4" />
+        {renderTopBar()} {/* Ensure top bar is also shown here for consistency */}
+        <AlertTriangle className="w-16 h-16 text-destructive mb-4 mt-8" />
         <h2 className="text-2xl font-semibold mb-2 text-destructive">Erreur lors du chargement des recettes</h2>
         <p className="text-muted-foreground mb-4">{error}</p>
         <Button onClick={() => loadRecipes(true)} variant="outline" className="mt-4">
