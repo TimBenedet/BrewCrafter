@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react'; // Added React import
+import React, { useState, useEffect, useMemo, useCallback } from 'react'; 
 import Link from 'next/link';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
 import type { RecipeSummary } from '@/types/recipe';
@@ -121,8 +121,8 @@ export default function HomePage() {
 
   const renderTopBar = () => (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-      {/* Left-aligned items */}
-      <div className="flex items-center gap-2">
+      {/* Left-aligned item: "New recipe" button */}
+      <div className="flex items-center">
         {isAdminAuthenticated && (
           <Button asChild variant="outline">
             <Link href="/recipes/new">
@@ -131,6 +131,10 @@ export default function HomePage() {
             </Link>
           </Button>
         )}
+      </div>
+
+      {/* Right-aligned items: Filter, Refresh, Admin Login/Logout */}
+      <div className="flex items-center gap-2">
         {recipes.length > 0 && ( 
           <Select value={selectedStyle} onValueChange={setSelectedStyle}>
             <SelectTrigger
@@ -151,10 +155,8 @@ export default function HomePage() {
         <Button onClick={() => loadRecipes(true)} variant="outline" size="icon" aria-label="Rafraîchir les recettes" disabled={isLoading}>
           <RefreshCw className={`h-4 w-4 ${isLoading && recipes.length > 0 ? 'animate-spin' : ''}`} />
         </Button>
-      </div>
-
-      {/* Right-aligned item */}
-      <div className="flex items-center">
+        
+        {/* Admin Login/Logout Button */}
         {!isAdminAuthenticated && (
           <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
             <DialogTrigger asChild>
@@ -209,14 +211,14 @@ export default function HomePage() {
   if (isLoading && recipes.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-                 <div className="animate-pulse h-10 w-36 bg-muted rounded-md"></div> {/* Placeholder for New Recipe */}
-                 <div className="animate-pulse h-10 w-[220px] bg-muted rounded-md"></div> {/* Placeholder for Filter */}
-                 <div className="animate-pulse h-10 w-10 bg-muted rounded-md"></div> {/* Placeholder for Refresh */}
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center"> {/* Placeholder for New Recipe */}
+                 <div className="animate-pulse h-10 w-36 bg-muted rounded-md"></div>
             </div>
-            <div className="flex items-center gap-2">
-                <div className="animate-pulse h-10 w-10 bg-muted rounded-md"></div> {/* Placeholder for Admin Login */}
+            <div className="flex items-center gap-2"> {/* Placeholder for Filter, Refresh, Admin Login */}
+                 <div className="animate-pulse h-10 w-[220px] bg-muted rounded-md"></div>
+                 <div className="animate-pulse h-10 w-10 bg-muted rounded-md"></div>
+                 <div className="animate-pulse h-10 w-10 bg-muted rounded-md"></div>
             </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -240,7 +242,7 @@ export default function HomePage() {
   if (error && recipes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center text-center py-10">
-        {renderTopBar()} {/* Ensure top bar is also shown here for consistency */}
+        {renderTopBar()} 
         <AlertTriangle className="w-16 h-16 text-destructive mb-4 mt-8" />
         <h2 className="text-2xl font-semibold mb-2 text-destructive">Erreur lors du chargement des recettes</h2>
         <p className="text-muted-foreground mb-4">{error}</p>
