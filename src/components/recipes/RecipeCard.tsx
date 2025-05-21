@@ -24,6 +24,7 @@ import { deleteRecipeAction } from '@/app/actions/recipe-actions';
 
 interface RecipeCardProps {
   recipe: RecipeSummary;
+  isAdmin?: boolean; // New prop
 }
 
 const StatItem: React.FC<{ icon: React.ElementType; label: string; value: string | number | undefined; unit?: string; precision?: number }> = ({
@@ -52,7 +53,7 @@ const StatItem: React.FC<{ icon: React.ElementType; label: string; value: string
 };
 
 
-export function RecipeCard({ recipe }: RecipeCardProps) {
+export function RecipeCard({ recipe, isAdmin }: RecipeCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
@@ -108,28 +109,31 @@ export function RecipeCard({ recipe }: RecipeCardProps) {
             <ChevronRightIcon className="h-4 w-4 ml-2 transition-transform duration-200 group-hover:translate-x-1" />
           </Link>
         </Button>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={isDeleting} aria-label="Supprimer la recette">
-              <Trash2 className="h-5 w-5" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette recette ?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Cette action est irréversible et supprimera le fichier XML de la recette &quot;{recipe.name}&quot; de votre dépôt.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteRecipe} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
-                {isDeleting ? "Suppression..." : "Supprimer"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {isAdmin && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={isDeleting} aria-label="Supprimer la recette">
+                <Trash2 className="h-5 w-5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette recette ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Cette action est irréversible et supprimera le dossier de la recette &quot;{recipe.name}&quot; et tout son contenu (recipe.xml, steps.md) de votre Vercel Blob store.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteRecipe} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                  {isDeleting ? "Suppression..." : "Supprimer"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </CardFooter>
     </Card>
   );
 }
+

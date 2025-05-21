@@ -1,17 +1,28 @@
 
 'use client';
 
-import React from 'react'; // Added React import
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react'; // Added React import
 import Link from 'next/link';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
 import type { RecipeSummary } from '@/types/recipe';
-import { FileWarning, FilterIcon, AlertTriangle, RefreshCw, PlusCircle } from 'lucide-react';
+import { FileWarning, FilterIcon, AlertTriangle, RefreshCw, PlusCircle, LogIn } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function HomePage() {
   const [recipes, setRecipes] = useState<RecipeSummary[]>([]);
@@ -19,9 +30,28 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [loginError, setLoginError] = useState('');
+
   const { toast } = useToast();
   const router = useRouter();
 
+  const handleAdminLogin = () => {
+    if (passwordInput === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
+      setIsAdminAuthenticated(true);
+      setIsPasswordDialogOpen(false);
+      setLoginError('');
+      setPasswordInput(''); // Clear password input
+      toast({
+        title: 'Connexion Admin Réussie',
+        description: 'Les fonctionnalités d\'administration sont maintenant activées.',
+      });
+    } else {
+      setLoginError('Mot de passe incorrect.');
+    }
+  };
 
   const loadRecipes = useCallback(async (showToast = false) => {
     setIsLoading(true);
@@ -89,16 +119,17 @@ export default function HomePage() {
     return recipes.filter(recipe => recipe.styleName === selectedStyle);
   }, [recipes, selectedStyle]);
 
-
   const renderTopBar = () => (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
        <div className="flex items-center gap-2">
-         <Button asChild variant="outline">
-          <Link href="/recipes/new">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            New recipe
-          </Link>
-        </Button>
+         {isAdminAuthenticated && (
+            <Button asChild variant="outline">
+              <Link href="/recipes/new">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                New recipe
+              </Link>
+            </Button>
+         )}
       </div>
 
       <div className="flex items-center gap-2">
@@ -122,10 +153,56 @@ export default function HomePage() {
         <Button onClick={() => loadRecipes(true)} variant="outline" size="icon" aria-label="Rafraîchir les recettes" disabled={isLoading}>
           <RefreshCw className={`h-4 w-4 ${isLoading && recipes.length > 0 ? 'animate-spin' : ''}`} />
         </Button>
+        {!isAdminAuthenticated && (
+          <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="icon" aria-label="Admin Login">
+                <LogIn className="h-4 w-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Connexion Administrateur</DialogTitle>
+                <DialogDescription>
+                  Entrez le mot de passe administrateur pour accéder aux fonctionnalités de gestion.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="admin-password" className="text-right">
+                    Mot de passe
+                  </Label>
+                  <Input
+                    id="admin-password"
+                    type="password"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    className="col-span-3"
+                    onKeyPress={(e) => { if (e.key === 'Enter') handleAdminLogin(); }}
+                  />
+                </div>
+                {loginError && <p className="col-span-4 text-sm text-destructive text-center">{loginError}</p>}
+              </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                    <Button type="button" variant="outline">Annuler</Button>
+                </DialogClose>
+                <Button type="button" onClick={handleAdminLogin}>Se connecter</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
+         {isAdminAuthenticated && (
+            <Button variant="outline" size="sm" onClick={() => {
+                setIsAdminAuthenticated(false);
+                toast({ title: 'Déconnexion Admin', description: 'Vous êtes déconnecté.' });
+            }}>
+                Déconnexion Admin
+            </Button>
+        )}
       </div>
     </div>
   );
-
 
   if (isLoading && recipes.length === 0) {
     return (
@@ -136,6 +213,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-2">
                 <div className="animate-pulse h-10 w-[220px] bg-muted rounded-md"></div> 
+                <div className="animate-pulse h-10 w-10 bg-muted rounded-md"></div>
                 <div className="animate-pulse h-10 w-10 bg-muted rounded-md"></div>
             </div>
         </div>
@@ -198,6 +276,7 @@ export default function HomePage() {
           <h2 className="text-2xl font-semibold mb-2">Aucune recette trouvée</h2>
           <p className="text-muted-foreground">
             Il n'y a pas de recettes à afficher.
+             {isAdminAuthenticated ? ' Vous pouvez en créer une avec le bouton "New recipe".' : 'Connectez-vous en tant qu\'admin pour ajouter des recettes.'}
           </p>
         </div>
       )}
@@ -205,7 +284,7 @@ export default function HomePage() {
       {recipesToDisplay.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {recipesToDisplay.map((recipe: RecipeSummary) => (
-            <RecipeCard key={recipe.slug} recipe={recipe} />
+            <RecipeCard key={recipe.slug} recipe={recipe} isAdmin={isAdminAuthenticated} />
           ))}
         </div>
       ) : (
