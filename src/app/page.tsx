@@ -1,57 +1,26 @@
-
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react'; 
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
 import type { RecipeSummary } from '@/types/recipe';
-import { FileWarning, FilterIcon, AlertTriangle, RefreshCw, PlusCircle, LogIn, LogOut } from 'lucide-react';
+import { FileWarning, FilterIcon, AlertTriangle, RefreshCw, PlusCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogTrigger,
-  DialogClose,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
 
 export default function HomePage() {
   const [recipes, setRecipes] = useState<RecipeSummary[]>([]);
   const [selectedStyle, setSelectedStyle] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
-  const [passwordInput, setPasswordInput] = useState('');
-  const [loginError, setLoginError] = useState('');
 
+  const { isAdminAuthenticated } = useAuth(); // Get admin state from context
   const { toast } = useToast();
   const router = useRouter();
-
-  const handleAdminLogin = () => {
-    if (passwordInput === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
-      setIsAdminAuthenticated(true);
-      setIsPasswordDialogOpen(false);
-      setLoginError('');
-      setPasswordInput(''); // Clear password input
-      toast({
-        title: 'Connexion Admin Réussie',
-        description: 'Les fonctionnalités d\'administration sont maintenant activées.',
-      });
-    } else {
-      setLoginError('Mot de passe incorrect.');
-    }
-  };
 
   const loadRecipes = useCallback(async (showToast = false) => {
     setIsLoading(true);
@@ -123,7 +92,7 @@ export default function HomePage() {
     <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
       {/* Left-aligned item: "New recipe" button */}
       <div className="flex items-center">
-        {isAdminAuthenticated && (
+        {isAdminAuthenticated && ( // Use context state here
           <Button asChild variant="outline">
             <Link href="/recipes/new">
               <PlusCircle className="mr-2 h-4 w-4" />
@@ -133,9 +102,9 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* Right-aligned items: Filter, Refresh, Admin Login/Logout */}
+      {/* Right-aligned items: Filter, Refresh */}
       <div className="flex items-center gap-2">
-        {recipes.length > 0 && ( 
+        {recipes.length > 0 && (
           <Select value={selectedStyle} onValueChange={setSelectedStyle}>
             <SelectTrigger
               id="style-filter"
@@ -155,55 +124,7 @@ export default function HomePage() {
         <Button onClick={() => loadRecipes(true)} variant="outline" size="icon" aria-label="Rafraîchir les recettes" disabled={isLoading}>
           <RefreshCw className={`h-4 w-4 ${isLoading && recipes.length > 0 ? 'animate-spin' : ''}`} />
         </Button>
-        
-        {/* Admin Login/Logout Button */}
-        {!isAdminAuthenticated && (
-          <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="icon" aria-label="Admin Login">
-                <LogIn className="h-4 w-4" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Connexion Administrateur</DialogTitle>
-                <DialogDescription>
-                  Entrez le mot de passe administrateur pour accéder aux fonctionnalités de gestion.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="admin-password" className="text-right">
-                    Mot de passe
-                  </Label>
-                  <Input
-                    id="admin-password"
-                    type="password"
-                    value={passwordInput}
-                    onChange={(e) => setPasswordInput(e.target.value)}
-                    className="col-span-3"
-                    onKeyPress={(e) => { if (e.key === 'Enter') handleAdminLogin(); }}
-                  />
-                </div>
-                {loginError && <p className="col-span-4 text-sm text-destructive text-center">{loginError}</p>}
-              </div>
-              <DialogFooter>
-                <DialogClose asChild>
-                    <Button type="button" variant="outline">Annuler</Button>
-                </DialogClose>
-                <Button type="button" onClick={handleAdminLogin}>Se connecter</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
-         {isAdminAuthenticated && (
-            <Button variant="outline" size="icon" aria-label="Déconnexion Admin" onClick={() => {
-                setIsAdminAuthenticated(false);
-                toast({ title: 'Déconnexion Admin', description: 'Vous êtes déconnecté.' });
-            }}>
-                <LogOut className="h-4 w-4" />
-            </Button>
-        )}
+        {/* Admin Login/Logout Button is now exclusively in Header.tsx */}
       </div>
     </div>
   );
@@ -213,11 +134,10 @@ export default function HomePage() {
       <div className="space-y-4">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center"> {/* Placeholder for New Recipe */}
-                 <div className="animate-pulse h-10 w-36 bg-muted rounded-md"></div>
+                 {/* No button shown by default during initial load if not admin */}
             </div>
-            <div className="flex items-center gap-2"> {/* Placeholder for Filter, Refresh, Admin Login */}
+            <div className="flex items-center gap-2"> {/* Placeholder for Filter, Refresh */}
                  <div className="animate-pulse h-10 w-[220px] bg-muted rounded-md"></div>
-                 <div className="animate-pulse h-10 w-10 bg-muted rounded-md"></div>
                  <div className="animate-pulse h-10 w-10 bg-muted rounded-md"></div>
             </div>
         </div>
@@ -242,7 +162,7 @@ export default function HomePage() {
   if (error && recipes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center text-center py-10">
-        {renderTopBar()} 
+        {renderTopBar()}
         <AlertTriangle className="w-16 h-16 text-destructive mb-4 mt-8" />
         <h2 className="text-2xl font-semibold mb-2 text-destructive">Erreur lors du chargement des recettes</h2>
         <p className="text-muted-foreground mb-4">{error}</p>
@@ -257,8 +177,8 @@ export default function HomePage() {
   return (
     <div className="space-y-4">
       {renderTopBar()}
-      
-      {error && recipes.length > 0 && ( 
+
+      {error && recipes.length > 0 && (
          <div className="mb-4 p-4 border border-destructive/50 bg-destructive/10 text-destructive rounded-md flex items-start">
            <AlertTriangle className="h-5 w-5 mr-3 mt-0.5 shrink-0" />
            <div>
@@ -293,7 +213,7 @@ export default function HomePage() {
           ))}
         </div>
       ) : (
-        !isLoading && !error && recipes.length > 0 && ( 
+        !isLoading && !error && recipes.length > 0 && (
           <div className="flex flex-col items-center justify-center text-center py-10">
             <FileWarning className="w-16 h-16 text-muted-foreground mb-4" />
             <h2 className="text-2xl font-semibold mb-2">Aucune recette ne correspond</h2>
