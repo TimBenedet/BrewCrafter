@@ -1,16 +1,30 @@
+
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
 import type { RecipeSummary } from '@/types/recipe';
-import { FileWarning, FilterIcon, AlertTriangle, RefreshCw, PlusCircle } from 'lucide-react';
+import { FileWarning, FilterIcon, AlertTriangle, RefreshCw, PlusCircle, UploadCloud } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { addRecipesAction } from '@/app/actions/recipe-actions'; // Import the server action
+
 
 export default function HomePage() {
   const [recipes, setRecipes] = useState<RecipeSummary[]>([]);
@@ -18,9 +32,12 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { isAdminAuthenticated } = useAuth(); // Get admin state from context
+  const { isAdminAuthenticated } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+
 
   const loadRecipes = useCallback(async (showToast = false) => {
     setIsLoading(true);
@@ -69,6 +86,64 @@ export default function HomePage() {
     loadRecipes();
   }, [loadRecipes]);
 
+  const handleFileSelectAndImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      toast({ title: "Aucun fichier sélectionné", variant: "destructive" });
+      return;
+    }
+
+    if (!file.name.toLowerCase().endsWith('.xml')) {
+      toast({ title: "Fichier invalide", description: "Veuillez sélectionner un fichier .xml.", variant: "destructive" });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const content = e.target?.result as string;
+      if (!content) {
+        toast({ title: "Erreur de lecture", description: "Impossible de lire le contenu du fichier.", variant: "destructive" });
+        return;
+      }
+
+      setIsImportDialogOpen(false); // Close dialog before processing
+      toast({ title: "Importation en cours...", description: `Importation de ${file.name}.` });
+
+      try {
+        const result = await addRecipesAction([{ fileName: file.name, content }]);
+        if (result.success && result.count !== undefined && result.count > 0) {
+          toast({
+            title: "Recette importée !",
+            description: `${result.count} recette(s) ont été importée(s) avec succès.`,
+          });
+          loadRecipes(true); // Refresh the list
+        } else if (result.success && result.count === 0) {
+           toast({
+            title: "Aucune recette importée",
+            description: "Le fichier ne contenait pas de recette valide ou le nom n'a pu être extrait.",
+            variant: "default",
+          });
+        } else {
+          throw new Error(result.error || "Erreur lors de l'importation de la recette.");
+        }
+      } catch (error) {
+        console.error("Error importing recipe:", error);
+        toast({
+          title: "Échec de l'importation",
+          description: (error as Error).message || "Un problème est survenu.",
+          variant: "destructive",
+        });
+      }
+    };
+    reader.readAsText(file);
+
+    // Reset file input to allow selecting the same file again if needed
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+
   const uniqueStyles = useMemo(() => {
     if (!recipes || recipes.length === 0) return [];
     const styles = new Set<string>();
@@ -90,19 +165,54 @@ export default function HomePage() {
 
   const renderTopBar = () => (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-      {/* Left-aligned item: "New recipe" button */}
-      <div className="flex items-center">
-        {isAdminAuthenticated && ( // Use context state here
-          <Button asChild variant="outline">
-            <Link href="/recipes/new">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              New recipe
-            </Link>
-          </Button>
+      <div className="flex items-center gap-2">
+        {isAdminAuthenticated && (
+          <>
+            <Button asChild variant="outline">
+              <Link href="/recipes/new">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                New recipe
+              </Link>
+            </Button>
+            <AlertDialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline">
+                  <UploadCloud className="mr-2 h-4 w-4" />
+                  Import recipe
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Importer une recette</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Sélectionnez la source pour importer votre recette.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="flex flex-col space-y-2">
+                   <Button variant="default" onClick={() => fileInputRef.current?.click()}>
+                    Depuis mon ordinateur
+                  </Button>
+                  {/* Placeholder for future Google Drive integration */}
+                  <Button variant="outline" disabled>
+                    Depuis Google Drive (Bientôt)
+                  </Button>
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setIsImportDialogOpen(false)}>Annuler</AlertDialogCancel>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept=".xml"
+              onChange={handleFileSelectAndImport}
+            />
+          </>
         )}
       </div>
 
-      {/* Right-aligned items: Filter, Refresh */}
       <div className="flex items-center gap-2">
         {recipes.length > 0 && (
           <Select value={selectedStyle} onValueChange={setSelectedStyle}>
@@ -124,7 +234,6 @@ export default function HomePage() {
         <Button onClick={() => loadRecipes(true)} variant="outline" size="icon" aria-label="Rafraîchir les recettes" disabled={isLoading}>
           <RefreshCw className={`h-4 w-4 ${isLoading && recipes.length > 0 ? 'animate-spin' : ''}`} />
         </Button>
-        {/* Admin Login/Logout Button is now exclusively in Header.tsx */}
       </div>
     </div>
   );
@@ -133,10 +242,10 @@ export default function HomePage() {
     return (
       <div className="space-y-4">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center"> {/* Placeholder for New Recipe */}
-                 {/* No button shown by default during initial load if not admin */}
+            <div className="flex items-center gap-2">
+                {/* Placeholders for admin buttons if needed, or leave empty if only visible when logged in */}
             </div>
-            <div className="flex items-center gap-2"> {/* Placeholder for Filter, Refresh */}
+            <div className="flex items-center gap-2">
                  <div className="animate-pulse h-10 w-[220px] bg-muted rounded-md"></div>
                  <div className="animate-pulse h-10 w-10 bg-muted rounded-md"></div>
             </div>
@@ -201,7 +310,7 @@ export default function HomePage() {
           <h2 className="text-2xl font-semibold mb-2">Aucune recette trouvée</h2>
           <p className="text-muted-foreground">
             Il n'y a pas de recettes à afficher.
-             {isAdminAuthenticated ? ' Vous pouvez en créer une avec le bouton "New recipe".' : 'Connectez-vous en tant qu\'admin pour ajouter des recettes.'}
+             {isAdminAuthenticated ? ' Vous pouvez en créer ou importer une avec les boutons ci-dessus.' : 'Connectez-vous en tant qu\'admin pour ajouter ou importer des recettes.'}
           </p>
         </div>
       )}
@@ -226,3 +335,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
