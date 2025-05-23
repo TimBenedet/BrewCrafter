@@ -1,9 +1,9 @@
 
 # BrewCrafter - Your Cloud-Based Beer Recipe Book
 
-BrewCrafter is a modern web application designed for homebrewers and craft beer enthusiasts to manage, create, and explore beer recipes. It leverages a cloud-based approach using Vercel Blob for recipe storage and features TOTP-based admin authentication for secure recipe management.
-
 ## Project Overview
+
+BrewCrafter is a modern web application designed for homebrewers and craft beer enthusiasts to manage, create, and explore beer recipes. It leverages a cloud-based approach using Vercel Blob for recipe storage and features TOTP-based admin authentication for secure recipe management.
 
 BrewCrafter aims to provide a user-friendly, secure, and feature-rich platform for:
 * Storing and organizing BeerXML recipes in the cloud (Vercel Blob).
@@ -14,6 +14,13 @@ BrewCrafter aims to provide a user-friendly, secure, and feature-rich platform f
 * Deleting recipes (Admin only).
 * Calculating essential brewing metrics (ABV, IBU, SG Correction).
 * Designing simple, printable labels for homemade beers.
+
+## Detailed Documentation
+
+For more detailed information, including local development setup and instructions for forking and deploying your own instance, please refer to the language-specific READMEs:
+
+*   **Français (French)**: [README-FR.md](./README-FR.md)
+*   **English (UK)**: [README-UK.md](./README-UK.md) (This file currently contains the French content and needs translation)
 
 ## Features
 
@@ -46,13 +53,6 @@ The application is designed for deployment on Vercel and uses **Vercel Blob** fo
 *   The app reads and writes to Vercel Blob using Server Actions and the `@vercel/blob` SDK.
 *   Requires `BLOB_READ_WRITE_TOKEN`, `TOTP_SECRET`, `NEXT_PUBLIC_TOTP_ISSUER_NAME`, and `NEXT_PUBLIC_TOTP_ACCOUNT_NAME` environment variables to be set on Vercel.
 
-## Detailed Documentation
-
-For more detailed information, including local development setup and instructions for forking and deploying your own instance, please refer to the language-specific READMEs:
-
-*   **Français (French)**: [README-FR.md](./README-FR.md)
-*   **English (UK)**: [README-UK.md](./README-UK.md) (This file currently contains the French content and needs translation)
-
 ## Getting Started
 
 To set up and run this project for development or personal use, please consult the detailed instructions in the language-specific READMEs linked above. Key steps will involve:
@@ -61,3 +61,4 @@ To set up and run this project for development or personal use, please consult t
 3. Generating and configuring environment variables (e.g., `BLOB_READ_WRITE_TOKEN`, `TOTP_SECRET`).
 4. Initial TOTP setup for admin access via the `/admin/setup-totp` page.
 5. Adding your recipes to your Vercel Blob store.
+
