@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -118,15 +117,14 @@ function IbuCalculator() {
       }
     });
     
-    // Check if any hop had valid-looking inputs, even if the calculation results in NaN for that specific hop due to other missing global values.
     const hasPotentiallyValidHops = hops.some(h => parseFloat(h.amount) > 0 && parseFloat(h.alpha) > 0 && parseFloat(h.time) >= 0);
 
     if (totalIbus > 0 && !isNaN(totalIbus)) {
         setIbu(totalIbus.toFixed(1) + ' IBU');
     } else if (hasPotentiallyValidHops) { 
-        setIbu('N/A'); // Indicates that hops were entered but calc might be failing or result is 0
+        setIbu('N/A'); 
     } else {
-        setIbu('0.0 IBU'); // No hops or no valid hop data
+        setIbu('0.0 IBU'); 
     }
 
   }, [ogIbu, boilVolume, hops]);
@@ -230,7 +228,7 @@ function IbuCalculator() {
 function SgCorrectionCalculator() {
   const [measuredSg, setMeasuredSg] = useState('');
   const [measuredTemp, setMeasuredTemp] = useState('');
-  const [calibTemp, setCalibTemp] = useState('20'); // Default calibration temp in Celsius
+  const [calibTemp, setCalibTemp] = useState('20'); 
   const [correctedSg, setCorrectedSg] = useState('N/A');
 
   useEffect(() => {
@@ -244,8 +242,6 @@ function SgCorrectionCalculator() {
     }
     
     const calculateCorrectionFactor = (tempC: number) => {
-      // Polynomial for density correction factor of water relative to 4°C, often used for SG.
-      // This specific polynomial is commonly used for hydrometer temperature correction.
       return 1.00130346 - 
              (0.000134722124 * tempC) + 
              (0.00000204052596 * Math.pow(tempC, 2)) - 
@@ -323,7 +319,7 @@ export default function CalculatorPage() {
       <header className="mb-6">
         <h1 className="text-3xl font-bold text-primary flex items-center">
             <Calculator className="mr-3 h-8 w-8" />
-            GitBrew Calculators
+            BrewCrafter Calculators
         </h1>
         <p className="text-muted-foreground">
             Handy client-side calculators for your brewing needs.

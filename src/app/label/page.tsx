@@ -1,4 +1,3 @@
-
 import { getRecipeSummaries } from '@/lib/recipe-utils';
 import { LabelStudioClient } from '@/components/brewcrafter-label/LabelStudioClient';
 import type { RecipeSummary } from '@/types/recipe';

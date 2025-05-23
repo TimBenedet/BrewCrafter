@@ -11,12 +11,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { List, Tag, Calculator, Menu as MenuIcon } from 'lucide-react'; // Added MenuIcon
+import { List, Tag, Calculator, Menu as MenuIcon } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: 'My Recipes', icon: List },
-  { href: '/label', label: 'GitBrew Label', icon: Tag },
-  { href: '/calculator', label: 'GitBrew Calculator', icon: Calculator },
+  { href: '/label', label: 'BrewCrafter Label', icon: Tag },
+  { href: '/calculator', label: 'BrewCrafter Calculator', icon: Calculator },
 ];
 
 export function TopTabs() {
@@ -30,7 +30,7 @@ export function TopTabs() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <MenuIcon className="h-6 w-6" />
-              <span className="sr-only">Ouvrir le menu</span>
+              <span className="sr-only">Open menu</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="center">

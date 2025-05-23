@@ -1,4 +1,3 @@
-
 import { RecipeForm } from '@/components/recipes/RecipeForm';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -11,13 +10,13 @@ export default function NewRecipePage() {
         <Button asChild variant="outline" size="sm">
           <Link href="/">
             <ArrowLeftIcon className="mr-2 h-4 w-4" />
-            Retour aux recettes
+            Back to recipes
           </Link>
         </Button>
       </div>
       <header className="mb-4">
-        <h1 className="text-3xl font-bold text-primary">Créer une nouvelle recette</h1>
-        <p className="text-muted-foreground">Remplissez les champs ci-dessous pour définir votre recette.</p>
+        <h1 className="text-3xl font-bold text-primary">Create New Recipe</h1>
+        <p className="text-muted-foreground">Fill in the fields below to define your recipe.</p>
       </header>
       <RecipeForm />
     </div>
