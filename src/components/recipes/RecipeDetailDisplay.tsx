@@ -26,12 +26,19 @@ import {
   FileText, 
   ListOrdered,
   GlassWater,
-  PencilIcon
+  PencilIcon,
+  SaveIcon,
+  XCircleIcon,
 } from 'lucide-react';
 import { RecipeStepsDisplay } from './RecipeStepsDisplay';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { Textarea } from '@/components/ui/textarea';
+import { updateRecipeStepsAction } from '@/app/actions/recipe-actions';
+import type { ActionResult } from '@/app/actions/recipe-actions';
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 interface SectionProps {
   title: string;
@@ -131,10 +138,62 @@ const normalizeColor = (srm?: number): number => {
 
 export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRecipe, recipeSlug: string }) {
   const { isAdminAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState<string>("details");
+  const { toast } = useToast();
+  const router = useRouter();
 
-  const editButtonText = activeTab === "details" ? "Modifier Détails Recette" : "Modifier Étapes Recette";
-  const editLink = activeTab === "steps" ? `/recipes/${recipeSlug}/edit?section=steps` : `/recipes/${recipeSlug}/edit`;
+  const [activeTab, setActiveTab] = useState<string>("details");
+  const [isEditingSteps, setIsEditingSteps] = useState(false);
+  const [editableStepsMarkdown, setEditableStepsMarkdown] = useState(recipe.stepsMarkdown || '');
+
+  useEffect(() => {
+    // Update editableStepsMarkdown if the recipe prop changes (e.g., after a save and re-fetch)
+    // and we are not currently editing.
+    if (!isEditingSteps) {
+      setEditableStepsMarkdown(recipe.stepsMarkdown || '');
+    }
+  }, [recipe.stepsMarkdown, isEditingSteps]);
+
+
+  const handleEditButtonClick = () => {
+    if (activeTab === 'steps' && !isEditingSteps) {
+      setEditableStepsMarkdown(recipe.stepsMarkdown || '');
+      setIsEditingSteps(true);
+    }
+    // For 'details' tab, navigation is handled by Link component
+  };
+
+  const handleSaveSteps = async () => {
+    toast({ title: "Sauvegarde en cours...", description: "Mise à jour des étapes de la recette." });
+    const result: ActionResult = await updateRecipeStepsAction(recipeSlug, editableStepsMarkdown);
+    if (result.success) {
+      toast({
+        title: "Étapes Sauvegardées !",
+        description: "Les étapes de la recette ont été mises à jour.",
+      });
+      setIsEditingSteps(false);
+      router.refresh(); // Re-fetch server component data
+    } else {
+      toast({
+        title: "Échec de la Sauvegarde",
+        description: result.error || "Une erreur inattendue est survenue.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCancelEditSteps = () => {
+    setIsEditingSteps(false);
+    setEditableStepsMarkdown(recipe.stepsMarkdown || ''); // Revert to original
+  };
+  
+  const getEditButtonText = () => {
+    if (activeTab === 'steps') {
+      return "Modifier Étapes Recette";
+    }
+    return "Modifier Détails Recette";
+  };
+
+  const editLinkDestination = activeTab === 'details' ? `/recipes/${recipeSlug}/edit` : '#'; // For steps, onClick is used
 
   return (
     <div className="space-y-6">
@@ -152,12 +211,23 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
               )}
             </div>
           </div>
-          {isAdminAuthenticated && (
-            <Button asChild variant="outline">
-              <Link href={editLink}>
-                <PencilIcon className="mr-2 h-4 w-4" />
-                {editButtonText}
-              </Link>
+          {isAdminAuthenticated && (!isEditingSteps || activeTab === 'details') && (
+             <Button 
+                asChild={activeTab === 'details'} 
+                onClick={activeTab === 'steps' ? handleEditButtonClick : undefined}
+                variant="outline"
+             >
+              {activeTab === 'details' ? (
+                <Link href={editLinkDestination}>
+                  <PencilIcon className="mr-2 h-4 w-4" />
+                  {getEditButtonText()}
+                </Link>
+              ) : (
+                <>
+                  <PencilIcon className="mr-2 h-4 w-4" />
+                  {getEditButtonText()}
+                </>
+              )}
             </Button>
           )}
         </div>
@@ -359,15 +429,38 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
         </TabsContent>
         
         <TabsContent value="steps" className="mt-4">
-          {recipe.stepsMarkdown ? (
+          {isEditingSteps ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Modifier les Étapes de la Recette</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Textarea
+                  value={editableStepsMarkdown}
+                  onChange={(e) => setEditableStepsMarkdown(e.target.value)}
+                  rows={15}
+                  className="font-mono text-sm"
+                  placeholder="Entrez les étapes de la recette au format Markdown ici..."
+                />
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={handleCancelEditSteps}>
+                    <XCircleIcon className="mr-2 h-4 w-4" /> Annuler
+                  </Button>
+                  <Button onClick={handleSaveSteps}>
+                    <SaveIcon className="mr-2 h-4 w-4" /> Sauvegarder Étapes
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : recipe.stepsMarkdown ? (
             <RecipeStepsDisplay stepsMarkdown={recipe.stepsMarkdown} />
           ) : (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-muted-foreground">No detailed steps file (.md) found for this recipe.</p>
+                <p className="text-muted-foreground">Aucun fichier d'étapes détaillé (.md) trouvé pour cette recette.</p>
                   {isAdminAuthenticated && (
                     <p className="mt-2 text-sm">
-                      You can <Link href={`/recipes/${recipeSlug}/edit?section=steps`} className="text-primary hover:underline">edit this recipe to add the steps</Link>.
+                      Vous pouvez cliquer sur &quot;Modifier Étapes Recette&quot; ci-dessus pour ajouter les étapes.
                     </p>
                   )}
               </CardContent>
@@ -378,5 +471,3 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
     </div>
   );
 }
-
-    
