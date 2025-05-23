@@ -4,17 +4,17 @@
 import type { ReactNode } from 'react';
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { verifyTotpAction, type AuthActionResult } from '@/app/actions/auth-actions';
 
 interface AuthContextType {
   isAdminAuthenticated: boolean;
-  login: (password: string) => boolean;
+  login: (totpCode: string) => Promise<boolean>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  // Initialize state from localStorage if available
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const storedAuthState = localStorage.getItem('isAdminAuthenticated');
@@ -24,7 +24,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   });
   const { toast } = useToast();
 
-  // Effect to update localStorage when isAdminAuthenticated changes
   useEffect(() => {
     if (typeof window !== 'undefined') {
       if (isAdminAuthenticated) {
@@ -35,10 +34,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [isAdminAuthenticated]);
 
-  const login = useCallback((password: string): boolean => {
-    if (password === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
+  const login = useCallback(async (totpCode: string): Promise<boolean> => {
+    if (!totpCode || totpCode.length !== 6) {
+      toast({
+        title: 'Code Invalide',
+        description: 'Veuillez entrer un code à 6 chiffres.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+
+    const result: AuthActionResult = await verifyTotpAction(totpCode);
+
+    if (result.success) {
       setIsAdminAuthenticated(true);
-      // localStorage will be updated by the useEffect hook
       toast({
         title: 'Connexion Admin Réussie',
         description: 'Les fonctionnalités d\'administration sont maintenant activées.',
@@ -47,7 +56,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } else {
       toast({
         title: 'Échec de la connexion',
-        description: 'Mot de passe incorrect.',
+        description: result.error || 'Code TOTP incorrect ou expiré.',
         variant: 'destructive',
       });
       return false;
@@ -56,7 +65,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = useCallback(() => {
     setIsAdminAuthenticated(false);
-    // localStorage will be updated by the useEffect hook
     toast({ title: 'Déconnexion Admin', description: 'Vous êtes déconnecté.' });
   }, [toast]);
 
