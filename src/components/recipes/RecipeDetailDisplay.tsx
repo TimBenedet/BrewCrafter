@@ -29,6 +29,7 @@ import {
   PencilIcon,
   SaveIcon,
   XCircleIcon,
+  RefreshCw,
 } from 'lucide-react';
 import { RecipeStepsDisplay } from './RecipeStepsDisplay';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -144,10 +145,9 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
   const [activeTab, setActiveTab] = useState<string>("details");
   const [isEditingSteps, setIsEditingSteps] = useState(false);
   const [editableStepsMarkdown, setEditableStepsMarkdown] = useState(recipe.stepsMarkdown || '');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    // Update editableStepsMarkdown if the recipe prop changes (e.g., after a save and re-fetch)
-    // and we are not currently editing.
     if (!isEditingSteps) {
       setEditableStepsMarkdown(recipe.stepsMarkdown || '');
     }
@@ -159,7 +159,6 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
       setEditableStepsMarkdown(recipe.stepsMarkdown || '');
       setIsEditingSteps(true);
     }
-    // For 'details' tab, navigation is handled by Link component
   };
 
   const handleSaveSteps = async () => {
@@ -171,7 +170,7 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
         description: "Les étapes de la recette ont été mises à jour.",
       });
       setIsEditingSteps(false);
-      router.refresh(); // Re-fetch server component data
+      router.refresh(); 
     } else {
       toast({
         title: "Échec de la Sauvegarde",
@@ -183,7 +182,7 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
 
   const handleCancelEditSteps = () => {
     setIsEditingSteps(false);
-    setEditableStepsMarkdown(recipe.stepsMarkdown || ''); // Revert to original
+    setEditableStepsMarkdown(recipe.stepsMarkdown || ''); 
   };
   
   const getEditButtonText = () => {
@@ -193,7 +192,17 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
     return "Modifier Détails Recette";
   };
 
-  const editLinkDestination = activeTab === 'details' ? `/recipes/${recipeSlug}/edit` : '#'; // For steps, onClick is used
+  const editLinkDestination = activeTab === 'details' ? `/recipes/${recipeSlug}/edit` : `/recipes/${recipeSlug}/edit?section=steps`;
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    toast({ title: "Rafraîchissement...", description: "Rechargement des données de la recette."});
+    router.refresh();
+    // It's hard to know exactly when router.refresh() finishes its data refetching
+    // to set isRefreshing back to false accurately. We'll use a small timeout
+    // as a visual cue, but the actual data update is handled by Next.js.
+    setTimeout(() => setIsRefreshing(false), 1000);
+  };
 
   return (
     <div className="space-y-6">
@@ -211,25 +220,30 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
               )}
             </div>
           </div>
-          {isAdminAuthenticated && (!isEditingSteps || activeTab === 'details') && (
-             <Button 
-                asChild={activeTab === 'details'} 
-                onClick={activeTab === 'steps' ? handleEditButtonClick : undefined}
-                variant="outline"
-             >
-              {activeTab === 'details' ? (
-                <Link href={editLinkDestination}>
-                  <PencilIcon className="mr-2 h-4 w-4" />
-                  {getEditButtonText()}
-                </Link>
-              ) : (
-                <>
-                  <PencilIcon className="mr-2 h-4 w-4" />
-                  {getEditButtonText()}
-                </>
-              )}
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing} size="icon" aria-label="Refresh recipe details">
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </Button>
-          )}
+            {isAdminAuthenticated && (!isEditingSteps || activeTab === 'details') && (
+              <Button 
+                  asChild={activeTab === 'details'} 
+                  onClick={activeTab === 'steps' ? handleEditButtonClick : undefined}
+                  variant="outline"
+              >
+                {activeTab === 'details' ? (
+                  <Link href={editLinkDestination}>
+                    <PencilIcon className="mr-2 h-4 w-4" />
+                    {getEditButtonText()}
+                  </Link>
+                ) : (
+                  <>
+                    <PencilIcon className="mr-2 h-4 w-4" />
+                    {getEditButtonText()}
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
