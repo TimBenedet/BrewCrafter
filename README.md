@@ -1,3 +1,4 @@
+HELLO WORLD
 
 # BrewCrafter - Your Cloud-Based Beer Recipe Book
 
@@ -62,7 +63,7 @@ To set up and run this project for your own use:
 4. Generate a unique Base32 `TOTP_SECRET`.
 5. Configure these (and optional `NEXT_PUBLIC_TOTP_ISSUER_NAME`, `NEXT_PUBLIC_TOTP_ACCOUNT_NAME`) as environment variables on Vercel and in a local `.env.local` file.
 6. Access the `/admin/setup-totp` page on your deployed (or local) instance to scan the QR code with your authenticator app.
-7. **Security**: After setup, consider making the `/admin/setup-totp` page inaccessible for enhanced security.
+7. **Security**: After setup, it is strongly recommended to make the `/admin/setup-totp` page inaccessible again for enhanced security in production or shared environments (e.g., by modifying `src/app/admin/setup-totp/page.tsx` to return `notFound()`).
 8. Start adding your recipes to your Vercel Blob store using the application's admin interface.
 
 For more detailed setup instructions, please consult the language-specific READMEs linked above.
