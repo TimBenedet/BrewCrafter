@@ -63,4 +63,6 @@ export async function verifyTotpAction(token: string): Promise<AuthActionResult>
     }
   } catch (error) {
     console.error('Error verifying TOTP token:', error);
-    return { success: false, error: 'Er
+    return { success: false, error: 'Erreur lors de la vérification du token TOTP.' };
+  }
+}
