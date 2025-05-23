@@ -121,7 +121,7 @@ export function parseXmlToRecipeSummary(xmlContent: string, slug: string): Recip
 async function fetchBlobContent(blobUrl: string): Promise<string | null> {
   console.log(`fetchBlobContent: Attempting to fetch content from URL: ${blobUrl}`);
   try {
-    const response = await fetch(blobUrl);
+    const response = await fetch(blobUrl, { cache: 'no-store' }); // Added { cache: 'no-store' }
     if (!response.ok) {
       console.error(`fetchBlobContent: Failed to fetch blob content from ${blobUrl}: ${response.status} ${response.statusText}`);
       const errorText = await response.text();
@@ -149,12 +149,12 @@ export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
   const processedSlugs = new Set<string>();
 
   try {
+    // Using prefix with trailing slash to list contents of the "Recipes" directory
     const { blobs } = await list({ prefix: 'Recipes/', mode: 'expanded' }); 
     console.log("getRecipeSummaries: Vercel Blob list response for prefix 'Recipes/':", { blobsCount: blobs.length });
     if (blobs.length > 0) {
         console.log("getRecipeSummaries: Raw blobs list from Vercel (first 10):", blobs.slice(0,10).map(b => b.pathname ));
     }
-
 
     if (!blobs || blobs.length === 0) {
         console.warn("getRecipeSummaries: No blobs found matching prefix 'Recipes/' in Vercel Blob. This might mean the prefix is wrong, the Blob store is empty under this prefix, or there's an issue with the token/permissions.");
@@ -163,13 +163,14 @@ export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
     
     for (const blob of blobs) {
       console.log(`getRecipeSummaries: Processing blob path: ${blob.pathname}`);
-      
       const lowerPathname = blob.pathname.toLowerCase();
       
+      // Expecting paths like "Recipes/slug-name/recipe-file.xml"
       if (lowerPathname.startsWith('recipes/') && lowerPathname.endsWith('.xml')) {
-        const pathParts = blob.pathname.substring('Recipes/'.length).split('/'); // e.g., ['Amber-ale', 'recipe.xml']
+        const pathParts = blob.pathname.substring('Recipes/'.length).split('/'); 
+        // pathParts for "Recipes/slug-name/recipe-file.xml" will be ["slug-name", "recipe-file.xml"]
         
-        if (pathParts.length >= 2) { // Expects at least slugFolderName and filename.xml
+        if (pathParts.length === 2) { 
           const slug = pathParts[0]; 
 
           if (!slug) { 
@@ -178,7 +179,7 @@ export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
           }
 
           if (processedSlugs.has(slug)) {
-            console.log(`getRecipeSummaries: Slug ${slug} already processed (found another .xml in its folder: ${blob.pathname}). Skipping.`);
+            console.log(`getRecipeSummaries: Slug ${slug} already processed (found another .xml in its folder or primary .xml already handled). Skipping: ${blob.pathname}`);
             continue; 
           }
 
@@ -198,10 +199,10 @@ export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
             console.warn(`getRecipeSummaries: Failed to fetch content for XML file ${blob.pathname}`);
           }
         } else {
-          console.log(`getRecipeSummaries: Skipping blob, path structure not as expected (e.g., not Recipes/Slug/file.xml): ${blob.pathname}`);
+          console.log(`getRecipeSummaries: Skipping blob, path structure not as expected (e.g., not Recipes/Slug/file.xml): ${blob.pathname}. Path parts length: ${pathParts.length}`);
         }
       } else {
-        // console.log(`getRecipeSummaries: Skipping blob not starting with 'recipes/' or not ending with '.xml': ${blob.pathname}`);
+        // console.log(`getRecipeSummaries: Skipping blob not directly under a recipe slug folder or not an .xml file: ${blob.pathname}`);
       }
     }
     console.log(`getRecipeSummaries: Finished processing. Found ${summaries.length} recipe summaries.`);
@@ -247,7 +248,8 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
       // Check if the file is directly in the slug folder and ends with .xml
       if (lowerPathname.startsWith(recipeDirectoryPrefix.toLowerCase()) && lowerPathname.endsWith('.xml')) {
         const relativePath = b.pathname.substring(recipeDirectoryPrefix.length);
-        return relativePath.split('/').length === 1; // Ensures it's not in a sub-sub-folder
+        // Ensures it's not in a sub-sub-folder by checking if relativePath contains more slashes
+        return !relativePath.includes('/'); 
       }
       return false;
     });
@@ -258,7 +260,6 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
       xmlContent = await fetchBlobContent(xmlBlob.url);
     } else {
       console.warn(`getRecipeDetails: No XML file found directly in Vercel Blob for slug folder: ${recipeDirectoryPrefix}`);
-      // Log all files found in the directory to help debug
       const allFilesInDir = dirBlobs.map(b => b.pathname).join(', ');
       console.log(`getRecipeDetails: Files found in ${recipeDirectoryPrefix}: ${allFilesInDir || 'None'}`);
       return null; 
@@ -286,7 +287,6 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
       }
     } else {
       console.log(`getRecipeDetails: No steps.md file found at exact path ${targetMdPath} for slug ${slug}. Searched ${dirBlobs.length} blobs.`);
-      // To help debug, list all .md files found in the directory:
       const allMdFilesInDir = dirBlobs.filter(b => b.pathname.toLowerCase().endsWith('.md')).map(b => b.pathname).join(', ');
       console.log(`getRecipeDetails: All .md files found in ${recipeDirectoryPrefix}: ${allMdFilesInDir || 'None'}`);
     }
@@ -328,6 +328,8 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
       style: styleBlock ? {
         name: extractTagContent(styleBlock, 'NAME') || 'N/A',
         category: extractTagContent(styleBlock, 'CATEGORY'),
+        styleGuide: extractTagContent(styleBlock, 'STYLE_GUIDE'),
+        type: extractTagContent(styleBlock, 'TYPE') as any || 'Ale', // Cast to any if enum doesn't match all possibilities
         ogMin: extractTagContent(styleBlock, 'OG_MIN') ? parseFloat(extractTagContent(styleBlock, 'OG_MIN')!) : undefined,
         ogMax: extractTagContent(styleBlock, 'OG_MAX') ? parseFloat(extractTagContent(styleBlock, 'OG_MAX')!) : undefined,
         fgMin: extractTagContent(styleBlock, 'FG_MIN') ? parseFloat(extractTagContent(styleBlock, 'FG_MIN')!) : undefined,
@@ -349,7 +351,7 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
           grainTemp: extractTagContent(mashBlock, 'GRAIN_TEMP') ? parseFloat(extractTagContent(mashBlock, 'GRAIN_TEMP')!) : undefined,
           mashSteps: mashStepsBlock ? parseMashSteps(mashStepsBlock) : []
       } : undefined,
-      stepsMarkdown, // This is populated by the logic above for mdBlob
+      stepsMarkdown, 
     };
   } catch (error) {
     console.error(`getRecipeDetails: Error fetching or processing details for slug ${slug} from Vercel Blob:`, error);
@@ -359,5 +361,3 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
     return null;
   }
 }
-
-    
