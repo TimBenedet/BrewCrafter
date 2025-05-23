@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: RecipePageProps) {
     };
   }
   return {
-    title: `${recipe.name} | GitBrew`,
+    title: `${recipe.name} | BrewCrafter`,
     description: `Details for the beer recipe: ${recipe.name}. Type: ${recipe.type}.`,
   };
 }
@@ -41,7 +41,7 @@ export default async function RecipePage({ params }: RecipePageProps) {
 
   return (
     <div className="space-y-6">
-      <div className="mb-4"> {/* Added margin-bottom for spacing */}
+      <div className="mb-4 flex justify-between items-center">
         <Button asChild variant="outline" size="sm">
           <Link href="/">
             <ArrowLeftIcon className="mr-2 h-4 w-4" />
@@ -49,8 +49,9 @@ export default async function RecipePage({ params }: RecipePageProps) {
           </Link>
         </Button>
       </div>
-      <RecipeDetailDisplay recipe={recipe} />
+      <RecipeDetailDisplay recipe={recipe} recipeSlug={params.recipeSlug} />
     </div>
   );
 }
 
+    

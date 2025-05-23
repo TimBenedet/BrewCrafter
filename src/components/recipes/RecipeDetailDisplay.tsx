@@ -7,6 +7,8 @@ import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 import { 
   Wheat, 
   Hop,
@@ -23,11 +25,13 @@ import {
   BarChart3,
   FileText, 
   ListOrdered,
-  GlassWater
+  GlassWater,
+  PencilIcon
 } from 'lucide-react';
 import { RecipeStepsDisplay } from './RecipeStepsDisplay';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import React from 'react'; // Keep React for JSX
+import React from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SectionProps {
   title: string;
@@ -125,22 +129,33 @@ const normalizeColor = (srm?: number): number => {
 };
 
 
-export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
+export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRecipe, recipeSlug: string }) {
+  const { isAdminAuthenticated } = useAuth();
 
   return (
     <div className="space-y-6">
       <div className="bg-muted/30 p-6 rounded-lg shadow">
-        <div className="flex items-center space-x-4">
-          <GlassWater className="h-12 w-12 text-primary" style={{ strokeWidth: 1.5 }} />
-          <div>
-            <h1 className="text-3xl font-bold text-primary">{recipe.name}</h1>
-            {recipe.style?.name && (
-              <p className="text-lg text-muted-foreground">{recipe.style.name}</p>
-            )}
-            {recipe.brewer && (
-              <p className="text-sm text-muted-foreground">By: {recipe.brewer}</p>
-            )}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <GlassWater className="h-12 w-12 text-primary" style={{ strokeWidth: 1.5 }} />
+            <div>
+              <h1 className="text-3xl font-bold text-primary">{recipe.name}</h1>
+              {recipe.style?.name && (
+                <p className="text-lg text-muted-foreground">{recipe.style.name}</p>
+              )}
+              {recipe.brewer && (
+                <p className="text-sm text-muted-foreground">By: {recipe.brewer}</p>
+              )}
+            </div>
           </div>
+          {isAdminAuthenticated && (
+            <Button asChild variant="outline">
+              <Link href={`/recipes/${recipeSlug}/edit`}>
+                <PencilIcon className="mr-2 h-4 w-4" />
+                Edit Recipe
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -354,3 +369,5 @@ export function RecipeDetailDisplay({ recipe }: { recipe: BeerXMLRecipe }) {
     </div>
   );
 }
+
+    

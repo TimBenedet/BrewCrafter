@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -30,7 +31,7 @@ import { useEffect } from 'react';
 import { addRecipesAction } from '@/app/actions/recipe-actions';
 import { useRouter } from 'next/navigation';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-
+import type { BeerXMLRecipe } from '@/types/recipe'; // Import for type reference
 
 // Sub-schemas for array elements
 const fermentableSchema = z.object({
@@ -112,9 +113,9 @@ const recipeFormSchema = z.object({
   }),
 });
 
-type RecipeFormValues = z.infer<typeof recipeFormSchema>;
+export type RecipeFormValues = z.infer<typeof recipeFormSchema>;
 
-const defaultValues: Partial<RecipeFormValues> = {
+const createDefaultValues = (): RecipeFormValues => ({
   name: '',
   type: 'All Grain',
   brewer: '',
@@ -144,7 +145,7 @@ const defaultValues: Partial<RecipeFormValues> = {
       { name: 'Saccharification', type: 'Infusion', stepTemp: 67, stepTime: 60 },
     ],
   },
-};
+});
 
 function sanitizeForXml(text: string | undefined | null): string {
   if (text === undefined || text === null) return '';
@@ -194,6 +195,7 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `        <NAME>${sanitizeForXml(f.name)}</NAME>\n`;
     xml += `        <VERSION>1</VERSION>\n`;
     xml += `        <TYPE>${sanitizeForXml(f.type)}</TYPE>\n`;
+    // Amount is already in kg in form state
     xml += `        <AMOUNT>${Number(f.amount).toFixed(3)}</AMOUNT>\n`; 
     xml += `        <YIELD>${Number(f.yield).toFixed(1)}</YIELD>\n`;
     xml += `        <COLOR>${Number(f.color).toFixed(1)}</COLOR>\n`;
@@ -207,6 +209,7 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `        <NAME>${sanitizeForXml(h.name)}</NAME>\n`;
     xml += `        <VERSION>1</VERSION>\n`;
     xml += `        <ALPHA>${Number(h.alpha).toFixed(1)}</ALPHA>\n`;
+    // Amount is already in kg in form state
     xml += `        <AMOUNT>${Number(h.amount).toFixed(4)}</AMOUNT>\n`; 
     xml += `        <USE>${sanitizeForXml(h.use)}</USE>\n`;
     xml += `        <TIME>${Number(h.time).toFixed(0)}</TIME>\n`;
@@ -280,82 +283,83 @@ function calculateAbv(ogInput?: number | string, fgInput?: number | string): num
   return undefined;
 }
 
-function getBignessFactor(ogInput: number | string | undefined): number {
-    const og = parseFloat(String(ogInput));
-    if (isNaN(og) || og < 1.0) {
-      return NaN; 
-    }
-    return 1.65 * Math.pow(0.000125, og - 1.0);
+function getBignessFactor(og: number | undefined): number {
+  if (og === undefined || isNaN(og) || og < 1.0) {
+    return NaN;
   }
-  
-  function getBoilTimeFactor(boilTimeMinutesInput: number | string | undefined): number {
-    const boilTimeMinutes = parseFloat(String(boilTimeMinutesInput));
-    if (isNaN(boilTimeMinutes) || boilTimeMinutes < 0) {
-      return NaN; 
-    }
-    if (boilTimeMinutes === 0) return 0; // Avoid division by zero in the original formula if time is 0.
-    return (1.0 - Math.exp(-0.04 * boilTimeMinutes)) / 4.15;
+  return 1.65 * Math.pow(0.000125, og - 1.0);
+}
+
+function getBoilTimeFactor(boilTimeMinutes: number | undefined): number {
+  if (boilTimeMinutes === undefined || isNaN(boilTimeMinutes) || boilTimeMinutes < 0) {
+    return NaN;
   }
-  
-  function calculateIbuTinseth(
-    hops: z.infer<typeof hopSchema>[] = [],
-    boilSizeInput?: number | string,
-    ogInput?: number | string
-  ): number | undefined {
-    const numBoilSize = parseFloat(String(boilSizeInput));
-    const numOg = parseFloat(String(ogInput));
-  
-    if (isNaN(numBoilSize) || numBoilSize <= 0 || isNaN(numOg) || numOg < 1.0) {
-      return undefined;
-    }
-  
-    let totalIbus = 0;
-    const bignessFactor = getBignessFactor(numOg);
-    if (isNaN(bignessFactor)) {
-      return undefined;
-    }
-  
-    (hops || []).forEach(hop => {
-      const currentAlpha = parseFloat(String(hop.alpha));
-      // Amount is stored in KG, convert to grams for IBU calculation
-      const amountGrams = parseFloat(String(hop.amount)) * 1000.0; 
-      const currentTime = parseFloat(String(hop.time));
-  
-      if (
-        hop.use === 'Boil' &&
-        !isNaN(currentAlpha) && currentAlpha > 0 &&
-        !isNaN(amountGrams) && amountGrams > 0 &&
-        !isNaN(currentTime) && currentTime >= 0 
-      ) {
-        const alphaDecimal = currentAlpha / 100.0;
-        const boilTimeFactor = getBoilTimeFactor(currentTime);
-  
-        if (isNaN(boilTimeFactor)) {
-          return; 
-        }
-  
-        const utilization = bignessFactor * boilTimeFactor;
-        
-        if (isNaN(utilization)) {
-          return; 
-        }
-        
-        const ibusForHop = (alphaDecimal * amountGrams * utilization * 1000) / numBoilSize;
-  
-        if (!isNaN(ibusForHop)) {
-          totalIbus += ibusForHop;
-        }
+  if (boilTimeMinutes === 0) return 0;
+  return (1.0 - Math.exp(-0.04 * boilTimeMinutes)) / 4.15;
+}
+
+function calculateIbuTinseth(
+  hops: z.infer<typeof hopSchema>[] = [],
+  boilSizeLiters?: number,
+  originalGravity?: number
+): number | undefined {
+  if (boilSizeLiters === undefined || isNaN(boilSizeLiters) || boilSizeLiters <= 0 ||
+      originalGravity === undefined || isNaN(originalGravity) || originalGravity < 1.0) {
+    return undefined;
+  }
+
+  let totalIbus = 0;
+  const bignessFactor = getBignessFactor(originalGravity);
+  if (isNaN(bignessFactor)) {
+    return undefined;
+  }
+
+  (hops || []).forEach(hop => {
+    const currentAlpha = parseFloat(String(hop.alpha));
+    // hop.amount is already in KG from the form state
+    const amountGrams = hop.amount * 1000.0; 
+    const currentTime = parseFloat(String(hop.time));
+
+    if (
+      hop.use === 'Boil' &&
+      !isNaN(currentAlpha) && currentAlpha > 0 &&
+      !isNaN(amountGrams) && amountGrams > 0 &&
+      !isNaN(currentTime) && currentTime >= 0 
+    ) {
+      const alphaDecimal = currentAlpha / 100.0;
+      const boilTimeFactor = getBoilTimeFactor(currentTime);
+
+      if (isNaN(boilTimeFactor)) {
+        return; 
       }
-    });
-  
-    return isNaN(totalIbus) ? undefined : totalIbus;
-  }
 
+      const utilization = bignessFactor * boilTimeFactor;
+      
+      if (isNaN(utilization)) {
+        return; 
+      }
+      
+      const ibusForHop = (alphaDecimal * amountGrams * utilization * 1000) / boilSizeLiters;
 
-export function RecipeForm() {
+      if (!isNaN(ibusForHop)) {
+        totalIbus += ibusForHop;
+      }
+    }
+  });
+
+  return isNaN(totalIbus) ? undefined : totalIbus;
+}
+
+interface RecipeFormProps {
+  mode?: 'create' | 'edit';
+  initialData?: RecipeFormValues;
+  recipeSlug?: string; // For navigating back after edit
+}
+
+export function RecipeForm({ mode = 'create', initialData, recipeSlug }: RecipeFormProps) {
   const form = useForm<RecipeFormValues>({
     resolver: zodResolver(recipeFormSchema),
-    defaultValues,
+    defaultValues: initialData || createDefaultValues(),
     mode: 'onChange',
   });
   const router = useRouter();
@@ -420,24 +424,28 @@ export function RecipeForm() {
       const result = await addRecipesAction([{ fileName: data.name + ".xml", content: xmlData }]);
       if (result.success && result.count && result.count > 0) {
         toast({
-          title: "Recipe Saved!",
-          description: `Recipe "${data.name}" was successfully saved to the cloud.`,
+          title: mode === 'edit' ? "Recipe Updated!" : "Recipe Saved!",
+          description: `Recipe "${data.name}" was successfully saved to Vercel Blob.`,
         });
-        router.push('/');
+        // For edit mode, we need to derive the slug from the potentially updated name
+        // The addRecipesAction itself handles the actual blob path based on the XML name.
+        // So, we derive the new slug to navigate to the correct detail page.
+        const newSlug = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
+        router.push(mode === 'edit' ? `/recipes/${newSlug}` : '/');
         router.refresh(); 
       } else if (result.success && result.count === 0) {
          toast({
-          title: "No Recipe Imported",
-          description: "The file did not contain a valid recipe or the name could not be extracted.",
+          title: "No Recipe Imported/Updated",
+          description: "The file did not contain a valid recipe or its name could not be extracted.",
           variant: "default",
         });
       } else {
-        throw new Error(result.error || "An error occurred while saving the recipe to the cloud.");
+        throw new Error(result.error || "An error occurred while saving the recipe to Vercel Blob.");
       }
     } catch (error) {
       console.error("Error saving recipe:", error);
       toast({
-        title: "Save Failed",
+        title: mode === 'edit' ? "Update Failed" : "Save Failed",
         description: (error as Error).message || "An error occurred while saving the recipe.",
         variant: "destructive",
       });
@@ -566,7 +574,6 @@ export function RecipeForm() {
             </AccordionContent>
         </AccordionItem>
 
-        
         <AccordionItem value="item-style">
             <AccordionTrigger>
                 <CardTitle className="flex items-center text-lg">
@@ -645,7 +652,6 @@ export function RecipeForm() {
                 </CardContent>
             </AccordionContent>
         </AccordionItem>
-        
         
         <AccordionItem value="item-target-stats">
             <AccordionTrigger>
@@ -731,7 +737,6 @@ export function RecipeForm() {
             </AccordionContent>
         </AccordionItem>
 
-        
         <AccordionItem value="item-fermentables">
             <AccordionTrigger>
                 <CardTitle className="flex items-center text-lg">
@@ -771,6 +776,7 @@ export function RecipeForm() {
                                     control={form.control}
                                     name={`fermentables.${index}.amount`}
                                     render={({ field }) => {
+                                        // field.value is always in KG. Display value depends on currentUnit.
                                         const displayValue = currentUnit === 'g' ? parseFloat(((field.value || 0) * 1000).toFixed(3)) : parseFloat((field.value || 0).toFixed(3));
                                         return (
                                         <FormItem>
@@ -784,7 +790,7 @@ export function RecipeForm() {
                                                 const rawValue = parseFloat(e.target.value);
                                                 if (!isNaN(rawValue)) {
                                                     const valueInKg = currentUnit === 'g' ? rawValue / 1000 : rawValue;
-                                                    field.onChange(valueInKg);
+                                                    field.onChange(valueInKg); // Store as KG
                                                 } else {
                                                     field.onChange(undefined);
                                                 }
@@ -826,7 +832,6 @@ export function RecipeForm() {
             </AccordionContent>
         </AccordionItem>
 
-        
         <AccordionItem value="item-hops">
             <AccordionTrigger>
                 <CardTitle className="flex items-center text-lg">
@@ -853,6 +858,7 @@ export function RecipeForm() {
                                     control={form.control}
                                     name={`hops.${index}.amount`}
                                     render={({ field }) => {
+                                        // field.value is always in KG. Display value depends on currentUnit.
                                         const displayValue = currentUnit === 'g' ? parseFloat(((field.value || 0) * 1000).toFixed(1)) : parseFloat((field.value || 0).toFixed(4));
                                         return (
                                         <FormItem>
@@ -866,7 +872,7 @@ export function RecipeForm() {
                                                 const rawValue = parseFloat(e.target.value);
                                                 if (!isNaN(rawValue)) {
                                                     const valueInKg = currentUnit === 'g' ? rawValue / 1000 : rawValue;
-                                                    field.onChange(valueInKg);
+                                                    field.onChange(valueInKg); // Store as KG
                                                 } else {
                                                     field.onChange(undefined);
                                                 }
@@ -927,7 +933,6 @@ export function RecipeForm() {
             </AccordionContent>
         </AccordionItem>
 
-        
         <AccordionItem value="item-yeasts">
             <AccordionTrigger>
                 <CardTitle className="flex items-center text-lg">
@@ -981,7 +986,6 @@ export function RecipeForm() {
             </AccordionContent>
         </AccordionItem>
 
-        
         <AccordionItem value="item-miscs">
             <AccordionTrigger>
                 <CardTitle className="flex items-center text-lg">
@@ -1031,7 +1035,6 @@ export function RecipeForm() {
             </AccordionContent>
         </AccordionItem>
 
-        
         <AccordionItem value="item-mash">
             <AccordionTrigger>
                 <CardTitle className="flex items-center text-lg">
@@ -1088,7 +1091,6 @@ export function RecipeForm() {
             </AccordionContent>
         </AccordionItem>
 
-        
         <AccordionItem value="item-notes">
             <AccordionTrigger>
                 <CardTitle className="flex items-center text-lg">
@@ -1121,11 +1123,15 @@ export function RecipeForm() {
         </AccordionItem>
        </Accordion>
 
-        <Button type="submit" size="lg" className="w-full md:w-auto" disabled={form.formState.isSubmitting}>
+        <Button type="submit" size="lg" className="w-full md:w-auto mt-8" disabled={form.formState.isSubmitting}>
           <SaveIcon className="mr-2 h-5 w-5" />
-          {form.formState.isSubmitting ? "Saving..." : "Create and Save Recipe"}
+          {form.formState.isSubmitting 
+            ? (mode === 'edit' ? "Updating..." : "Saving...") 
+            : (mode === 'edit' ? "Update Recipe" : "Create and Save Recipe")}
         </Button>
       </form>
     </Form>
   );
 }
+
+    
