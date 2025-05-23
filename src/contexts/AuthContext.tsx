@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [isAdminAuthenticated]);
 
   const login = useCallback(async (totpCode: string): Promise<boolean> => {
-    if (!totpCode || totpCode.length !== 6) {
+    if (!totpCode || totpCode.length !== 6 || !/^\d{6}$/.test(totpCode)) {
       toast({
         title: 'Invalid Code',
         description: 'Please enter a 6-digit code.',
@@ -44,6 +44,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return false;
     }
 
+    // For local development, allow a backdoor password if TOTP_SECRET is not set or is "DEBUG_MODE"
+    // AND if NEXT_PUBLIC_ADMIN_PASSWORD is set. This is NOT for production.
+    if (process.env.NODE_ENV === 'development' && 
+        (!process.env.TOTP_SECRET || process.env.TOTP_SECRET === "DEBUG_MODE") &&
+        process.env.NEXT_PUBLIC_ADMIN_PASSWORD &&
+        totpCode === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
+      setIsAdminAuthenticated(true);
+      toast({
+        title: 'Admin Login Successful (Dev Mode)',
+        description: 'Admin features are now enabled using debug password.',
+      });
+      return true;
+    }
+    
     const result: AuthActionResult = await verifyTotpAction(totpCode);
 
     if (result.success) {
@@ -77,4 +91,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  if (
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
