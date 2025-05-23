@@ -4,14 +4,14 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
-  BookOpen, // Brewer's Notes / Detailed Procedure
-  Blend, // Mashing (Changed from Blender as Blend is more suitable for mixing)
-  Flame, // Boil
-  Wind, // Whirlpool / Aroma Additions
-  ThermometerSnowflake, // Cooling
-  FlaskConical, // Fermentation
-  Archive, // Bottling/Kegging (Changed from Package to Archive as it's more about storage/final product)
-  HelpCircle // Default
+  BookOpen,
+  Blend,
+  Flame,
+  Wind,
+  ThermometerSnowflake,
+  FlaskConical,
+  Archive,
+  HelpCircle
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -27,14 +27,14 @@ interface Section {
 
 const getIconForSection = (title: string): LucideIcon => {
   const lowerTitle = title.toLowerCase();
-  if (lowerTitle.includes('brewer') || lowerTitle.includes('procedure')) return BookOpen;
+  if (lowerTitle.includes('brewer') || lowerTitle.includes('procedure') || lowerTitle.includes('notes')) return BookOpen;
   if (lowerTitle.includes('mashing')) return Blend;
   if (lowerTitle.includes('boil')) return Flame;
   if (lowerTitle.includes('whirlpool') || lowerTitle.includes('aroma')) return Wind;
   if (lowerTitle.includes('cooling')) return ThermometerSnowflake;
   if (lowerTitle.includes('fermentation')) return FlaskConical;
   if (lowerTitle.includes('bottling') || lowerTitle.includes('kegging')) return Archive;
-  return HelpCircle; // Default icon
+  return HelpCircle;
 };
 
 const parseMarkdownToSections = (markdown: string): Section[] => {
@@ -61,18 +61,18 @@ const parseMarkdownToSections = (markdown: string): Section[] => {
   return sections;
 };
 
-const renderContentLine = (line: string, index: number) => {
-  const RENDER_LINE = line.trim(); // Trim the line content first
+const renderContentLine = (lineContent: string, key: string | number) => {
+  const RENDER_LINE = lineContent.trim();
   const boldMatch = RENDER_LINE.match(/^\*\*(.*?)\*\*(.*)/);
   if (boldMatch) {
     return (
-      <React.Fragment key={index}>
+      <React.Fragment key={key}>
         <span className="font-semibold">{boldMatch[1]}</span>
         {boldMatch[2]}
       </React.Fragment>
     );
   }
-  return <React.Fragment key={index}>{RENDER_LINE}</React.Fragment>;
+  return <React.Fragment key={key}>{RENDER_LINE}</React.Fragment>;
 };
 
 
@@ -85,35 +85,64 @@ export const RecipeStepsDisplay: React.FC<RecipeStepsDisplayProps> = ({ stepsMar
 
   return (
     <div className="space-y-6">
-      {sections.map((section, sectionIndex) => (
-        <Card key={sectionIndex}>
-          <CardHeader>
-            <CardTitle className="flex items-center text-xl font-semibold">
-              <section.icon className="mr-3 h-6 w-6 text-primary" />
-              {section.title}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {section.contentLines.every(line => line.startsWith('* ') || line.startsWith('- ')) ? (
-              <ul className="list-disc space-y-1 pl-5 text-sm">
-                {section.contentLines.map((line, lineIndex) => (
-                  <li key={lineIndex}>{renderContentLine(line.substring(2), lineIndex)}</li>
-                ))}
-              </ul>
-            ) : (
-              <div className="space-y-2 text-sm">
-                {section.contentLines.map((line, lineIndex) => (
-                   line.startsWith('* ') || line.startsWith('- ') ? (
-                     <ul key={lineIndex} className="list-disc space-y-1 pl-5"><li>{renderContentLine(line.substring(2), lineIndex)}</li></ul>
-                   ) : (
-                     <p key={lineIndex}>{renderContentLine(line, lineIndex)}</p>
-                   )
-                ))}
+      {sections.map((section, sectionIndex) => {
+        const renderableBlocks: Array<JSX.Element> = [];
+        let currentListItems: string[] = [];
+
+        section.contentLines.forEach((line, lineIndex) => {
+          const isListItem = line.startsWith('* ') || line.startsWith('- ');
+
+          if (isListItem) {
+            currentListItems.push(line.substring(2)); // Store without the bullet
+          } else {
+            // If we were building a list, finalize it and add it to blocks
+            if (currentListItems.length > 0) {
+              renderableBlocks.push(
+                <ul key={`ul-${sectionIndex}-${renderableBlocks.length}`} className="list-disc space-y-1 pl-5 text-sm">
+                  {currentListItems.map((item, itemIndex) => (
+                    <li key={`li-${sectionIndex}-${renderableBlocks.length}-${itemIndex}`}>{renderContentLine(item, itemIndex)}</li>
+                  ))}
+                </ul>
+              );
+              currentListItems = []; // Reset for the next list
+            }
+            // Add the paragraph
+            renderableBlocks.push(
+              <p key={`p-${sectionIndex}-${renderableBlocks.length}`} className="text-sm">
+                {renderContentLine(line, lineIndex)}
+              </p>
+            );
+          }
+        });
+
+        // If there are any remaining list items after the loop, add them
+        if (currentListItems.length > 0) {
+          renderableBlocks.push(
+            <ul key={`ul-${sectionIndex}-last`} className="list-disc space-y-1 pl-5 text-sm">
+              {currentListItems.map((item, itemIndex) => (
+                <li key={`li-${sectionIndex}-last-${itemIndex}`}>{renderContentLine(item, itemIndex)}</li>
+              ))}
+            </ul>
+          );
+        }
+        
+        return (
+          <Card key={sectionIndex}>
+            <CardHeader>
+              <CardTitle className="flex items-center text-xl font-semibold">
+                <section.icon className="mr-3 h-6 w-6 text-primary" />
+                {section.title}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {renderableBlocks}
               </div>
-            )}
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 };
+
