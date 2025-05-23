@@ -12,6 +12,9 @@ interface EditRecipePageProps {
   params: {
     recipeSlug: string;
   };
+  searchParams?: {
+    section?: string;
+  };
 }
 
 function transformBeerXMLToFormValues(recipe: BeerXMLRecipe): RecipeFormValues {
@@ -24,7 +27,7 @@ function transformBeerXMLToFormValues(recipe: BeerXMLRecipe): RecipeFormValues {
     boilTime: recipe.boilTime || 0,
     efficiency: recipe.efficiency || 72.0,
     notes: recipe.notes || '',
-    stepsMarkdown: recipe.stepsMarkdown || '', // Added stepsMarkdown
+    stepsMarkdown: recipe.stepsMarkdown || '', 
 
     og: recipe.og,
     fg: recipe.fg,
@@ -42,8 +45,8 @@ function transformBeerXMLToFormValues(recipe: BeerXMLRecipe): RecipeFormValues {
     fermentables: recipe.fermentables.map(f => ({
       name: f.name,
       type: f.type as 'Grain' | 'Extract' | 'Sugar' | 'Adjunct' | 'Dry Extract' | 'Liquid Extract' || 'Grain',
-      amount: f.amount, // Stored as kg
-      amountUnit: 'kg', // Default display unit
+      amount: f.amount, 
+      amountUnit: 'kg', 
       yield: f.yieldPercentage,
       color: f.color,
     })),
@@ -51,8 +54,8 @@ function transformBeerXMLToFormValues(recipe: BeerXMLRecipe): RecipeFormValues {
     hops: recipe.hops.map(h => ({
       name: h.name,
       alpha: h.alpha,
-      amount: h.amount, // Stored as kg
-      amountUnit: 'g', // Default display unit for form
+      amount: h.amount, 
+      amountUnit: 'g', 
       use: h.use as 'Boil' | 'Dry Hop' | 'Mash' | 'First Wort' | 'Aroma' | 'Whirlpool' || 'Boil',
       time: h.time,
       form: h.form as 'Pellet' | 'Plug' | 'Leaf' | 'Extract' || 'Pellet',
@@ -89,7 +92,7 @@ function transformBeerXMLToFormValues(recipe: BeerXMLRecipe): RecipeFormValues {
 }
 
 
-export default async function EditRecipePage({ params }: EditRecipePageProps) {
+export default async function EditRecipePage({ params, searchParams }: EditRecipePageProps) {
   const recipeData = await getRecipeDetails(params.recipeSlug);
 
   if (!recipeData) {
@@ -97,6 +100,7 @@ export default async function EditRecipePage({ params }: EditRecipePageProps) {
   }
 
   const initialFormValues = transformBeerXMLToFormValues(recipeData);
+  const initialOpenSection = searchParams?.section;
 
   return (
     <div className="space-y-6">
@@ -119,7 +123,10 @@ export default async function EditRecipePage({ params }: EditRecipePageProps) {
         mode="edit"
         initialData={initialFormValues}
         recipeSlug={params.recipeSlug}
+        initialOpenSection={initialOpenSection}
       />
     </div>
   );
 }
+
+    

@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { RecipeStepsDisplay } from './RecipeStepsDisplay';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import React, { useState } from 'react'; // Added useState
+import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface SectionProps {
@@ -134,6 +134,7 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
   const [activeTab, setActiveTab] = useState<string>("details");
 
   const editButtonText = activeTab === "details" ? "Modifier Détails Recette" : "Modifier Étapes Recette";
+  const editLink = activeTab === "steps" ? `/recipes/${recipeSlug}/edit?section=steps` : `/recipes/${recipeSlug}/edit`;
 
   return (
     <div className="space-y-6">
@@ -153,7 +154,7 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
           </div>
           {isAdminAuthenticated && (
             <Button asChild variant="outline">
-              <Link href={`/recipes/${recipeSlug}/edit`}>
+              <Link href={editLink}>
                 <PencilIcon className="mr-2 h-4 w-4" />
                 {editButtonText}
               </Link>
@@ -366,7 +367,7 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
                 <p className="text-muted-foreground">No detailed steps file (.md) found for this recipe.</p>
                   {isAdminAuthenticated && (
                     <p className="mt-2 text-sm">
-                      You can <Link href={`/recipes/${recipeSlug}/edit`} className="text-primary hover:underline">edit this recipe</Link> to add the steps.
+                      You can <Link href={`/recipes/${recipeSlug}/edit?section=steps`} className="text-primary hover:underline">edit this recipe to add the steps</Link>.
                     </p>
                   )}
               </CardContent>
@@ -377,3 +378,5 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
     </div>
   );
 }
+
+    

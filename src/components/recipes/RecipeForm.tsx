@@ -2,7 +2,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,7 +26,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { SaveIcon, PlusCircleIcon, Trash2Icon, InfoIcon, ListChecksIcon, Wheat, Hop as HopIconLucide, Microscope, Package, Thermometer, StickyNote, BarChart3, FileText, UploadCloud } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { addRecipesAction } from '@/app/actions/recipe-actions';
 import { useRouter } from 'next/navigation';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -86,7 +86,7 @@ const recipeFormSchema = z.object({
   boilTime: z.coerce.number().int().positive({ message: 'Boil Time must be a positive integer.' }),
   efficiency: z.coerce.number().min(0).max(100).optional(),
   notes: z.string().optional(),
-  stepsMarkdown: z.string().optional(), // Added for recipe steps
+  stepsMarkdown: z.string().optional(), 
 
   og: z.coerce.number().min(1.0, "OG must be >= 1.000").max(2.0, "OG seems too high").optional(),
   fg: z.coerce.number().min(0.9, "FG seems too low").max(2.0, "FG seems too high").optional(),
@@ -130,8 +130,8 @@ const createDefaultValues = (): RecipeFormValues => ({
   efficiency: 72.0,
   og: 1.052,
   fg: 1.012,
-  abv: 0,
-  ibu: 0,
+  abv: 0, // Calculated
+  ibu: 0, // Calculated
   colorSrm: 14.0,
   notes: '',
   stepsMarkdown: '',
@@ -201,7 +201,7 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `        <NAME>${sanitizeForXml(f.name)}</NAME>\n`;
     xml += `        <VERSION>1</VERSION>\n`;
     xml += `        <TYPE>${sanitizeForXml(f.type)}</TYPE>\n`;
-    xml += `        <AMOUNT>${Number(f.amount).toFixed(3)}</AMOUNT>\n`;
+    xml += `        <AMOUNT>${Number(f.amount).toFixed(3)}</AMOUNT>\n`; // Amount is stored in kg
     xml += `        <YIELD>${Number(f.yield).toFixed(1)}</YIELD>\n`;
     xml += `        <COLOR>${Number(f.color).toFixed(1)}</COLOR>\n`;
     xml += `      </FERMENTABLE>\n`;
@@ -214,7 +214,7 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `        <NAME>${sanitizeForXml(h.name)}</NAME>\n`;
     xml += `        <VERSION>1</VERSION>\n`;
     xml += `        <ALPHA>${Number(h.alpha).toFixed(1)}</ALPHA>\n`;
-    xml += `        <AMOUNT>${Number(h.amount).toFixed(4)}</AMOUNT>\n`;
+    xml += `        <AMOUNT>${Number(h.amount).toFixed(4)}</AMOUNT>\n`; // Amount is stored in kg
     xml += `        <USE>${sanitizeForXml(h.use)}</USE>\n`;
     xml += `        <TIME>${Number(h.time).toFixed(0)}</TIME>\n`;
     xml += `        <FORM>${sanitizeForXml(h.form)}</FORM>\n`;
@@ -318,12 +318,13 @@ function calculateIbuTinseth(
   const bignessFactor = getBignessFactor(numOriginalGravity);
 
   if (isNaN(bignessFactor)) {
-    return undefined;
+    return undefined; 
   }
 
   (hops || []).forEach(hop => {
     const currentAlpha = parseFloat(String(hop.alpha));
-    const amountGrams = parseFloat(String(hop.amount)) * 1000.0; // amount is in KG, convert to G for formula
+    // hop.amount is ALWAYS in KG from the form's perspective
+    const amountGrams = parseFloat(String(hop.amount)) * 1000.0; 
     const currentTime = parseFloat(String(hop.time));
 
     if (
@@ -336,13 +337,13 @@ function calculateIbuTinseth(
       const boilTimeFactor = getBoilTimeFactor(currentTime);
 
       if (isNaN(boilTimeFactor)) {
-        return; // Skip this hop if boilTimeFactor is NaN
+        return;
       }
 
       const utilization = bignessFactor * boilTimeFactor;
-
+      
       if (isNaN(utilization)) {
-        return; // Skip this hop if utilization is NaN
+        return;
       }
 
       const ibusForHop = (alphaDecimal * amountGrams * utilization * 1000) / numBoilSize;
@@ -361,9 +362,10 @@ interface RecipeFormProps {
   mode?: 'create' | 'edit';
   initialData?: RecipeFormValues;
   recipeSlug?: string;
+  initialOpenSection?: string;
 }
 
-export function RecipeForm({ mode = 'create', initialData, recipeSlug }: RecipeFormProps) {
+export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOpenSection }: RecipeFormProps) {
   const form = useForm<RecipeFormValues>({
     resolver: zodResolver(recipeFormSchema),
     defaultValues: initialData || createDefaultValues(),
@@ -410,7 +412,7 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug }: RecipeF
     if (abv !== undefined && !isNaN(abv)) {
       setValue('abv', parseFloat(abv.toFixed(2)), { shouldValidate: false });
     } else {
-      setValue('abv', 0, { shouldValidate: false });
+      setValue('abv', 0, { shouldValidate: false }); // Ensure it's a number for the form
     }
   }, [watchedOg, watchedFg, setValue]);
 
@@ -421,7 +423,7 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug }: RecipeF
     if (ibu !== undefined && !isNaN(ibu)) {
       setValue('ibu', parseFloat(ibu.toFixed(1)), { shouldValidate: false });
     } else {
-      setValue('ibu', 0, { shouldValidate: false });
+      setValue('ibu', 0, { shouldValidate: false }); // Ensure it's a number for the form
     }
   }, [watchedOg, watchedBoilSize, watchedHops, setValue]);
 
@@ -441,7 +443,7 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug }: RecipeF
       if (result.success && result.count && result.count > 0) {
         toast({
           title: mode === 'edit' ? "Recette Mise à Jour !" : "Recette Enregistrée !",
-          description: `La recette "${data.name}" a été sauvegardée avec succès sur Vercel Blob.`,
+          description: `La recette "${data.name}" a été sauvegardée sur Vercel Blob.`,
         });
         const newSlug = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
         router.push(mode === 'edit' ? `/recipes/${newSlug}` : '/');
@@ -490,17 +492,23 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug }: RecipeF
     };
     reader.readAsText(file);
 
-    // Reset file input to allow selecting the same file again if needed
     if (markdownFileInputRef.current) {
       markdownFileInputRef.current.value = '';
     }
   };
 
+  const accordionDefaultValue = useMemo(() => {
+    if (initialOpenSection === 'steps') {
+      return ['item-steps-markdown'];
+    }
+    return ['item-general', 'item-target-stats'];
+  }, [initialOpenSection]);
+
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        <Accordion type="multiple" defaultValue={['item-general', 'item-target-stats']} className="w-full">
+        <Accordion type="multiple" defaultValue={accordionDefaultValue} className="w-full">
 
           <AccordionItem value="item-general">
             <AccordionTrigger>
@@ -743,7 +751,7 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug }: RecipeF
                       <FormItem>
                         <FormLabel>ABV (%) - Calculé</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" {...field} readOnly />
+                          <Input type="number" step="0.01" {...field} readOnly value={field.value ?? 0} />
                         </FormControl>
                         <FormDescription>Calculé automatiquement.</FormDescription>
                         <FormMessage />
@@ -757,7 +765,7 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug }: RecipeF
                       <FormItem>
                         <FormLabel>IBU - Calculé</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.1" {...field} readOnly />
+                          <Input type="number" step="0.1" {...field} readOnly value={field.value ?? 0} />
                         </FormControl>
                         <FormDescription>Calculé (Tinseth).</FormDescription>
                         <FormMessage />
@@ -1226,3 +1234,5 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug }: RecipeF
     </Form>
   );
 }
+
+    
