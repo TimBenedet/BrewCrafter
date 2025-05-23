@@ -174,27 +174,55 @@ Pour exécuter BrewCrafter localement :
 1.  Clonez le dépôt.
 2.  Installez les dépendances : `npm install` (ou `yarn install`).
 3.  **Configurez les Variables d'Environnement** :
-    *   Créez un fichier nommé `.env.local` à la racine de votre projet.
+    *   Créez un fichier nommé `.env.local` à la racine de votre projet. (Ce fichier ne doit PAS être commité sur Git).
     *   Ajoutez les variables suivantes, en remplaçant les valeurs de remplacement :
-        ```
+        ```env
         BLOB_READ_WRITE_TOKEN=votre_token_vercel_blob_lecture_ecriture_ici
         TOTP_SECRET=VOTRE_SECRET_TOTP_BASE32_UNIQUE_ICI
         NEXT_PUBLIC_TOTP_ISSUER_NAME="BrewCrafter Local"
         NEXT_PUBLIC_TOTP_ACCOUNT_NAME="localadmin"
         ```
     *   Vous pouvez obtenir `BLOB_READ_WRITE_TOKEN` depuis l'onglet "Storage" de votre projet Vercel après avoir lié un magasin Blob.
-    *   Pour `TOTP_SECRET`, générez une chaîne Base32 robuste (par exemple, en utilisant un script local avec `speakeasy` ou un générateur en ligne de confiance). **Ce secret doit être unique et conservé en toute sécurité.**
+    *   Pour `TOTP_SECRET`, générez une chaîne Base32 robuste (par exemple, en utilisant un script Node.js local avec `speakeasy` ou un générateur en ligne de confiance). **Ce secret doit être unique et conservé en toute sécurité.**
 4.  Exécutez le serveur de développement : `npm run dev`.
 5.  Ouvrez [http://localhost:9002](http://localhost:9002) (ou le port spécifié dans `package.json`) dans votre navigateur.
 6.  **Première Configuration Admin (si nécessaire)** :
-    *   Si vous devez configurer le TOTP pour la première fois, vous devrez temporairement restaurer ou activer le contenu de la page `/admin/setup-totp` (située dans `src/app/admin/setup-totp/page.tsx`). Par défaut, cette page est désactivée pour des raisons de sécurité.
+    *   Si vous devez configurer le TOTP pour la première fois, vous devrez temporairement restaurer ou activer le contenu de la page `/admin/setup-totp` (située dans `src/app/admin/setup-totp/page.tsx`). Par défaut, cette page est désactivée (renvoie une erreur 404) pour des raisons de sécurité.
     *   Une fois accessible, naviguez vers `http://localhost:9002/admin/setup-totp`.
     *   Scannez le QR code avec votre application d'authentification (par exemple, Google Authenticator, Authy).
     *   Vous pouvez maintenant utiliser les codes générés pour vous connecter en tant qu'admin via le bouton de l'en-tête.
     *   **Rendez à nouveau la page de configuration TOTP inaccessible après l'avoir utilisée.**
 
-En développement local, "Import recipe" et "New recipe" sauvegarderont les fichiers sur votre magasin Vercel Blob si `BLOB_READ_WRITE_TOKEN` est correctement configuré et valide.
+En développement local, les fonctionnalités "Importer une recette" et "New Recipe" sauvegarderont les fichiers sur votre magasin Vercel Blob si `BLOB_READ_WRITE_TOKEN` est correctement configuré et valide. La suppression de recettes affectera également votre Vercel Blob.
+
+## Utiliser ce Projet (Fork & Déploiement Personnel)
+
+Si vous souhaitez forker ce projet et le déployer pour votre propre usage :
+
+1.  **Forkez le dépôt GitHub.**
+2.  **Créez votre propre projet sur [Vercel](https://vercel.com/)** et liez-le à votre fork.
+3.  **Intégrez Vercel Blob à votre projet Vercel** :
+    *   Dans votre projet Vercel, allez dans l'onglet "Storage" et créez/connectez un nouveau "Blob store".
+    *   Copiez le `BLOB_READ_WRITE_TOKEN` qui est généré.
+4.  **Générez un Secret TOTP** :
+    *   Créez une chaîne Base32 aléatoire et robuste (au moins 32 caractères recommandés). Vous pouvez utiliser des outils en ligne sécurisés ou un script local pour cela. Ce sera votre `TOTP_SECRET`.
+5.  **Configurez les Variables d'Environnement sur Vercel** :
+    *   Dans les "Settings" de votre projet Vercel, sous "Environment Variables", ajoutez :
+        *   `BLOB_READ_WRITE_TOKEN` : Votre token Vercel Blob.
+        *   `TOTP_SECRET` : Votre secret TOTP en Base32.
+        *   `NEXT_PUBLIC_TOTP_ISSUER_NAME` : (Optionnel) Le nom de votre application qui apparaîtra dans l'authentificateur (ex: "Mon Livre de Recettes").
+        *   `NEXT_PUBLIC_TOTP_ACCOUNT_NAME` : (Optionnel) Le nom de compte qui apparaîtra (ex: "moncompte@admin").
+6.  **Configurez les Variables d'Environnement pour le Développement Local** :
+    *   Créez un fichier `.env.local` à la racine de votre projet (et ajoutez-le à `.gitignore`).
+    *   Copiez-y les mêmes variables d'environnement que celles configurées sur Vercel.
+7.  **Configuration Initiale du TOTP** :
+    *   Pour lier votre application d'authentification (Google Authenticator, Authy, etc.), vous devrez temporairement rendre la page `/admin/setup-totp/page.tsx` accessible. Pour cela, modifiez le fichier `src/app/admin/setup-totp/page.tsx` pour qu'il retourne le code JSX de la page de configuration (le code d'origine peut être trouvé dans l'historique Git si besoin, ou vous pouvez le recréer pour afficher un QR code généré par `generateTotpQrCodeAction`).
+    *   Déployez cette modification (ou exécutez localement).
+    *   Accédez à `/admin/setup-totp`, scannez le QR code.
+    *   Une fois configuré, **rendez à nouveau la page `/admin/setup-totp/page.tsx` inaccessible** (par exemple, en la faisant retourner `notFound()` comme dans la version actuelle du dépôt principal) et redéployez.
+8.  **Ajoutez vos Recettes** :
+    *   Vous pouvez utiliser l'interface d'administration (une fois connecté) pour créer de nouvelles recettes ou importer vos fichiers BeerXML. Ils seront stockés dans votre Vercel Blob.
 
 ---
 
-Ce README vise à fournir un aperçu complet de l'application BrewCrafter.
+Ce README vise à fournir un aperçu complet de l'application BrewCrafter et de sa configuration.
