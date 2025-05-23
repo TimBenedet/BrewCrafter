@@ -32,7 +32,7 @@ BrewCrafter offre les fonctionnalités clés suivantes :
 *   **Vue Détaillée de la Recette (`/recipes/[recipeSlug]`)**:
     *   Accessible en cliquant sur "View Recipe" sur une carte de recette.
     *   Affiche des informations complètes sur la recette analysées à partir du fichier `.xml` stocké dans Vercel Blob :
-        *   **En-tête** : Nom de la Recette, Style, Brasseur, et une icône dynamique `GlassWater`.
+        *   **En-tête** : Nom de la Recette, Style, Brasseur, et une icône `GlassWater`.
         *   **Carte Métadonnées** : Taille du Lot, Volume d'Ébullition, Temps d'Ébullition, Efficacité.
         *   **Carte Statistiques Cibles** : OG, FG, ABV, IBU, Couleur (SRM) avec des barres de progression visuelles.
         *   **Ingrédients** : Listes détaillées pour Fermentescibles, Houblons, Levures, et Divers, indiquant les quantités, types, utilisations, etc., présentées dans un accordéon.
@@ -112,8 +112,8 @@ BrewCrafter offre les fonctionnalités clés suivantes :
     *   Déconnexion via une icône dans l'en-tête principal.
     *   **Configuration TOTP** :
         *   Un secret (`TOTP_SECRET`) doit être configuré dans les variables d'environnement.
-        *   Une page dédiée (`/admin/setup-totp`) permet à l'administrateur de scanner un QR code (une fois, pour la configuration) pour lier son application d'authentification.
-        *   **AVERTISSEMENT DE SÉCURITÉ** : La page `/admin/setup-totp` est destinée à la configuration initiale unique. **Elle ne doit pas être liée publiquement et il est fortement recommandé de la rendre inaccessible (par exemple, en supprimant le fichier ou en la protégeant par d'autres moyens) dans un environnement de production après que l'administrateur ait configuré son application TOTP.** L'accès non contrôlé à cette page permettrait à n'importe qui de lier son authentificateur au compte admin.
+        *   Une page dédiée (`/admin/setup-totp`) permettait à l'administrateur de scanner un QR code (une fois, pour la configuration) pour lier son application d'authentification.
+        *   **AVERTISSEMENT DE SÉCURITÉ / CHANGEMENT IMPORTANT** : La page `/admin/setup-totp` est destinée à la configuration initiale unique. Elle est maintenant **désactivée par défaut** (renvoie une erreur 404) pour des raisons de sécurité. Pour reconfigurer le TOTP, le code source de cette page (`src/app/admin/setup-totp/page.tsx`) doit être temporairement restauré ou modifié pour être accessible. Il est fortement recommandé de la rendre à nouveau inaccessible après la configuration. L'accès non contrôlé à cette page permettrait à n'importe qui de lier son authentificateur au compte admin.
 
 ## Pile Technique
 
@@ -186,11 +186,12 @@ Pour exécuter BrewCrafter localement :
     *   Pour `TOTP_SECRET`, générez une chaîne Base32 robuste (par exemple, en utilisant un script local avec `speakeasy` ou un générateur en ligne de confiance). **Ce secret doit être unique et conservé en toute sécurité.**
 4.  Exécutez le serveur de développement : `npm run dev`.
 5.  Ouvrez [http://localhost:9002](http://localhost:9002) (ou le port spécifié dans `package.json`) dans votre navigateur.
-6.  **Première Configuration Admin** :
-    *   Naviguez vers `http://localhost:9002/admin/setup-totp`.
+6.  **Première Configuration Admin (si nécessaire)** :
+    *   Si vous devez configurer le TOTP pour la première fois, vous devrez temporairement restaurer ou activer le contenu de la page `/admin/setup-totp` (située dans `src/app/admin/setup-totp/page.tsx`). Par défaut, cette page est désactivée pour des raisons de sécurité.
+    *   Une fois accessible, naviguez vers `http://localhost:9002/admin/setup-totp`.
     *   Scannez le QR code avec votre application d'authentification (par exemple, Google Authenticator, Authy).
     *   Vous pouvez maintenant utiliser les codes générés pour vous connecter en tant qu'admin via le bouton de l'en-tête.
-    *   La page de configuration TOTP n'est pas liée dans la navigation principale et est destinée à la configuration admin initiale. **Elle doit être sécurisée ou supprimée après la configuration dans un environnement de production.**
+    *   **Rendez à nouveau la page de configuration TOTP inaccessible après l'avoir utilisée.**
 
 En développement local, "Import recipe" et "New recipe" sauvegarderont les fichiers sur votre magasin Vercel Blob si `BLOB_READ_WRITE_TOKEN` est correctement configuré et valide.
 
