@@ -23,7 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { addRecipesAction } from '@/app/actions/recipe-actions'; // Import the server action
+import { addRecipesAction } from '@/app/actions/recipe-actions';
 
 
 export default function HomePage() {
@@ -110,6 +110,7 @@ export default function HomePage() {
       toast({ title: "Importation en cours...", description: `Importation de ${file.name}.` });
 
       try {
+        // Pass the original filename to help addRecipesAction if needed for any pre-slug logic
         const result = await addRecipesAction([{ fileName: file.name, content }]);
         if (result.success && result.count !== undefined && result.count > 0) {
           toast({
@@ -121,7 +122,7 @@ export default function HomePage() {
            toast({
             title: "Aucune recette importée",
             description: "Le fichier ne contenait pas de recette valide ou le nom n'a pu être extrait.",
-            variant: "default",
+            variant: "default", // Or "warning" if you define such a variant
           });
         } else {
           throw new Error(result.error || "Erreur lors de l'importation de la recette.");
@@ -185,16 +186,12 @@ export default function HomePage() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Importer une recette</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Sélectionnez la source pour importer votre recette.
+                    Sélectionnez un fichier BeerXML (.xml) depuis votre ordinateur.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
-                <div className="flex flex-col space-y-2">
+                <div className="flex flex-col space-y-2 py-4">
                    <Button variant="default" onClick={() => fileInputRef.current?.click()}>
                     Depuis mon ordinateur
-                  </Button>
-                  {/* Placeholder for future Google Drive integration */}
-                  <Button variant="outline" disabled>
-                    Depuis Google Drive (Bientôt)
                   </Button>
                 </div>
                 <AlertDialogFooter>
@@ -335,5 +332,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    
