@@ -12,7 +12,15 @@ interface RecipePageProps {
   };
 }
 
+// Ensure this page is always dynamically rendered
+export const dynamic = 'force-dynamic';
+
 export async function generateStaticParams() {
+  // Fetching summaries might now rely on Vercel Blob and could be dynamic.
+  // If this causes issues with build times or if summaries are relatively stable,
+  // consider how often this needs to run. For fully dynamic, it can return an empty array
+  // if dynamic = 'force-dynamic' is used, or fetch actual slugs.
+  // For now, let's keep fetching summaries for param generation.
   const summaries = await getRecipeSummaries();
   return summaries.map((recipe) => ({
     recipeSlug: recipe.slug,
@@ -53,5 +61,3 @@ export default async function RecipePage({ params }: RecipePageProps) {
     </div>
   );
 }
-
-    
