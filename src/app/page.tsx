@@ -12,17 +12,6 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { addRecipesAction } from '@/app/actions/recipe-actions';
 
 
@@ -36,7 +25,6 @@ export default function HomePage() {
   const { toast } = useToast();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
 
 
   const loadRecipes = useCallback(async (showToast = false) => {
@@ -106,7 +94,6 @@ export default function HomePage() {
         return;
       }
 
-      setIsImportDialogOpen(false); // Close dialog before processing
       toast({ title: "Importation en cours...", description: `Importation de ${file.name}.` });
 
       try {
@@ -122,7 +109,7 @@ export default function HomePage() {
            toast({
             title: "Aucune recette importée",
             description: "Le fichier ne contenait pas de recette valide ou le nom n'a pu être extrait.",
-            variant: "default", // Or "warning" if you define such a variant
+            variant: "default",
           });
         } else {
           throw new Error(result.error || "Erreur lors de l'importation de la recette.");
@@ -175,30 +162,10 @@ export default function HomePage() {
                 New recipe
               </Link>
             </Button>
-            <AlertDialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline">
-                  <UploadCloud className="mr-2 h-4 w-4" />
-                  Import recipe
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Importer une recette</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Sélectionnez un fichier BeerXML (.xml) depuis votre ordinateur.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <div className="flex flex-col space-y-2 py-4">
-                   <Button variant="default" onClick={() => fileInputRef.current?.click()}>
-                    Depuis mon ordinateur
-                  </Button>
-                </div>
-                <AlertDialogFooter>
-                  <AlertDialogCancel onClick={() => setIsImportDialogOpen(false)}>Annuler</AlertDialogCancel>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+              <UploadCloud className="mr-2 h-4 w-4" />
+              Import recipe
+            </Button>
             <input
               type="file"
               ref={fileInputRef}
@@ -240,7 +207,13 @@ export default function HomePage() {
       <div className="space-y-4">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-                {/* Placeholders for admin buttons if needed, or leave empty if only visible when logged in */}
+                {/* Placeholders for admin buttons */}
+                 {isAdminAuthenticated && (
+                    <>
+                        <div className="animate-pulse h-9 w-32 bg-muted rounded-md"></div>
+                        <div className="animate-pulse h-9 w-36 bg-muted rounded-md"></div>
+                    </>
+                 )}
             </div>
             <div className="flex items-center gap-2">
                  <div className="animate-pulse h-10 w-[220px] bg-muted rounded-md"></div>
@@ -307,8 +280,13 @@ export default function HomePage() {
           <h2 className="text-2xl font-semibold mb-2">Aucune recette trouvée</h2>
           <p className="text-muted-foreground">
             Il n'y a pas de recettes à afficher.
-             {isAdminAuthenticated ? ' Vous pouvez en créer ou importer une avec les boutons ci-dessus.' : 'Connectez-vous en tant qu\'admin pour ajouter ou importer des recettes.'}
+             {isAdminAuthenticated ? ' Vous pouvez en créer ou importer une avec les boutons ci-dessus.' : ''}
           </p>
+           {!isAdminAuthenticated && (
+            <p className="text-sm text-muted-foreground mt-2">
+                Connectez-vous en tant qu&apos;admin pour ajouter ou importer des recettes.
+            </p>
+           )}
         </div>
       )}
 
