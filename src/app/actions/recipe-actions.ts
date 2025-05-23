@@ -4,17 +4,17 @@
 import { revalidatePath } from 'next/cache';
 import { put, del, list } from '@vercel/blob';
 import type { BeerXMLRecipe } from '@/types/recipe';
-import { getRecipeDetails } from '@/lib/recipe-utils'; // Assuming this can still be used for other purposes if needed
+import { getRecipeDetails } from '@/lib/recipe-utils';
 
 export interface ActionResult {
   success: boolean;
   count?: number;
   error?: string;
-  recipe?: BeerXMLRecipe | null; // Kept for potential future use in other actions
+  recipe?: BeerXMLRecipe | null;
 }
 
 interface RecipeFile {
-  fileName: string; 
+  fileName: string;
   content: string;
 }
 
@@ -44,43 +44,56 @@ export async function addRecipesAction(recipeFiles: RecipeFile[]): Promise<Actio
     let slug = '';
     let recipeNameInXml = '';
 
-    // First pass to find an XML file to determine the slug
     const xmlFile = recipeFiles.find(file => file.fileName.toLowerCase().endsWith('.xml'));
     if (xmlFile) {
       recipeNameInXml = extractRecipeNameFromXml(xmlFile.content) || 'untitled-recipe';
       slug = sanitizeSlug(recipeNameInXml);
       if (!slug) {
         console.warn(`addRecipesAction: Could not generate a valid slug for recipe name "${recipeNameInXml}". Using fallback.`);
-        slug = 'untitled-recipe-' + Date.now(); // Fallback slug
+        slug = 'untitled-recipe-' + Date.now();
+      }
+    } else if (recipeFiles.some(f => f.fileName.toLowerCase() === 'steps.md')) {
+      // This case is tricky if only steps.md is passed without context for the slug.
+      // Assuming slug should be derived if steps.md is part of a multi-file (XML+MD) upload.
+      // If steps.md is uploaded alone, updateRecipeStepsAction is preferred or this action needs a slug param.
+      const stepsFile = recipeFiles.find(f => f.fileName.toLowerCase() === 'steps.md');
+      // Attempt to infer slug from a potential path or rely on external context if only steps.md
+      // This part might need refinement depending on how steps.md alone would get a slug.
+      // For now, if only steps.md, it implies an update to an existing recipe, so slug MUST be known.
+      // This action is primarily for creating new recipes or adding/updating XML + MD.
+      if (!xmlFile && stepsFile) { // If there's no XML, we must have a way to get the slug.
+        // This case is now better handled by updateRecipeStepsAction.
+        // If addRecipesAction is used for steps.md only, it assumes slug must be present or determinable.
+        // Let's assume for now if only steps.md is passed, this specific part of addRecipesAction won't be hit,
+        // or slug is derived/passed in a way not shown here if it's about creating a NEW recipe with only steps.
+        // This primarily focuses on new recipe creation or full recipe update (XML+MD).
+        console.warn("addRecipesAction: Handling steps.md without an XML file. Slug determination is critical and might rely on prior state or context.");
+        // If slug can't be found here, it should fail.
+        // For now, we proceed assuming slug IS determined if we are to save steps.md
       }
     } else {
-      // This action now also handles updating just steps.md, which might not include an XML file.
-      // If no XML is present, and we don't have a slug some other way, we can't proceed with old logic.
-      // For now, if only steps.md is passed, this action won't work as intended without a slug context.
-      // The new updateRecipeStepsAction is preferred for just steps.
-      if (!recipeFiles.some(f => f.fileName.toLowerCase() === 'steps.md')) {
-        console.warn("addRecipesAction: No XML file found and not a steps.md only operation. Cannot determine recipe slug.");
-        return { success: false, error: "Aucun fichier XML trouvé pour déterminer le nom de la recette." };
-      }
+      console.warn("addRecipesAction: No XML file found. Cannot determine recipe slug for new recipe creation.");
+      return { success: false, error: "Aucun fichier XML trouvé pour déterminer le nom de la recette." };
     }
+
+    if (!slug && recipeFiles.some(f => f.fileName.toLowerCase() === 'steps.md') && !xmlFile) {
+        console.error("addRecipesAction: Trying to save steps.md but no slug could be determined (no XML file provided).");
+        return { success: false, error: "Impossible de sauvegarder steps.md sans fichier XML pour déterminer la recette." };
+    }
+
 
     for (const file of recipeFiles) {
       let blobPathname = '';
       let contentType = '';
 
       if (file.fileName.toLowerCase().endsWith('.xml')) {
-        // This logic assumes 'slug' has been derived from this XML file.
         blobPathname = `Recipes/${slug}/recipe.xml`;
         contentType = 'application/xml';
-      } else if (file.fileName.toLowerCase() === 'steps.md') { 
+      } else if (file.fileName.toLowerCase() === 'steps.md') {
         if (!slug) {
-          // This case should be handled by updateRecipeStepsAction unless addRecipesAction is enhanced
-          console.warn(`addRecipesAction: Attempting to save steps.md without a determined slug. This might fail or use a default/wrong slug.`);
-          // Potentially, if a single steps.md is passed, a slug must be passed to this action,
-          // or this action should not be used for steps.md alone.
-          // For now, we'll assume 'slug' should have been determined if we reach here with steps.md
-          // from a multi-file upload (XML + MD).
-           return { success: false, error: "Impossible de sauvegarder steps.md sans slug de recette associé." };
+          // This should ideally not happen if the slug derivation logic above is sound for all cases
+          console.error(`addRecipesAction: Critical - Attempting to save steps.md but slug is empty. Original recipe name: "${recipeNameInXml}"`);
+          return { success: false, error: "Impossible de sauvegarder steps.md sans slug de recette associé." };
         }
         blobPathname = `Recipes/${slug}/steps.md`;
         contentType = 'text/markdown';
@@ -102,7 +115,7 @@ export async function addRecipesAction(recipeFiles: RecipeFile[]): Promise<Actio
 
     if (filesWritten > 0) {
       revalidatePath('/');
-      revalidatePath('/recipes');
+      revalidatePath('/recipes'); // Assuming this is the main recipe listing page alias
       revalidatePath('/label');
       if (slug) {
         revalidatePath(`/recipes/${slug}`);
@@ -132,15 +145,16 @@ export async function deleteRecipeAction(recipeSlug: string): Promise<ActionResu
     const blobFolderPrefix = `Recipes/${recipeSlug}/`;
     console.log(`deleteRecipeAction: Attempting to delete folder from Vercel Blob: ${blobFolderPrefix}`);
 
+    // List all blobs in the "folder"
     const { blobs } = await list({ prefix: blobFolderPrefix });
 
     if (blobs.length === 0) {
       console.warn(`deleteRecipeAction: No blobs found with prefix ${blobFolderPrefix} to delete.`);
-      revalidatePath('/'); // Revalidate even if no blobs to clear potential cached "not found"
+      revalidatePath('/');
       revalidatePath('/recipes');
       revalidatePath(`/recipes/${recipeSlug}`);
       revalidatePath('/label');
-      return { success: true, count: 0 };
+      return { success: true, count: 0 }; // Success, as there's nothing to delete
     }
 
     const urlsToDelete = blobs.map(blob => blob.url);
@@ -162,19 +176,27 @@ export async function deleteRecipeAction(recipeSlug: string): Promise<ActionResu
   }
 }
 
-// Kept for potential use if a full recipe object needs to be fetched by an action
-// export async function getRecipeDetailsAction(slug: string): Promise<ActionResult> {
-//   try {
-//     const recipe = await getRecipeDetails(slug); // This now reads from Vercel Blob
-//     if (!recipe) {
-//       return { success: false, error: 'Recipe not found.' };
-//     }
-//     return { success: true, recipe };
-//   } catch (error) {
-//     console.error(`Error fetching details for recipe ${slug}:`, error);
-//     return { success: false, error: (error as Error).message || 'Failed to fetch recipe details.' };
-//   }
-// }
+export async function getRecipeDetailsAction(slug: string): Promise<ActionResult> {
+  if (!process.env.BLOB_READ_WRITE_TOKEN && process.env.NODE_ENV !== 'development') {
+    // In development, recipe-utils might read from public folder if token isn't set for Blob
+    console.error("getRecipeDetailsAction: CRITICAL - BLOB_READ_WRITE_TOKEN is not set.");
+    // Allow to proceed in dev for local file reading, but error in prod.
+    if (process.env.NODE_ENV === 'production') {
+        return { success: false, error: "Configuration serveur manquante pour l'accès aux données." };
+    }
+  }
+  try {
+    const recipe = await getRecipeDetails(slug); // This now reads from Vercel Blob primarily
+    if (!recipe) {
+      return { success: false, error: 'Recipe not found.' };
+    }
+    return { success: true, recipe };
+  } catch (error) {
+    console.error(`Error fetching details for recipe ${slug}:`, error);
+    return { success: false, error: (error as Error).message || 'Failed to fetch recipe details.' };
+  }
+}
+
 
 export async function updateRecipeStepsAction(recipeSlug: string, markdownContent: string): Promise<ActionResult> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
@@ -200,8 +222,7 @@ export async function updateRecipeStepsAction(recipeSlug: string, markdownConten
     console.log(`updateRecipeStepsAction: File steps.md for recipe "${recipeSlug}" saved to Vercel Blob at ${blobPathname}`);
 
     revalidatePath(`/recipes/${recipeSlug}`);
-    // Revalidate recipes list in case steps availability affects summary display (though unlikely now)
-    revalidatePath('/recipes'); 
+    revalidatePath('/recipes');
 
     return { success: true, count: 1 };
 
