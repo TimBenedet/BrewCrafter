@@ -38,28 +38,43 @@ const getIconForSection = (title: string): LucideIcon => {
 };
 
 const parseMarkdownToSections = (markdown: string): Section[] => {
-  if (!markdown) return [];
-  const sections: Section[] = [];
+  if (!markdown?.trim()) return [];
   
-  const sectionRegex = /^##\s*(.+?)\s*\n([\s\S]*?)(?=\n^##\s*|$)/gm;
+  // Normalize line endings to \n first
+  const normalizedMarkdown = markdown.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  const sections: Section[] = [];
+  // Regex explanation:
+  // ^##\s*         : Matches "## " at the start of a line.
+  // ([^\n\r]+)     : Group 1 (Title): Captures one or more characters that are NOT newlines (for the title).
+  // \n             : Matches the newline character immediately after the title line.
+  // ([\s\S]*?)     : Group 2 (Content): Captures any characters (including newlines), non-greedily.
+  // (?=\n##\s|$)   : Positive lookahead: asserts that the match is followed by:
+  //                  - \n##\s : A newline, then "## " (start of the next section).
+  //                  - |$     : OR the end of the string.
+  // gm flags       : g (global, find all matches), m (multiline, ^ and $ match start/end of lines).
+  const sectionRegex = /^##\s*([^\n\r]+)\n([\s\S]*?)(?=\n##\s|$)/gm;
 
   let match;
-  while ((match = sectionRegex.exec(markdown)) !== null) {
-    const title = match[1].trim(); 
-    const contentBlock = match[2].trim(); 
+  while ((match = sectionRegex.exec(normalizedMarkdown)) !== null) {
+    const title = match[1].trim();
+    const contentBlock = match[2].trim(); // Trim trailing newlines from the block itself
     
     const contentLines = contentBlock.split('\n')
-      .map(line => line.trim()) 
-      .filter(Boolean); 
+      .map(line => line.trim()) // Trim each individual line
+      .filter(Boolean); // Remove any empty lines that result from trimming
 
-    sections.push({
-      title,
-      icon: getIconForSection(title),
-      contentLines,
-    });
+    if (title) { // Ensure title is not empty after trimming
+      sections.push({
+        title,
+        icon: getIconForSection(title),
+        contentLines,
+      });
+    }
   }
   return sections;
 };
+
 
 const renderContentLine = (lineContent: string, key: string | number) => {
   const RENDER_LINE = lineContent.trim();
@@ -89,7 +104,7 @@ export const RecipeStepsDisplay: React.FC<RecipeStepsDisplayProps> = ({ stepsMar
         const renderableBlocks: Array<JSX.Element> = [];
         let currentListItems: string[] = [];
 
-        section.contentLines.forEach((line, lineIndex) => {
+        section.contentLines.forEach((line, lineIdx) => {
           const isListItem = line.startsWith('* ') || line.startsWith('- ');
 
           if (isListItem) {
@@ -109,7 +124,7 @@ export const RecipeStepsDisplay: React.FC<RecipeStepsDisplayProps> = ({ stepsMar
             // Add the paragraph
             renderableBlocks.push(
               <p key={`p-${sectionIndex}-${renderableBlocks.length}`} className="text-sm">
-                {renderContentLine(line, lineIndex)}
+                {renderContentLine(line, lineIdx)}
               </p>
             );
           }
@@ -145,4 +160,3 @@ export const RecipeStepsDisplay: React.FC<RecipeStepsDisplayProps> = ({ stepsMar
     </div>
   );
 };
-
