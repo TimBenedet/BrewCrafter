@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { put, del, list } from '@vercel/blob';
 import type { BeerXMLRecipe } from '@/types/recipe';
 // getRecipeDetails is not used in this file for file content actions.
-// import { getRecipeDetails } from '@/lib/recipe-utils'; 
+// import { getRecipeDetails } from '@/lib/recipe-utils';
 
 export interface ActionResult {
   success: boolean;
@@ -16,7 +16,7 @@ export interface ActionResult {
 }
 
 interface RecipeFile {
-  fileName: string; 
+  fileName: string;
   content: string;
 }
 
@@ -45,7 +45,7 @@ export async function addRecipesAction(recipeFiles: RecipeFile[], originalRecipe
   try {
     let filesWritten = 0;
     let finalSlug = '';
-    
+
     const xmlFileFromInput = recipeFiles.find(file => file.fileName.toLowerCase().endsWith('.xml'));
     const mdFileFromInput = recipeFiles.find(file => file.fileName.toLowerCase() === 'steps.md');
 
@@ -53,47 +53,54 @@ export async function addRecipesAction(recipeFiles: RecipeFile[], originalRecipe
       // EDIT MODE
       finalSlug = originalRecipeSlug;
       console.log(`addRecipesAction: EDIT mode. Using finalSlug: ${finalSlug} (derived from originalRecipeSlug)`);
-      
+
       const recipeDirPrefix = `Recipes/${finalSlug}/`;
-      // Use mode: 'folded' to better list direct contents of the "folder"
-      const { blobs: existingBlobs } = await list({ prefix: recipeDirPrefix, mode: 'folded' });
-      console.log(`addRecipesAction: EDIT mode. Blobs in ${recipeDirPrefix}:`, existingBlobs.map(b => b.pathname));
+      console.log(`addRecipesAction: EDIT mode. Listing blobs with prefix: '${recipeDirPrefix}', mode: 'expanded'`);
+      const { blobs: existingBlobs } = await list({ prefix: recipeDirPrefix, mode: 'expanded' }); // Use expanded mode
+      console.log(`addRecipesAction: EDIT mode. Blobs in ${recipeDirPrefix} (first 10):`, existingBlobs.slice(0,10).map(b => b.pathname));
 
       let existingXmlPathname: string | undefined = undefined;
       let existingMdPathname: string | undefined = undefined;
 
-      for (const blob of existingBlobs) {
-        if (!blob.pathname) continue; 
-
-        // Ensure the blob is directly in the folder, not a sub-folder.
-        // With `prefix: 'Recipes/slug/'` and `mode: 'folded'`, `blob.pathname` should be like `Recipes/slug/file.ext`.
-        // So, checking if `blob.pathname` contains more slashes *after* the prefix length is a good check.
-        const pathAfterPrefix = blob.pathname.substring(recipeDirPrefix.length);
-        if (pathAfterPrefix.includes('/')) {
-            console.log(`addRecipesAction: EDIT mode. Skipping blob ${blob.pathname} as it appears to be in a sub-sub-directory of ${recipeDirPrefix}`);
-            continue;
+      // Find the first .xml file directly in the recipe directory
+      const xmlBlob = existingBlobs.find(b => {
+        if (!b.pathname) return false;
+        const lowerPath = b.pathname.toLowerCase();
+        if (lowerPath.startsWith(recipeDirPrefix.toLowerCase()) && lowerPath.endsWith('.xml')) {
+          const relativePath = b.pathname.substring(recipeDirPrefix.length);
+          return !relativePath.includes('/'); // Ensure it's a direct child
         }
-
-        const lowerPathname = blob.pathname.toLowerCase();
-
-        if (!existingXmlPathname && lowerPathname.endsWith('.xml')) {
-          existingXmlPathname = blob.pathname; // Capture the full, cased pathname from Vercel Blob
-          console.log(`addRecipesAction: EDIT mode. Found existing XML: ${existingXmlPathname}`);
-        }
-        if (!existingMdPathname && lowerPathname.endsWith('.md')) {
-          existingMdPathname = blob.pathname; // Capture the full, cased pathname
-          console.log(`addRecipesAction: EDIT mode. Found existing MD: ${existingMdPathname}`);
-        }
-        // Optimization: if we've found both, no need to scan further (assuming one XML and one MD per folder)
-        if (existingXmlPathname && existingMdPathname) {
-            console.log(`addRecipesAction: EDIT mode. Found both existing XML and MD. Breaking loop.`);
-            break;
-        }
+        return false;
+      });
+      if (xmlBlob) {
+        existingXmlPathname = xmlBlob.pathname;
+        console.log(`addRecipesAction: EDIT mode. Found existing XML: ${existingXmlPathname}`);
+      } else {
+        console.warn(`addRecipesAction: EDIT mode. No existing XML found in ${recipeDirPrefix}. Defaulting to 'recipe.xml' if XML input is provided.`);
       }
+
+      // Find the first .md file directly in the recipe directory
+      const mdBlob = existingBlobs.find(b => {
+        if (!b.pathname) return false;
+        const lowerPath = b.pathname.toLowerCase();
+        if (lowerPath.startsWith(recipeDirPrefix.toLowerCase()) && lowerPath.endsWith('.md')) {
+          const relativePath = b.pathname.substring(recipeDirPrefix.length);
+          return !relativePath.includes('/'); // Ensure it's a direct child
+        }
+        return false;
+      });
+      if (mdBlob) {
+        existingMdPathname = mdBlob.pathname;
+        console.log(`addRecipesAction: EDIT mode. Found existing MD: ${existingMdPathname}`);
+      } else {
+        console.warn(`addRecipesAction: EDIT mode. No existing MD found in ${recipeDirPrefix}. Defaulting to 'steps.md' if MD input is provided.`);
+      }
+
 
       // Upload XML file if present in input
       if (xmlFileFromInput) {
-        const xmlPathToUpload = existingXmlPathname || `Recipes/${finalSlug}/recipe.xml`; // Fallback to default if not found
+        const xmlPathToUpload = existingXmlPathname || `Recipes/${finalSlug}/recipe.xml`;
+        console.log(`addRecipesAction: EDIT mode. For XML upload: existingXmlPathname = "${existingXmlPathname}", finalSlug = "${finalSlug}"`);
         console.log(`addRecipesAction: EDIT mode. Attempting to upload XML to Vercel Blob: ${xmlPathToUpload}`);
         await put(xmlPathToUpload, xmlFileFromInput.content, {
           access: 'public',
@@ -106,7 +113,8 @@ export async function addRecipesAction(recipeFiles: RecipeFile[], originalRecipe
 
       // Upload MD file if present in input
       if (mdFileFromInput) {
-        const mdPathToUpload = existingMdPathname || `Recipes/${finalSlug}/steps.md`; // Fallback to default if not found
+        const mdPathToUpload = existingMdPathname || `Recipes/${finalSlug}/steps.md`;
+        console.log(`addRecipesAction: EDIT mode. For MD upload: existingMdPathname = "${existingMdPathname}", finalSlug = "${finalSlug}"`);
         console.log(`addRecipesAction: EDIT mode. Attempting to upload MD to Vercel Blob: ${mdPathToUpload}`);
         await put(mdPathToUpload, mdFileFromInput.content, {
           access: 'public',
@@ -156,7 +164,7 @@ export async function addRecipesAction(recipeFiles: RecipeFile[], originalRecipe
 
     if (filesWritten > 0) {
       revalidatePath('/');
-      revalidatePath('/recipes'); 
+      revalidatePath('/recipes');
       revalidatePath('/label');
       if (finalSlug) {
         revalidatePath(`/recipes/${finalSlug}`);
@@ -164,7 +172,7 @@ export async function addRecipesAction(recipeFiles: RecipeFile[], originalRecipe
       }
       console.log(`addRecipesAction: Revalidated paths for slug: ${finalSlug}`);
     }
-    
+
     return { success: true, count: filesWritten, newSlug: finalSlug };
 
   } catch (error) {
@@ -190,19 +198,24 @@ export async function deleteRecipeAction(recipeSlug: string): Promise<ActionResu
     console.log(`deleteRecipeAction: Attempting to list blobs in Vercel Blob folder: ${blobFolderPrefix}`);
 
     // List all files in the "folder"
-    const { blobs } = await list({ prefix: blobFolderPrefix, mode: 'folded' }); 
+    const { blobs } = await list({ prefix: blobFolderPrefix, mode: 'folded' }); // folded is fine here as we want to delete all under prefix
 
     if (blobs.length === 0) {
       console.warn(`deleteRecipeAction: No blobs found with prefix ${blobFolderPrefix} to delete.`);
       // Still revalidate paths in case the folder was already empty or slug was wrong but we want UI to refresh
       revalidatePath('/');
       revalidatePath('/recipes');
-      revalidatePath(`/recipes/${recipeSlug}`); 
+      revalidatePath(`/recipes/${recipeSlug}`);
       revalidatePath('/label');
-      return { success: true, count: 0 }; 
+      return { success: true, count: 0 };
     }
 
-    const urlsToDelete = blobs.map(blob => blob.url);
+    const urlsToDelete = blobs.map(blob => blob.url).filter(url => !!url); // Filter out any undefined URLs
+    if (urlsToDelete.length === 0 && blobs.length > 0) {
+        console.warn(`deleteRecipeAction: Found ${blobs.length} blobs but could not extract any valid URLs to delete for prefix ${blobFolderPrefix}. Blobs:`, blobs.map(b => b.pathname));
+        // This case might happen if blobs don't have URLs for some reason, though unlikely for standard Vercel Blob.
+    }
+    
     console.log(`deleteRecipeAction: Deleting ${urlsToDelete.length} blobs from Vercel Blob:`, urlsToDelete);
     if (urlsToDelete.length > 0) {
         await del(urlsToDelete);
@@ -212,7 +225,7 @@ export async function deleteRecipeAction(recipeSlug: string): Promise<ActionResu
 
     revalidatePath('/');
     revalidatePath('/recipes');
-    revalidatePath(`/recipes/${recipeSlug}`); 
+    revalidatePath(`/recipes/${recipeSlug}`);
     revalidatePath('/label');
     console.log(`deleteRecipeAction: Revalidated paths for slug: ${recipeSlug}`);
 
@@ -234,8 +247,8 @@ export async function getRecipeDetailsAction(slug: string): Promise<ActionResult
   try {
     // Assuming getRecipeDetails is correctly implemented in lib/recipe-utils.ts
     // to fetch from Vercel Blob
-    const { getRecipeDetails } = await import('@/lib/recipe-utils'); 
-    const recipe = await getRecipeDetails(slug); 
+    const { getRecipeDetails } = await import('@/lib/recipe-utils');
+    const recipe = await getRecipeDetails(slug);
     if (!recipe) {
       return { success: false, error: 'Recipe not found.' };
     }
@@ -257,32 +270,34 @@ export async function updateRecipeStepsAction(recipeSlug: string, markdownConten
     console.error(`updateRecipeStepsAction: Invalid recipe slug provided: ${recipeSlug}`);
     return { success: false, error: 'Slug de recette invalide fourni.' };
   }
-  if (typeof markdownContent !== 'string') { 
+  if (typeof markdownContent !== 'string') {
     console.error(`updateRecipeStepsAction: Invalid markdown content provided for slug: ${recipeSlug}`);
     return { success: false, error: 'Contenu Markdown invalide fourni.' };
   }
 
   try {
     const recipeDirPrefix = `Recipes/${recipeSlug}/`;
-    // Use mode: 'folded' for listing direct contents
-    const { blobs: existingBlobs } = await list({ prefix: recipeDirPrefix, mode: 'folded' });
-    console.log(`updateRecipeStepsAction: Blobs in ${recipeDirPrefix}:`, existingBlobs.map(b => b.pathname));
-    
+    console.log(`updateRecipeStepsAction: Listing blobs with prefix: '${recipeDirPrefix}', mode: 'expanded'`);
+    // Use mode: 'expanded' for listing direct contents
+    const { blobs: existingBlobs } = await list({ prefix: recipeDirPrefix, mode: 'expanded' });
+    console.log(`updateRecipeStepsAction: Blobs in ${recipeDirPrefix} (first 10):`, existingBlobs.slice(0,10).map(b => b.pathname));
+
     let targetMdPathname: string | undefined = undefined;
-    for (const blob of existingBlobs) {
-      if (!blob.pathname) continue; 
+    const mdBlob = existingBlobs.find(b => {
+        if (!b.pathname) return false;
+        const lowerPath = b.pathname.toLowerCase();
+        if (lowerPath.startsWith(recipeDirPrefix.toLowerCase()) && lowerPath.endsWith('.md')) {
+          const relativePath = b.pathname.substring(recipeDirPrefix.length);
+          return !relativePath.includes('/'); // Ensure it's a direct child
+        }
+        return false;
+      });
 
-      const pathAfterPrefix = blob.pathname.substring(recipeDirPrefix.length);
-      if (pathAfterPrefix.includes('/')) {
-          console.log(`updateRecipeStepsAction: Skipping blob ${blob.pathname} as it appears to be in a sub-sub-directory of ${recipeDirPrefix}`);
-          continue;
-      }
-
-      if (blob.pathname.toLowerCase().endsWith('.md')) {
-        targetMdPathname = blob.pathname; // Capture the full, cased pathname
+    if (mdBlob) {
+        targetMdPathname = mdBlob.pathname;
         console.log(`updateRecipeStepsAction: Found existing MD to overwrite: ${targetMdPathname}`);
-        break; 
-      }
+    } else {
+        console.log(`updateRecipeStepsAction: No existing MD found in ${recipeDirPrefix}. Will create a new file named 'steps.md'.`);
     }
 
     const blobPathToUpload = targetMdPathname || `Recipes/${recipeSlug}/steps.md`; // Fallback to default name if not found
@@ -294,12 +309,12 @@ export async function updateRecipeStepsAction(recipeSlug: string, markdownConten
     await put(blobPathToUpload, markdownContent, {
       access: 'public',
       contentType: 'text/markdown',
-      addRandomSuffix: false, 
+      addRandomSuffix: false,
     });
     console.log(`updateRecipeStepsAction: File steps.md for recipe "${recipeSlug}" saved to Vercel Blob at ${blobPathToUpload}`);
 
     revalidatePath(`/recipes/${recipeSlug}`);
-    revalidatePath('/recipes'); 
+    revalidatePath('/recipes');
     revalidatePath('/label');
     console.log(`updateRecipeStepsAction: Revalidated paths for slug: ${recipeSlug}`);
 
@@ -310,7 +325,3 @@ export async function updateRecipeStepsAction(recipeSlug: string, markdownConten
     return { success: false, error: (error as Error).message || 'Failed to save steps.md to Vercel Blob.' };
   }
 }
-    
-    
-
-    
