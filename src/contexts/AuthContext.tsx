@@ -37,8 +37,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = useCallback(async (totpCode: string): Promise<boolean> => {
     if (!totpCode || totpCode.length !== 6) {
       toast({
-        title: 'Code Invalide',
-        description: 'Veuillez entrer un code à 6 chiffres.',
+        title: 'Invalid Code',
+        description: 'Please enter a 6-digit code.',
         variant: 'destructive',
       });
       return false;
@@ -49,14 +49,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (result.success) {
       setIsAdminAuthenticated(true);
       toast({
-        title: 'Connexion Admin Réussie',
-        description: 'Les fonctionnalités d\'administration sont maintenant activées.',
+        title: 'Admin Login Successful',
+        description: 'Admin features are now enabled.',
       });
       return true;
     } else {
       toast({
-        title: 'Échec de la connexion',
-        description: result.error || 'Code TOTP incorrect ou expiré.',
+        title: 'Login Failed',
+        description: result.error || 'Incorrect or expired TOTP code.',
         variant: 'destructive',
       });
       return false;
@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = useCallback(() => {
     setIsAdminAuthenticated(false);
-    toast({ title: 'Déconnexion Admin', description: 'Vous êtes déconnecté.' });
+    toast({ title: 'Admin Logout', description: 'You have been logged out.' });
   }, [toast]);
 
   return (
@@ -77,8 +77,4 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+  if (

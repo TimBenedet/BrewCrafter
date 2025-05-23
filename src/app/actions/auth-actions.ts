@@ -1,4 +1,3 @@
-
 'use server';
 
 import speakeasy from 'speakeasy';
@@ -12,43 +11,43 @@ export interface AuthActionResult {
 
 export async function generateTotpQrCodeAction(): Promise<AuthActionResult> {
   const secret = process.env.TOTP_SECRET;
-  // Utiliser les valeurs brutes de l'environnement
+  // Use raw environment values
   const rawIssuer = process.env.NEXT_PUBLIC_TOTP_ISSUER_NAME || 'BrewCrafter App';
   const rawAccountName = process.env.NEXT_PUBLIC_TOTP_ACCOUNT_NAME || 'admin';
 
   if (!secret) {
     console.error('TOTP_SECRET is not set in environment variables.');
-    return { success: false, error: 'Configuration TOTP manquante côté serveur.' };
+    return { success: false, error: 'Server-side TOTP configuration missing.' };
   }
 
-  // Vérification illustrative de la validité Base32.
+  // Illustrative check for Base32 validity.
   if (!/^[A-Z2-7]+=*$/.test(secret)) {
       console.warn('Warning: TOTP_SECRET may not be a valid Base32 string. It should only contain A-Z and 2-7 characters, optionally ending with = padding.');
-      // En fonction de la sévérité, vous pourriez retourner une erreur ici.
+      // Depending on severity, you might return an error here.
   }
 
   try {
-    // Speakeasy s'occupe de l'encodage URI pour `label` et `issuer`.
-    // `label` doit être le nom du compte (ex: 'admin', 'user@example.com').
-    // `issuer` est le nom du service (ex: 'Mon Application').
-    // Speakeasy va construire le chemin comme `issuer:label` et ajouter `&issuer=issuer` en query param.
+    // Speakeasy handles URI encoding for `label` and `issuer`.
+    // `label` should be the account name (e.g., 'admin', 'user@example.com').
+    // `issuer` is the service name (e.g., 'My Application').
+    // Speakeasy will construct the path as `issuer:label` and add `&issuer=issuer` as a query param.
     const otpauthUrl = speakeasy.otpauthURL({
-      secret: secret,        // Doit être la chaîne Base32
+      secret: secret,        // Must be the Base32 string
       label: rawAccountName,   // e.g., "admin"
       issuer: rawIssuer,     // e.g., "BrewCrafter App"
-      encoding: 'base32',    // Indique à speakeasy que la variable `secret` EST Base32
-      algorithm: 'SHA1',     // Algorithme standard
-      digits: 6,             // Nombre de chiffres standard
-      period: 30             // Période standard en secondes
+      encoding: 'base32',    // Tells speakeasy the `secret` variable IS Base32
+      algorithm: 'SHA1',     // Standard algorithm
+      digits: 6,             // Standard number of digits
+      period: 30             // Standard period in seconds
     });
     
-    console.log('Generated otpauth URL for QR code:', otpauthUrl); // Log pour débogage
+    console.log('Generated otpauth URL for QR code:', otpauthUrl); // Log for debugging
 
     const qrDataURL = await qrcode.toDataURL(otpauthUrl);
     return { success: true, qrDataURL: qrDataURL };
   } catch (error) {
     console.error('Error generating TOTP QR code:', error);
-    return { success: false, error: 'Erreur lors de la génération du QR code TOTP.' };
+    return { success: false, error: 'Error generating TOTP QR code.' };
   }
 }
 
@@ -57,28 +56,28 @@ export async function verifyTotpAction(token: string): Promise<AuthActionResult>
 
   if (!secret) {
     console.error('TOTP_SECRET is not set in environment variables for verification.');
-    return { success: false, error: 'Configuration TOTP manquante côté serveur.' };
+    return { success: false, error: 'Server-side TOTP configuration missing.' };
   }
 
   if (!token || token.length !== 6 || !/^\d{6}$/.test(token)) {
-    return { success: false, error: 'Le code TOTP doit être composé de 6 chiffres.' };
+    return { success: false, error: 'The TOTP code must be 6 digits.' };
   }
 
   try {
     const verified = speakeasy.totp.verify({
-      secret: secret,      // Doit être la chaîne Base32
-      encoding: 'base32',  // Indique à speakeasy que la variable `secret` EST Base32
+      secret: secret,      // Must be the Base32 string
+      encoding: 'base32',  // Tells speakeasy the `secret` variable IS Base32
       token: token,
-      window: 1,           // Permet une tolérance de +/- 30 secondes
+      window: 1,           // Allows a tolerance of +/- 30 seconds
     });
 
     if (verified) {
       return { success: true };
     } else {
-      return { success: false, error: 'Code TOTP invalide ou expiré.' };
+      return { success: false, error: 'Invalid or expired TOTP code.' };
     }
   } catch (error) {
     console.error('Error verifying TOTP token:', error);
-    return { success: false, error: 'Erreur lors de la vérification du token TOTP.' };
+    return { success: false, error: 'Error verifying TOTP token.' };
   }
 }
