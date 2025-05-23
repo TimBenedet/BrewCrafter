@@ -58,7 +58,6 @@ export async function addRecipesAction(recipeFiles: RecipeFile[], originalRecipe
       finalSlug = originalRecipeSlug;
       console.log(`addRecipesAction: EDIT mode. Using original slug: ${finalSlug} for recipe name in XML: "${recipeNameInXml || '(XML not being updated)'}"`);
       
-      // List existing files in the directory to find exact pathnames to overwrite
       const recipeDirPrefix = `Recipes/${finalSlug}/`;
       const { blobs: existingBlobs } = await list({ prefix: recipeDirPrefix, mode: 'folded' });
       console.log(`addRecipesAction: EDIT mode. Blobs in ${recipeDirPrefix}:`, existingBlobs.map(b => b.pathname));
@@ -67,15 +66,19 @@ export async function addRecipesAction(recipeFiles: RecipeFile[], originalRecipe
       let existingMdPathname: string | undefined = undefined;
 
       for (const blob of existingBlobs) {
+        if (!blob.pathname) continue; // Defensive check
+
         // Ensure the blob is directly in the folder, not a sub-folder
         const relativePath = blob.pathname.substring(recipeDirPrefix.length);
-        if (relativePath.includes('/')) continue; // Skip files in sub-sub-folders
+        if (relativePath.includes('/')) continue; 
 
-        if (!existingXmlPathname && blob.pathname.toLowerCase().endsWith('.xml')) {
+        const lowerPathname = blob.pathname.toLowerCase();
+
+        if (!existingXmlPathname && lowerPathname.endsWith('.xml')) {
           existingXmlPathname = blob.pathname;
           console.log(`addRecipesAction: EDIT mode. Found existing XML: ${existingXmlPathname}`);
         }
-        if (!existingMdPathname && blob.pathname.toLowerCase().endsWith('.md')) {
+        if (!existingMdPathname && lowerPathname.endsWith('.md')) {
           existingMdPathname = blob.pathname;
           console.log(`addRecipesAction: EDIT mode. Found existing MD: ${existingMdPathname}`);
         }
@@ -146,7 +149,7 @@ export async function addRecipesAction(recipeFiles: RecipeFile[], originalRecipe
 
     if (filesWritten > 0) {
       revalidatePath('/');
-      revalidatePath('/recipes'); // Though this path might not exist
+      revalidatePath('/recipes'); 
       revalidatePath('/label');
       if (finalSlug) {
         revalidatePath(`/recipes/${finalSlug}`);
@@ -176,7 +179,7 @@ export async function deleteRecipeAction(recipeSlug: string): Promise<ActionResu
     const blobFolderPrefix = `Recipes/${recipeSlug}/`;
     console.log(`deleteRecipeAction: Attempting to delete folder from Vercel Blob: ${blobFolderPrefix}`);
 
-    const { blobs } = await list({ prefix: blobFolderPrefix, mode: 'folded' }); // mode: 'folded' is fine here
+    const { blobs } = await list({ prefix: blobFolderPrefix, mode: 'folded' }); 
 
     if (blobs.length === 0) {
       console.warn(`deleteRecipeAction: No blobs found with prefix ${blobFolderPrefix} to delete.`);
@@ -207,11 +210,8 @@ export async function deleteRecipeAction(recipeSlug: string): Promise<ActionResu
 }
 
 export async function getRecipeDetailsAction(slug: string): Promise<ActionResult> {
-  // This function just wraps getRecipeDetails, no changes needed here for Blob storage strategy.
   if (!process.env.BLOB_READ_WRITE_TOKEN && process.env.NODE_ENV !== 'development') {
     console.error("getRecipeDetailsAction: CRITICAL - BLOB_READ_WRITE_TOKEN is not set.");
-    // In production, it's safer to return a generic error if the token is missing.
-    // In development, getRecipeDetails might still work if reading from public folder.
     if (process.env.NODE_ENV === 'production') {
         return { success: false, error: "Configuration serveur manquante pour l'accès aux données." };
     }
@@ -237,7 +237,7 @@ export async function updateRecipeStepsAction(recipeSlug: string, markdownConten
   if (!recipeSlug || typeof recipeSlug !== 'string' || recipeSlug.trim() === '') {
     return { success: false, error: 'Slug de recette invalide fourni.' };
   }
-  if (typeof markdownContent !== 'string') { // Checking type, not just falsy
+  if (typeof markdownContent !== 'string') { 
     return { success: false, error: 'Contenu Markdown invalide fourni.' };
   }
 
@@ -248,6 +248,8 @@ export async function updateRecipeStepsAction(recipeSlug: string, markdownConten
     
     let targetMdPathname: string | undefined = undefined;
     for (const blob of existingBlobs) {
+      if (!blob.pathname) continue; // Defensive check
+
       const relativePath = blob.pathname.substring(recipeDirPrefix.length);
       if (relativePath.includes('/')) continue; 
 
@@ -273,6 +275,7 @@ export async function updateRecipeStepsAction(recipeSlug: string, markdownConten
 
     revalidatePath(`/recipes/${recipeSlug}`);
     revalidatePath('/recipes'); 
+    revalidatePath('/label');
 
     return { success: true, count: 1 };
 
