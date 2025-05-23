@@ -11,6 +11,7 @@ export interface ActionResult {
   count?: number;
   error?: string;
   recipe?: BeerXMLRecipe | null;
+  newSlug?: string; // To redirect correctly after an edit if name/slug changes
 }
 
 interface RecipeFile {
@@ -33,7 +34,7 @@ const sanitizeSlug = (name: string): string => {
     .replace(/-+$/, '');
 };
 
-export async function addRecipesAction(recipeFiles: RecipeFile[]): Promise<ActionResult> {
+export async function addRecipesAction(recipeFiles: RecipeFile[], originalRecipeSlug?: string): Promise<ActionResult> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     console.error("addRecipesAction: CRITICAL - BLOB_READ_WRITE_TOKEN is not set.");
     return { success: false, error: "Configuration serveur manquante pour le stockage." };
@@ -41,61 +42,50 @@ export async function addRecipesAction(recipeFiles: RecipeFile[]): Promise<Actio
 
   try {
     let filesWritten = 0;
-    let slug = '';
-    let recipeNameInXml = '';
+    let finalSlug = ''; // This will be the slug used for paths and revalidation
 
     const xmlFile = recipeFiles.find(file => file.fileName.toLowerCase().endsWith('.xml'));
+    let recipeNameInXml = '';
+
     if (xmlFile) {
       recipeNameInXml = extractRecipeNameFromXml(xmlFile.content) || 'untitled-recipe';
-      slug = sanitizeSlug(recipeNameInXml);
-      if (!slug) {
-        console.warn(`addRecipesAction: Could not generate a valid slug for recipe name "${recipeNameInXml}". Using fallback.`);
-        slug = 'untitled-recipe-' + Date.now();
+    } else if (!originalRecipeSlug && recipeFiles.some(f => f.fileName.toLowerCase() === 'steps.md')) {
+      console.warn("addRecipesAction: Handling steps.md without an XML file and no original slug. This scenario is problematic.");
+      return { success: false, error: "Impossible de déterminer la recette pour steps.md sans fichier XML ou slug existant." };
+    }
+
+    if (originalRecipeSlug) {
+      // This is an EDIT operation, use the original slug for the path
+      finalSlug = originalRecipeSlug;
+      console.log(`addRecipesAction: EDIT mode. Using original slug: ${finalSlug} for recipe name: "${recipeNameInXml || 'N/A'}"`);
+    } else if (xmlFile) {
+      // This is a CREATE or IMPORT operation, derive slug from XML content
+      finalSlug = sanitizeSlug(recipeNameInXml);
+      if (!finalSlug) {
+        console.warn(`addRecipesAction: Could not generate a valid slug for new recipe name "${recipeNameInXml}". Using fallback.`);
+        finalSlug = 'untitled-recipe-' + Date.now();
       }
-    } else if (recipeFiles.some(f => f.fileName.toLowerCase() === 'steps.md')) {
-      // This case is tricky if only steps.md is passed without context for the slug.
-      // Assuming slug should be derived if steps.md is part of a multi-file (XML+MD) upload.
-      // If steps.md is uploaded alone, updateRecipeStepsAction is preferred or this action needs a slug param.
-      const stepsFile = recipeFiles.find(f => f.fileName.toLowerCase() === 'steps.md');
-      // Attempt to infer slug from a potential path or rely on external context if only steps.md
-      // This part might need refinement depending on how steps.md alone would get a slug.
-      // For now, if only steps.md, it implies an update to an existing recipe, so slug MUST be known.
-      // This action is primarily for creating new recipes or adding/updating XML + MD.
-      if (!xmlFile && stepsFile) { // If there's no XML, we must have a way to get the slug.
-        // This case is now better handled by updateRecipeStepsAction.
-        // If addRecipesAction is used for steps.md only, it assumes slug must be present or determinable.
-        // Let's assume for now if only steps.md is passed, this specific part of addRecipesAction won't be hit,
-        // or slug is derived/passed in a way not shown here if it's about creating a NEW recipe with only steps.
-        // This primarily focuses on new recipe creation or full recipe update (XML+MD).
-        console.warn("addRecipesAction: Handling steps.md without an XML file. Slug determination is critical and might rely on prior state or context.");
-        // If slug can't be found here, it should fail.
-        // For now, we proceed assuming slug IS determined if we are to save steps.md
-      }
+      console.log(`addRecipesAction: CREATE/IMPORT mode. Derived slug: ${finalSlug} for recipe name: "${recipeNameInXml}"`);
     } else {
-      console.warn("addRecipesAction: No XML file found. Cannot determine recipe slug for new recipe creation.");
-      return { success: false, error: "Aucun fichier XML trouvé pour déterminer le nom de la recette." };
+      // Should not happen if initial checks are correct
+      console.error("addRecipesAction: Critical logic error - no XML file and no original slug to determine finalSlug.");
+      return { success: false, error: "Erreur interne: impossible de déterminer le chemin de la recette." };
     }
 
-    if (!slug && recipeFiles.some(f => f.fileName.toLowerCase() === 'steps.md') && !xmlFile) {
-        console.error("addRecipesAction: Trying to save steps.md but no slug could be determined (no XML file provided).");
-        return { success: false, error: "Impossible de sauvegarder steps.md sans fichier XML pour déterminer la recette." };
+    if (!finalSlug) {
+        console.error("addRecipesAction: Critical - finalSlug is empty. This should not happen.");
+        return { success: false, error: "Erreur interne critique lors de la détermination du slug." };
     }
-
 
     for (const file of recipeFiles) {
       let blobPathname = '';
       let contentType = '';
 
       if (file.fileName.toLowerCase().endsWith('.xml')) {
-        blobPathname = `Recipes/${slug}/recipe.xml`;
+        blobPathname = `Recipes/${finalSlug}/recipe.xml`;
         contentType = 'application/xml';
       } else if (file.fileName.toLowerCase() === 'steps.md') {
-        if (!slug) {
-          // This should ideally not happen if the slug derivation logic above is sound for all cases
-          console.error(`addRecipesAction: Critical - Attempting to save steps.md but slug is empty. Original recipe name: "${recipeNameInXml}"`);
-          return { success: false, error: "Impossible de sauvegarder steps.md sans slug de recette associé." };
-        }
-        blobPathname = `Recipes/${slug}/steps.md`;
+        blobPathname = `Recipes/${finalSlug}/steps.md`;
         contentType = 'text/markdown';
       } else {
         console.warn(`addRecipesAction: Skipping unsupported file type or unexpected filename: ${file.fileName}`);
@@ -109,7 +99,7 @@ export async function addRecipesAction(recipeFiles: RecipeFile[]): Promise<Actio
           contentType: contentType,
         });
         filesWritten++;
-        console.log(`addRecipesAction: File "${file.fileName}" for recipe "${recipeNameInXml || slug}" saved to Vercel Blob at ${blobPathname}`);
+        console.log(`addRecipesAction: File "${file.fileName}" for recipe slug "${finalSlug}" saved to Vercel Blob at ${blobPathname}`);
       }
     }
 
@@ -117,13 +107,16 @@ export async function addRecipesAction(recipeFiles: RecipeFile[]): Promise<Actio
       revalidatePath('/');
       revalidatePath('/recipes'); // Assuming this is the main recipe listing page alias
       revalidatePath('/label');
-      if (slug) {
-        revalidatePath(`/recipes/${slug}`);
-        revalidatePath(`/recipes/${slug}/edit`);
+      if (finalSlug) {
+        revalidatePath(`/recipes/${finalSlug}`);
+        revalidatePath(`/recipes/${finalSlug}/edit`);
       }
     }
-
-    return { success: true, count: filesWritten };
+    
+    // If it was an edit, the newSlug for redirection is the originalRecipeSlug.
+    // If it was a create, newSlug is the derived finalSlug.
+    // The name inside the XML might be different, but the URL slug remains consistent for edits.
+    return { success: true, count: filesWritten, newSlug: finalSlug };
 
   } catch (error) {
     console.error('addRecipesAction: Error saving recipe files to Vercel Blob:', error);
@@ -145,7 +138,6 @@ export async function deleteRecipeAction(recipeSlug: string): Promise<ActionResu
     const blobFolderPrefix = `Recipes/${recipeSlug}/`;
     console.log(`deleteRecipeAction: Attempting to delete folder from Vercel Blob: ${blobFolderPrefix}`);
 
-    // List all blobs in the "folder"
     const { blobs } = await list({ prefix: blobFolderPrefix });
 
     if (blobs.length === 0) {
@@ -154,7 +146,7 @@ export async function deleteRecipeAction(recipeSlug: string): Promise<ActionResu
       revalidatePath('/recipes');
       revalidatePath(`/recipes/${recipeSlug}`);
       revalidatePath('/label');
-      return { success: true, count: 0 }; // Success, as there's nothing to delete
+      return { success: true, count: 0 }; 
     }
 
     const urlsToDelete = blobs.map(blob => blob.url);
@@ -165,7 +157,7 @@ export async function deleteRecipeAction(recipeSlug: string): Promise<ActionResu
 
     revalidatePath('/');
     revalidatePath('/recipes');
-    revalidatePath(`/recipes/${recipeSlug}`);
+    revalidatePath(`/recipes/${recipeSlug}`); // This path might no longer exist, but revalidating is fine
     revalidatePath('/label');
 
     return { success: true, count: urlsToDelete.length };
@@ -178,15 +170,13 @@ export async function deleteRecipeAction(recipeSlug: string): Promise<ActionResu
 
 export async function getRecipeDetailsAction(slug: string): Promise<ActionResult> {
   if (!process.env.BLOB_READ_WRITE_TOKEN && process.env.NODE_ENV !== 'development') {
-    // In development, recipe-utils might read from public folder if token isn't set for Blob
     console.error("getRecipeDetailsAction: CRITICAL - BLOB_READ_WRITE_TOKEN is not set.");
-    // Allow to proceed in dev for local file reading, but error in prod.
     if (process.env.NODE_ENV === 'production') {
         return { success: false, error: "Configuration serveur manquante pour l'accès aux données." };
     }
   }
   try {
-    const recipe = await getRecipeDetails(slug); // This now reads from Vercel Blob primarily
+    const recipe = await getRecipeDetails(slug); 
     if (!recipe) {
       return { success: false, error: 'Recipe not found.' };
     }
@@ -207,7 +197,7 @@ export async function updateRecipeStepsAction(recipeSlug: string, markdownConten
   if (!recipeSlug || typeof recipeSlug !== 'string' || recipeSlug.trim() === '') {
     return { success: false, error: 'Slug de recette invalide fourni.' };
   }
-  if (typeof markdownContent !== 'string') { // Allow empty string for deleting content
+  if (typeof markdownContent !== 'string') { 
     return { success: false, error: 'Contenu Markdown invalide fourni.' };
   }
 

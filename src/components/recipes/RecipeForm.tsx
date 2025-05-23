@@ -130,8 +130,8 @@ const createDefaultValues = (): RecipeFormValues => ({
   efficiency: 72.0,
   og: 1.052,
   fg: 1.012,
-  abv: 0, // Calculated
-  ibu: 0, // Calculated
+  abv: 0, 
+  ibu: 0, 
   colorSrm: 14.0,
   notes: '',
   stepsMarkdown: '',
@@ -201,7 +201,7 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `        <NAME>${sanitizeForXml(f.name)}</NAME>\n`;
     xml += `        <VERSION>1</VERSION>\n`;
     xml += `        <TYPE>${sanitizeForXml(f.type)}</TYPE>\n`;
-    xml += `        <AMOUNT>${Number(f.amount).toFixed(3)}</AMOUNT>\n`; // Amount is stored in kg
+    xml += `        <AMOUNT>${Number(f.amount).toFixed(3)}</AMOUNT>\n`; 
     xml += `        <YIELD>${Number(f.yield).toFixed(1)}</YIELD>\n`;
     xml += `        <COLOR>${Number(f.color).toFixed(1)}</COLOR>\n`;
     xml += `      </FERMENTABLE>\n`;
@@ -214,7 +214,7 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `        <NAME>${sanitizeForXml(h.name)}</NAME>\n`;
     xml += `        <VERSION>1</VERSION>\n`;
     xml += `        <ALPHA>${Number(h.alpha).toFixed(1)}</ALPHA>\n`;
-    xml += `        <AMOUNT>${Number(h.amount).toFixed(4)}</AMOUNT>\n`; // Amount is stored in kg
+    xml += `        <AMOUNT>${Number(h.amount).toFixed(4)}</AMOUNT>\n`; 
     xml += `        <USE>${sanitizeForXml(h.use)}</USE>\n`;
     xml += `        <TIME>${Number(h.time).toFixed(0)}</TIME>\n`;
     xml += `        <FORM>${sanitizeForXml(h.form)}</FORM>\n`;
@@ -289,7 +289,7 @@ function calculateAbv(ogInput?: number | string, fgInput?: number | string): num
 
 function getBignessFactor(og?: number): number {
   if (og === undefined || isNaN(og) || og < 1.0) {
-    return NaN;
+    return NaN; 
   }
   return 1.65 * Math.pow(0.000125, og - 1.0);
 }
@@ -323,8 +323,7 @@ function calculateIbuTinseth(
 
   (hops || []).forEach(hop => {
     const currentAlpha = parseFloat(String(hop.alpha));
-    // hop.amount is ALWAYS in KG from the form's perspective
-    const amountGrams = parseFloat(String(hop.amount)) * 1000.0; 
+    const amountGrams = parseFloat(String(hop.amount)) * 1000.0; // amount is stored in KG, convert to G for formula
     const currentTime = parseFloat(String(hop.time));
 
     if (
@@ -337,13 +336,13 @@ function calculateIbuTinseth(
       const boilTimeFactor = getBoilTimeFactor(currentTime);
 
       if (isNaN(boilTimeFactor)) {
-        return;
+        return; 
       }
 
       const utilization = bignessFactor * boilTimeFactor;
       
       if (isNaN(utilization)) {
-        return;
+        return; 
       }
 
       const ibusForHop = (alphaDecimal * amountGrams * utilization * 1000) / numBoilSize;
@@ -361,7 +360,7 @@ function calculateIbuTinseth(
 interface RecipeFormProps {
   mode?: 'create' | 'edit';
   initialData?: RecipeFormValues;
-  recipeSlug?: string;
+  recipeSlug?: string; // Original slug, important for edit mode
   initialOpenSection?: string;
 }
 
@@ -412,7 +411,7 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
     if (abv !== undefined && !isNaN(abv)) {
       setValue('abv', parseFloat(abv.toFixed(2)), { shouldValidate: false });
     } else {
-      setValue('abv', 0, { shouldValidate: false }); // Ensure it's a number for the form
+      setValue('abv', 0, { shouldValidate: false }); 
     }
   }, [watchedOg, watchedFg, setValue]);
 
@@ -423,14 +422,14 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
     if (ibu !== undefined && !isNaN(ibu)) {
       setValue('ibu', parseFloat(ibu.toFixed(1)), { shouldValidate: false });
     } else {
-      setValue('ibu', 0, { shouldValidate: false }); // Ensure it's a number for the form
+      setValue('ibu', 0, { shouldValidate: false }); 
     }
   }, [watchedOg, watchedBoilSize, watchedHops, setValue]);
 
 
   async function onSubmit(data: RecipeFormValues) {
     const xmlData = generateBeerXml(data);
-    const filesToUpload: RecipeFile[] = [{ fileName: data.name + ".xml", content: xmlData }];
+    const filesToUpload: RecipeFile[] = [{ fileName: `${data.name}.xml`, content: xmlData }];
 
     if (data.stepsMarkdown && data.stepsMarkdown.trim() !== '') {
         filesToUpload.push({ fileName: "steps.md", content: data.stepsMarkdown });
@@ -439,19 +438,24 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
     toast({ title: mode === 'edit' ? "Mise à jour en cours..." : "Enregistrement en cours...", description: "Veuillez patienter." });
 
     try {
-      const result = await addRecipesAction(filesToUpload);
+      // Pass the original recipeSlug if in edit mode
+      const result = await addRecipesAction(filesToUpload, mode === 'edit' ? recipeSlug : undefined);
+      
       if (result.success && result.count && result.count > 0) {
         toast({
           title: mode === 'edit' ? "Recette Mise à Jour !" : "Recette Enregistrée !",
           description: `La recette "${data.name}" a été sauvegardée sur Vercel Blob.`,
         });
-        const newSlug = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
-        router.push(mode === 'edit' ? `/recipes/${newSlug}` : '/');
-        router.refresh();
+        // Use the slug returned by the action for navigation, especially if it's an edit.
+        // For new recipes, result.newSlug will be the derived slug.
+        // For edited recipes, result.newSlug will be the originalRecipeSlug.
+        const targetSlug = result.newSlug || (mode === 'edit' && recipeSlug) || data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
+        router.push(mode === 'edit' ? `/recipes/${targetSlug}` : '/');
+        router.refresh(); 
       } else if (result.success && result.count === 0) {
         toast({
-          title: "Aucune Recette Enregistrée",
-          description: "Le fichier XML n'a pas pu être traité ou son nom n'a pas pu être extrait.",
+          title: "Aucun Fichier Enregistré",
+          description: "La recette n'a pas pu être sauvegardée (XML invalide ou nom manquant).",
           variant: "default",
         });
       }
@@ -1234,5 +1238,3 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
     </Form>
   );
 }
-
-    
