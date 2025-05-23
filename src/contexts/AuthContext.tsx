@@ -2,7 +2,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 interface AuthContextType {
@@ -14,12 +14,31 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  // Initialize state from localStorage if available
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const storedAuthState = localStorage.getItem('isAdminAuthenticated');
+      return storedAuthState === 'true';
+    }
+    return false;
+  });
   const { toast } = useToast();
+
+  // Effect to update localStorage when isAdminAuthenticated changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (isAdminAuthenticated) {
+        localStorage.setItem('isAdminAuthenticated', 'true');
+      } else {
+        localStorage.removeItem('isAdminAuthenticated');
+      }
+    }
+  }, [isAdminAuthenticated]);
 
   const login = useCallback((password: string): boolean => {
     if (password === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
       setIsAdminAuthenticated(true);
+      // localStorage will be updated by the useEffect hook
       toast({
         title: 'Connexion Admin Réussie',
         description: 'Les fonctionnalités d\'administration sont maintenant activées.',
@@ -37,6 +56,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = useCallback(() => {
     setIsAdminAuthenticated(false);
+    // localStorage will be updated by the useEffect hook
     toast({ title: 'Déconnexion Admin', description: 'Vous êtes déconnecté.' });
   }, [toast]);
 
@@ -52,5 +72,5 @@ export const useAuth = (): AuthContextType => {
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-  return context; // Ensure this return statement is present
+  return context;
 };
