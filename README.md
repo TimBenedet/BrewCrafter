@@ -29,7 +29,7 @@ For more detailed information, including local development setup and instruction
 *   **Recipe Creation & Editing (Admin Only)**: Full-featured form for creating new recipes or editing existing ones. Includes all standard BeerXML fields, dynamic ingredient lists, and an integrated Markdown editor/importer for brewing steps. Saves/updates `recipe.xml` and `steps.md` to Vercel Blob.
 *   **Label Designer**: Create custom front and back labels for your beers, with options to pre-fill data from existing recipes. Customize text, colors, background image, and download as PNG.
 *   **Brewing Calculators**: Client-side calculators for ABV, IBU (Tinseth), and SG Temperature Correction.
-*   **Admin Mode**: Secure admin access via TOTP (Time-based One-Time Password) for recipe management features. Includes a one-time setup page for QR code scanning.
+*   **Admin Mode**: Secure admin access via TOTP (Time-based One-Time Password) for recipe management features. Includes a one-time setup page (`/admin/setup-totp`) for QR code scanning.
 
 ## Technical Stack
 
@@ -53,12 +53,16 @@ The application is designed for deployment on Vercel and uses **Vercel Blob** fo
 *   The app reads and writes to Vercel Blob using Server Actions and the `@vercel/blob` SDK.
 *   Requires `BLOB_READ_WRITE_TOKEN`, `TOTP_SECRET`, `NEXT_PUBLIC_TOTP_ISSUER_NAME`, and `NEXT_PUBLIC_TOTP_ACCOUNT_NAME` environment variables to be set on Vercel.
 
-## Getting Started
+## Getting Started (Forking & Personal Deployment)
 
-To set up and run this project for development or personal use, please consult the detailed instructions in the language-specific READMEs linked above. Key steps will involve:
-1. Forking the repository.
-2. Setting up a Vercel project and Vercel Blob store.
-3. Generating and configuring environment variables (e.g., `BLOB_READ_WRITE_TOKEN`, `TOTP_SECRET`).
-4. Initial TOTP setup for admin access via the `/admin/setup-totp` page.
-5. Adding your recipes to your Vercel Blob store.
+To set up and run this project for your own use:
+1. Fork the repository.
+2. Create a Vercel project and link it to your fork.
+3. Integrate Vercel Blob into your Vercel project and obtain your `BLOB_READ_WRITE_TOKEN`.
+4. Generate a unique Base32 `TOTP_SECRET`.
+5. Configure these (and optional `NEXT_PUBLIC_TOTP_ISSUER_NAME`, `NEXT_PUBLIC_TOTP_ACCOUNT_NAME`) as environment variables on Vercel and in a local `.env.local` file.
+6. Access the `/admin/setup-totp` page on your deployed (or local) instance to scan the QR code with your authenticator app.
+7. **Security**: After setup, consider making the `/admin/setup-totp` page inaccessible for enhanced security.
+8. Start adding your recipes to your Vercel Blob store using the application's admin interface.
 
+For more detailed setup instructions, please consult the language-specific READMEs linked above.

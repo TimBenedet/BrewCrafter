@@ -1,232 +1,227 @@
 
-<!-- 
-  IMPORTANT NOTE: This file currently contains the French version of the README.
-  It needs to be translated into English to serve as the English (UK) documentation.
--->
+# BrewCrafter - Your Cloud-Based Beer Recipe Book
 
-# BrewCrafter - Votre Livre de Recettes de Bière Basé sur le Cloud
+BrewCrafter is a modern web application designed for homebrewers and craft beer enthusiasts to manage, create, and explore beer recipes. It leverages a cloud-based approach using Vercel Blob for recipe storage and features TOTP-based admin authentication for secure recipe management.
 
-BrewCrafter est une application web moderne conçue pour les brasseurs amateurs et les passionnés de bière artisanale afin de gérer, créer et explorer des recettes de bière. Elle s'appuie sur une approche basée sur le cloud utilisant Vercel Blob pour le stockage des recettes et propose une authentification administrateur basée sur TOTP pour une gestion sécurisée des recettes.
+## Project Purpose
 
-## Objectif du Projet
+The primary goal of BrewCrafter is to provide a user-friendly, secure, and feature-rich platform for:
+*   Storing and organizing BeerXML recipes in the cloud (Vercel Blob).
+*   Easily viewing detailed recipe information, including ingredients, mash steps, and target statistics.
+*   Displaying detailed, formatted brewing steps from associated Markdown files.
+*   Creating new recipes from scratch using a comprehensive form that generates BeerXML (and optionally Markdown steps) and saves it to Vercel Blob (Admin only).
+*   Editing existing recipes, including their detailed brewing steps (via Markdown) (Admin only).
+*   Importing BeerXML files from your local computer to Vercel Blob (Admin only).
+*   Deleting recipes from Vercel Blob (Admin only).
+*   Calculating essential brewing metrics (ABV, IBU, SG Correction) via client-side calculators.
+*   Designing simple, printable labels for your homebrews, with options to pre-fill data from your recipes.
 
-L'objectif principal de BrewCrafter est de fournir une plateforme conviviale, sécurisée et riche en fonctionnalités pour :
-*   Stocker et organiser les recettes BeerXML dans le cloud (Vercel Blob).
-*   Consulter facilement les informations détaillées des recettes, y compris les ingrédients, les étapes d'empâtage et les statistiques cibles.
-*   Afficher les étapes de brassage détaillées et formatées à partir de fichiers Markdown associés.
-*   Créer de nouvelles recettes à partir de zéro à l'aide d'un formulaire complet qui génère du BeerXML (et optionnellement les étapes Markdown) et le sauvegarde sur Vercel Blob (Admin uniquement).
-*   Modifier les recettes existantes, y compris leurs étapes de brassage détaillées (via Markdown) (Admin uniquement).
-*   Importer des fichiers BeerXML depuis votre ordinateur local vers Vercel Blob (Admin uniquement).
-*   Supprimer des recettes de Vercel Blob (Admin uniquement).
-*   Calculer des métriques de brassage essentielles (ABV, IBU, Correction SG) via des calculateurs côté client.
-*   Concevoir des étiquettes simples et imprimables pour vos bières maison, avec des options pour pré-remplir les données à partir de vos recettes.
+## Features
 
-## Fonctionnalités
+BrewCrafter offers the following key features:
 
-BrewCrafter offre les fonctionnalités clés suivantes :
+*   **Recipe List (BrewCrafter Recipes Page - `/`)**:
+    *   Displays all your BeerXML recipes stored in your Vercel Blob.
+    *   Each recipe is presented on a card showing key details: Name, Style, Batch Volume, Original Gravity (OG), Final Gravity (FG), Alcohol By Volume (ABV), International Bitterness Units (IBU), and Color (SRM).
+    *   Filter recipes by style using a dropdown menu.
+    *   Button to refresh the recipe list.
+    *   **Admin Controls (Visible when Admin is logged in)**:
+        *   "New recipe" button: Leads to the recipe creation form.
+        *   "Import recipe" button: Allows selecting a single BeerXML (`.xml`) file from your local computer to upload to Vercel Blob.
 
-*   **Liste des Recettes (Page BrewCrafter Recipes - `/`)**:
-    *   Affiche toutes vos recettes BeerXML stockées dans votre Vercel Blob.
-    *   Chaque recette est présentée sur une carte affichant les détails clés : Nom, Style, Volume du lot, Densité Initiale (OG), Densité Finale (FG), Alcool Par Volume (ABV), Unités Internationales d'Amertume (IBU), et Couleur (SRM).
-    *   Filtrez les recettes par style à l'aide d'un menu déroulant.
-    *   Bouton pour rafraîchir la liste des recettes.
-    *   **Contrôles Admin (Visibles lorsque l'Admin est connecté)** :
-        *   Bouton "New recipe" : Mène au formulaire de création de recette.
-        *   Bouton "Import recipe" : Permet de sélectionner un seul fichier BeerXML (`.xml`) depuis votre ordinateur local pour le téléverser sur Vercel Blob.
-
-*   **Vue Détaillée de la Recette (`/recipes/[recipeSlug]`)**:
-    *   Accessible en cliquant sur "View Recipe" sur une carte de recette.
-    *   Affiche des informations complètes sur la recette analysées à partir du fichier `.xml` stocké dans Vercel Blob :
-        *   **En-tête** : Nom de la Recette, Style, Brasseur, et une icône `GlassWater`.
-        *   **Carte Métadonnées** : Taille du Lot, Volume d'Ébullition, Temps d'Ébullition, Efficacité.
-        *   **Carte Statistiques Cibles** : OG, FG, ABV, IBU, Couleur (SRM) avec des barres de progression visuelles.
-        *   **Ingrédients** : Listes détaillées pour Fermentescibles, Houblons, Levures, et Divers, indiquant les quantités, types, utilisations, etc., présentées dans un accordéon.
-        *   **Notes** : Notes du brasseur issues de la recette, dans une section accordéon.
-    *   **Onglet Étapes de la Recette** :
-        *   Affiche les étapes de brassage formatées si un fichier Markdown correspondant (par exemple, `steps.md`) existe dans le dossier de la recette sur Vercel Blob.
-        *   **Important pour le formatage `.md`** : Pour que les étapes s'affichent correctement avec les icônes associées, votre fichier `.md` devrait idéalement utiliser les en-têtes H2 suivants pour les sections :
-            *   `## Brewer's Notes` (ou similaire comme "Notes du Brasseur", "Procedure")
+*   **Detailed Recipe View (`/recipes/[recipeSlug]`)**:
+    *   Accessed by clicking "View Recipe" on a recipe card.
+    *   Displays comprehensive recipe information parsed from the `.xml` file stored in Vercel Blob:
+        *   **Header**: Recipe Name, Style, Brewer, and a `GlassWater` icon.
+        *   **Metadata Card**: Batch Size, Boil Volume, Boil Time, Efficiency.
+        *   **Target Stats Card**: OG, FG, ABV, IBU, Color (SRM) with visual progress bars.
+        *   **Ingredients**: Detailed lists for Fermentables, Hops, Yeasts, and Miscs, showing amounts, types, uses, etc., presented in an accordion.
+        *   **Notes**: Brewer's notes from the recipe, in an accordion section.
+    *   **Recipe Steps Tab**:
+        *   Displays formatted brewing steps if a corresponding Markdown file (e.g., `steps.md`) exists in the recipe's folder on Vercel Blob.
+        *   **Important for `.md` formatting**: For steps to display correctly with associated icons, your `.md` file should ideally use the following H2 headers for sections:
+            *   `## Brewer's Notes` (or similar like "Notes du Brasseur", "Procedure")
             *   `## Mashing`
             *   `## Boil`
             *   `## Whirlpool / Aroma Additions`
             *   `## Cooling`
             *   `## Fermentation`
-            *   `## Bottling/Kegging` (ou "Bottling", "Kegging")
-        *   Le contenu sous ces en-têtes peut inclure des paragraphes et des listes à puces (utilisant `*` ou `-`). Le texte entouré de `**doubles astérisques**` sera rendu en gras.
-    *   **Contrôles Admin (Visibles lorsque l'Admin est connecté)** :
-        *   Un bouton "Edit" principal dont le texte et le comportement s'adaptent :
-            *   Si sur l'onglet "Recipe Details" : Le bouton indique "Modifier Détails Recette" et mène au formulaire d'édition complet de la recette (`/recipes/[recipeSlug]/edit`).
-            *   Si sur l'onglet "Recipe Steps" : Le bouton indique "Modifier Étapes Recette" et active l'édition en place du contenu Markdown.
-        *   Éditeur Markdown en place pour "Recipe Steps" (lorsqu'activé) avec les boutons "Sauvegarder Étapes" et "Annuler".
-    *   Un bouton "Refresh" pour recharger les détails de la recette.
+            *   `## Bottling/Kegging` (or "Bottling", "Kegging")
+        *   Content under these headers can include paragraphs and bulleted lists (using `*` or `-`). Text surrounded by `**double asterisks**` will be rendered in bold.
+    *   **Admin Controls (Visible when Admin is logged in)**:
+        *   A main "Edit" button whose text and behavior adapt:
+            *   If on the "Recipe Details" tab: The button reads "Edit Recipe Details" and leads to the full recipe edit form (`/recipes/[recipeSlug]/edit`).
+            *   If on the "Recipe Steps" tab: The button reads "Edit Recipe Steps" and enables in-place editing of the Markdown content.
+        *   In-place Markdown editor for "Recipe Steps" (when activated) with "Save Steps" and "Cancel" buttons.
+    *   A "Refresh" button to reload recipe details.
 
-*   **Création & Édition de Recette (Admin Uniquement)** :
-    *   **Création de Nouvelle Recette (`/recipes/new`)**:
-        *   Une page "New Recipe" dédiée avec un formulaire complet en accordéon multi-sections.
-        *   Permet la saisie pour tous les champs BeerXML standards : Informations Générales, Détails du Style, Statistiques Cibles (OG, FG, Couleur SRM - ABV & IBU sont calculés automatiquement à partir des entrées), listes dynamiques pour Fermentescibles, Houblons (avec sélection d'unité kg/g), Levures, et Divers, détails du Profil d'Empâtage, Notes, et **étapes de brassage détaillées via un éditeur/importateur Markdown intégré**.
-        *   Lors de la sauvegarde, la recette est convertie au format BeerXML (`recipe.xml`) et les étapes en Markdown (`steps.md`). Les deux fichiers sont téléversés dans un nouveau dossier (nommé d'après le slug de la recette) dans votre magasin Vercel Blob.
-    *   **Édition de Recette (`/recipes/[recipeSlug]/edit`)**:
-        *   Accessible via le bouton "Modifier Détails Recette" sur la Vue Détaillée de la Recette (visible pour les admins).
-        *   Charge les données de la recette existante (y compris le contenu de `steps.md`) dans le même formulaire complet pour modification.
-        *   Permet d'éditer tous les aspects de la recette, y compris les étapes Markdown (qui peuvent aussi être importées ou éditées directement).
-        *   La sauvegarde met à jour les fichiers `recipe.xml` et `steps.md` dans Vercel Blob, écrasant les fichiers existants dans le dossier de cette recette. Le slug de la recette (nom du dossier sur Blob) ne change pas même si le nom de la recette est modifié.
-    *   **Importation de `.md` pour les Étapes** : Les formulaires "New Recipe" et "Edit Recipe" incluent une section "Recipe Steps (Markdown)" avec un `textarea` et un bouton "Importer un fichier .md", permettant l'édition directe ou le téléversement de contenu Markdown.
+*   **Recipe Creation & Editing (Admin Only)**:
+    *   **New Recipe Creation (`/recipes/new`)**:
+        *   A dedicated "New Recipe" page with a comprehensive multi-section accordion form.
+        *   Allows input for all standard BeerXML fields: General Information, Style Details, Target Stats (OG, FG, Color SRM - ABV & IBU are auto-calculated from inputs), dynamic lists for Fermentables, Hops (with kg/g unit selection), Yeasts, and Miscs, Mash Profile details, Notes, and **detailed brewing steps via an integrated Markdown editor/importer**.
+        *   Upon saving, the recipe is converted to BeerXML format (`recipe.xml`) and the steps to Markdown (`steps.md`). Both files are uploaded to a new folder (named after the recipe slug) in your Vercel Blob store.
+    *   **Recipe Editing (`/recipes/[recipeSlug]/edit`)**:
+        *   Accessed via the "Edit Recipe Details" button on the Detailed Recipe View (visible to admins).
+        *   Loads existing recipe data (including `steps.md` content) into the same comprehensive form for modification.
+        *   Allows editing all aspects of the recipe, including Markdown steps (which can also be imported or edited directly).
+        *   Saving updates the `recipe.xml` and `steps.md` files in Vercel Blob, overwriting existing files in that recipe's folder. The recipe slug (folder name on Blob) does not change even if the recipe name is modified.
+    *   **`.md` Import for Steps**: Both "New Recipe" and "Edit Recipe" forms include a "Recipe Steps (Markdown)" section with a `textarea` and an "Import .md file" button, allowing direct editing or uploading of Markdown content.
 
-*   **Suppression de Recette (Admin Uniquement)** :
-    *   Permet de supprimer les recettes directement depuis la page "BrewCrafter Recipes" (via une icône de suppression sur la carte de recette, visible pour les admins).
-    *   Un dialogue de confirmation empêche les suppressions accidentelles.
-    *   Supprime le dossier entier de la recette (y compris `recipe.xml` et `steps.md`) du magasin Vercel Blob.
+*   **Recipe Deletion (Admin Only)**:
+    *   Allows deleting recipes directly from the "BrewCrafter Recipes" page (via a delete icon on the recipe card, visible to admins).
+    *   A confirmation dialog prevents accidental deletions.
+    *   Deletes the entire recipe folder (including `recipe.xml` and `steps.md`) from the Vercel Blob store.
 
-*   **Clarification sur le Processus d'Importation de Recettes & Étapes** :
-    1.  **Connexion Admin** : Assurez-vous d'être connecté en tant qu'administrateur.
-    2.  **Importer le XML d'abord** : Sur la page "BrewCrafter Recipes", utilisez le bouton "Import recipe" pour téléverser votre fichier `.xml` depuis votre ordinateur. Cela crée le dossier de base de la recette et le fichier `recipe.xml` sur Vercel Blob, rendant les détails et ingrédients de la recette visibles dans l'application.
-    3.  **Ajouter/Modifier les Étapes de Brassage (Optionnel mais Recommandé)** : Pour voir les procédures de brassage détaillées dans l'onglet "Recipe Steps" pour une recette importée (ou pour les ajouter à une recette nouvellement créée), vous devrez :
-        *   Cliquer sur "View Recipe" sur la recette.
-        *   Si sur l'onglet "Recipe Details", cliquer sur "Modifier Détails Recette". Cela vous mènera au formulaire d'édition complet.
-        *   Si sur l'onglet "Recipe Steps", cliquer sur "Modifier Étapes Recette" pour une édition en place, ou aller au formulaire d'édition complet.
-        *   Dans la section "Recipe Steps (Markdown)" du formulaire (ou l'éditeur en place), vous pouvez écrire manuellement vos étapes ou importer un fichier `.md`.
-        *   Sauvegarder la recette (ou les étapes). Cela créera ou mettra à jour le fichier `steps.md` dans le dossier de cette recette sur Vercel Blob.
-    *   Pour les recettes créées à partir de zéro via le formulaire "New Recipe", les étapes Markdown sont gérées directement dans le formulaire.
+*   **Clarification on Recipe & Steps Import Process**:
+    1.  **Admin Login**: Ensure you are logged in as an administrator.
+    2.  **Import XML First**: On the "BrewCrafter Recipes" page, use the "Import recipe" button to upload your `.xml` file from your computer. This creates the base recipe folder and `recipe.xml` file on Vercel Blob, making the recipe details and ingredients visible in the app.
+    3.  **Add/Edit Brewing Steps (Optional but Recommended)**: To see detailed brewing procedures in the "Recipe Steps" tab for an imported recipe (or to add them to a newly created one), you will need to:
+        *   Click "View Recipe" on the recipe.
+        *   If on the "Recipe Details" tab, click "Edit Recipe Details". This will take you to the full edit form.
+        *   If on the "Recipe Steps" tab, click "Edit Recipe Steps" for in-place editing, or go to the full edit form.
+        *   In the "Recipe Steps (Markdown)" section of the form (or the in-place editor), you can manually write your steps or import an `.md` file.
+        *   Save the recipe (or steps). This will create or update the `steps.md` file in that recipe's folder on Vercel Blob.
+    *   For recipes created from scratch via the "New Recipe" form, Markdown steps are managed directly within the form.
 
-*   **BrewCrafter Label (Concepteur d'Étiquettes - `/label`)**:
-    *   Une page dédiée pour concevoir des étiquettes avant et arrière simples pour vos bières.
-    *   **Contrôles** :
-        *   Charger les informations de la recette (Nom de la Bière, IBU, ABV, Description, Ingrédients) à partir des recettes existantes stockées dans Vercel Blob.
-        *   Saisie manuelle pour tous les champs de l'étiquette si aucune recette n'est chargée.
-        *   Sélectionner le volume de la bouteille (33CL ou 75CL).
-        *   Personnaliser le Nom de la Brasserie, le Slogan.
-        *   Téléverser une image de fond (avec aperçu et option pour effacer).
-        *   Sélectionner les couleurs de fond et de texte à l'aide de sélecteurs de couleur.
-    *   **Aperçus en Direct** :
-        *   Aperçus séparés pour les étiquettes avant et arrière, conçus sur un canevas vertical de 300x400px.
-        *   Étiquette Avant : Affiche IBU, Alcool %, Nom de la Bière (police Bebas Neue), et Volume.
-        *   Étiquette Arrière : Affiche Description, Ingrédients, Date de Brassage, et Lieu de Brassage avec contenu défilable.
-        *   Les aperçus reflètent les choix d'image/couleur de fond et de couleur de texte.
-    *   **Téléchargement** : Télécharger les étiquettes avant et arrière conçues en tant qu'images PNG, mises à l'échelle pour une impression à ~300 DPI basée sur les dimensions physiques typiques des étiquettes.
+*   **BrewCrafter Label (Label Designer - `/label`)**:
+    *   A dedicated page for designing simple front and back labels for your beers.
+    *   **Controls**:
+        *   Load recipe information (Beer Name, IBU, ABV, Description, Ingredients) from existing recipes stored in Vercel Blob.
+        *   Manual input for all label fields if no recipe is loaded.
+        *   Select bottle volume (33CL or 75CL).
+        *   Customize Brewery Name, Tagline.
+        *   Upload a background image (with preview and clear option).
+        *   Select background and text colors using color pickers.
+    *   **Live Previews**:
+        *   Separate previews for front and back labels, designed on a 300x400px vertical canvas.
+        *   Front Label: Displays IBU, Alcohol %, Beer Name (Bebas Neue font), and Volume.
+        *   Back Label: Displays Description, Ingredients, Brewing Date, and Brewing Location with scrollable content.
+        *   Previews reflect background image/color and text color choices.
+    *   **Download**: Download the designed front and back labels as PNG images, scaled for ~300 DPI printing based on typical physical label dimensions.
 
 *   **BrewCrafter Calculator (`/calculator`)**:
-    *   Une page avec des calculateurs de brassage pratiques côté client :
-        *   **Calculateur d'ABV** : Calcule l'Alcool Par Volume à partir de la Densité Initiale et Finale.
-        *   **Calculateur d'IBU (Tinseth)** : Estime les Unités Internationales d'Amertume en fonction des ajouts de houblon (quantité, acide alpha, temps d'ébullition), de la densité initiale et du volume d'ébullition. Permet plusieurs ajouts de houblon.
-        *   **Correction de SG par Température** : Corrige les lectures de Densité Spécifique de l'hydromètre en fonction de la température (en Celsius).
+    *   A page with handy client-side brewing calculators:
+        *   **ABV Calculator**: Calculates Alcohol By Volume from Original and Final Gravity.
+        *   **IBU Calculator (Tinseth)**: Estimates International Bitterness Units based on hop additions (amount, alpha acid, boil time), original gravity, and boil volume. Allows multiple hop additions.
+        *   **SG Temperature Correction**: Corrects hydrometer Specific Gravity readings for temperature (in Celsius).
 
-*   **Mode Admin** :
-    *   Mode admin protégé par TOTP (Time-based One-Time Password).
-    *   Connexion via une icône dans l'en-tête principal. Nécessite un code à 6 chiffres d'une application d'authentification (Google Authenticator, Authy, etc.).
-    *   Active les fonctionnalités "New recipe", "Import recipe", "Modifier Recette", et "Supprimer recette".
-    *   Déconnexion via une icône dans l'en-tête principal.
-    *   **Configuration TOTP** :
-        *   Un secret (`TOTP_SECRET`) doit être configuré dans les variables d'environnement.
-        *   Une page dédiée (`/admin/setup-totp`) permet à l'administrateur de scanner un QR code (une fois, pour la configuration) pour lier son application d'authentification.
-        *   **AVERTISSEMENT DE SÉCURITÉ** : La page `/admin/setup-totp` est destinée à la configuration initiale unique. Pour des raisons de sécurité, il est fortement recommandé de la rendre à nouveau inaccessible après la configuration (par exemple, en modifiant le code de `src/app/admin/setup-totp/page.tsx` pour qu'il renvoie `notFound()`). L'accès non contrôlé à cette page permettrait à n'importe qui de lier son authentificateur au compte admin.
+*   **Admin Mode**:
+    *   TOTP (Time-based One-Time Password) protected admin mode.
+    *   Login via an icon in the main header. Requires a 6-digit code from an authenticator app (Google Authenticator, Authy, etc.).
+    *   Enables "New recipe", "Import recipe", "Edit Recipe", and "Delete recipe" features.
+    *   Logout via an icon in the main header.
+    *   **TOTP Setup**:
+        *   A secret (`TOTP_SECRET`) must be configured in environment variables.
+        *   A dedicated page (`/admin/setup-totp`) allows the administrator to scan a QR code (once, for setup) to link their authenticator app.
+        *   **SECURITY WARNING**: The `/admin/setup-totp` page is intended for one-time initial setup. For security, it is strongly recommended to make it inaccessible again after setup (e.g., by modifying the code in `src/app/admin/setup-totp/page.tsx` to return `notFound()`). Uncontrolled access to this page would allow anyone to link their authenticator to the admin account.
 
-## Pile Technique
+## Tech Stack
 
-BrewCrafter est construit avec une pile technique moderne, axée sur JavaScript :
+BrewCrafter is built with a modern, JavaScript-focused tech stack:
 
-*   **Framework** : [Next.js](https://nextjs.org/) (App Router)
-*   **Langage** : [TypeScript](https://www.typescriptlang.org/)
-*   **Bibliothèque UI** : [React](https://reactjs.org/)
-*   **Bibliothèque de Composants** : [ShadCN UI](https://ui.shadcn.com/) - Une collection de composants magnifiquement conçus, accessibles et personnalisables.
-*   **Styling** : [Tailwind CSS](https://tailwindcss.com/) - Un framework CSS utilitaire pour un développement UI rapide.
-*   **Gestion d'État** :
-    *   React Context (`AuthContext`) pour l'état d'authentification admin côté client (persisté dans `localStorage`).
-    *   React `useState` et `useEffect` pour l'état local des composants et les effets secondaires.
-*   **Gestion de Formulaires** : [React Hook Form](https://react-hook-form.com/) pour créer et valider les formulaires.
-*   **Validation de Schéma** : [Zod](https://zod.dev/) pour définir et valider les schémas de données (utilisé avec React Hook Form).
-*   **Icônes** : [Lucide React](https://lucide.dev/) pour un ensemble d'icônes cohérent et épuré.
-*   **TOTP** :
-    *   [Speakeasy](https://github.com/speakeasyjs/speakeasy) pour la génération et la vérification TOTP (côté serveur).
-    *   [qrcode](https://github.com/soldair/node-qrcode) pour générer des QR codes pour la configuration TOTP (côté serveur).
-*   **Génération d'Images (Étiquettes)** : [html2canvas](https://html2canvas.hertzen.com/) pour capturer des éléments HTML en tant qu'images.
-*   **Stockage Cloud** : [Vercel Blob](https://vercel.com/storage/blob) pour le stockage des fichiers de recettes (`.xml` et `.md`).
-*   **Intégration IA (Potentiel Futur)** : [Genkit](https://firebase.google.com/docs/genkit) est inclus dans les dépendances, suggérant un potentiel pour de futures fonctionnalités alimentées par l'IA (bien que non activement utilisé dans les fonctionnalités actuelles).
+*   **Framework**: [Next.js](https://nextjs.org/) (App Router)
+*   **Language**: [TypeScript](https://www.typescriptlang.org/)
+*   **UI Library**: [React](https://reactjs.org/)
+*   **Component Library**: [ShadCN UI](https://ui.shadcn.com/) - A collection of beautifully designed, accessible, and customizable components.
+*   **Styling**: [Tailwind CSS](https://tailwindcss.com/) - A utility-first CSS framework for rapid UI development.
+*   **State Management**:
+    *   React Context (`AuthContext`) for client-side admin authentication state (persisted in `localStorage`).
+    *   React `useState` and `useEffect` for local component state and side effects.
+*   **Form Management**: [React Hook Form](https://react-hook-form.com/) for building and validating forms.
+*   **Schema Validation**: [Zod](https://zod.dev/) for defining and validating data schemas (used with React Hook Form).
+*   **Icons**: [Lucide React](https://lucide.dev/) for a consistent and clean icon set.
+*   **TOTP**:
+    *   [Speakeasy](https://github.com/speakeasyjs/speakeasy) for TOTP generation and verification (server-side).
+    *   [qrcode](https://github.com/soldair/node-qrcode) for generating QR codes for TOTP setup (server-side).
+*   **Image Generation (Labels)**: [html2canvas](https://html2canvas.hertzen.com/) for capturing HTML elements as images.
+*   **Cloud Storage**: [Vercel Blob](https://vercel.com/storage/blob) for storing recipe files (`.xml` and `.md`).
+*   **AI Integration (Future Potential)**: [Genkit](https://firebase.google.com/docs/genkit) is included in dependencies, suggesting potential for future AI-powered features (though not actively used in current features).
 
-## Intégration Vercel & Stockage des Recettes
+## Vercel Integration & Recipe Storage
 
-Cette application est conçue pour être déployée sur [Vercel](https://vercel.com/) et exploite **Vercel Blob** pour le stockage persistant des recettes.
+This application is designed to be deployed on [Vercel](https://vercel.com/) and leverages **Vercel Blob** for persistent recipe storage.
 
-*   **Stockage des Recettes** :
-    *   Tous les fichiers de recettes BeerXML (`recipe.xml`) et leurs fichiers Markdown `steps.md` correspondants sont stockés dans votre Vercel Blob.
-    *   Les recettes sont organisées sous un préfixe (dossier) principal `Recipes/`.
-    *   Chaque recette réside dans son propre sous-dossier, nommé d'après une version épurée du nom de la recette (slug). Par exemple : `Recipes/ma-super-ipa/recipe.xml` et `Recipes/ma-super-ipa/steps.md`.
-    *   Si le fichier XML d'une recette a un nom différent sur Vercel Blob (par exemple, `Recipes/ma-super-ipa/mon-ipa-v2.xml`), l'application tentera de lire le premier fichier `.xml` qu'elle trouve dans le dossier du slug de cette recette. De même pour les fichiers `.md` si `steps.md` n'est pas trouvé mais qu'un autre `.md` existe.
+*   **Recipe Storage**:
+    *   All BeerXML recipe files (`recipe.xml`) and their corresponding `steps.md` Markdown files are stored in your Vercel Blob.
+    *   Recipes are organized under a main prefix (folder) `Recipes/`.
+    *   Each recipe resides in its own subfolder, named after a slugified version of the recipe name. For example: `Recipes/my-great-ipa/recipe.xml` and `Recipes/my-great-ipa/steps.md`.
+    *   If a recipe's XML file has a different name on Vercel Blob (e.g., `Recipes/my-great-ipa/my-ipa-v2.xml`), the application will attempt to read the first `.xml` file it finds in that recipe's slug folder. Similarly for `.md` files if `steps.md` is not found but another `.md` exists.
 
-*   **Lecture des Recettes** :
-    *   L'application récupère la liste des recettes et leurs détails en interrogeant votre magasin Vercel Blob à l'aide du SDK `@vercel/blob` (spécifiquement la fonction `list`) via des fonctions utilitaires côté serveur dans `src/lib/recipe-utils.ts`.
-    *   Les résumés des recettes sont récupérés pour la page d'accueil via une route API (`/api/recipes/summaries`).
-    *   Les détails des recettes (y compris les étapes Markdown) sont récupérés de manière similaire lorsqu'un utilisateur navigue vers une page de recette spécifique, en lisant directement depuis Vercel Blob via `src/lib/recipe-utils.ts`.
-    *   Un mécanisme de "cache-busting" (`?timestamp=${Date.now()}`) est utilisé lors de la récupération du contenu des blobs pour s'assurer que des données fraîches sont récupérées, surtout après des mises à jour.
+*   **Reading Recipes**:
+    *   The application fetches the list of recipes and their details by querying your Vercel Blob store using the `@vercel/blob` SDK (specifically the `list` function) via server-side utility functions in `src/lib/recipe-utils.ts`.
+    *   Recipe summaries are fetched for the homepage via an API route (`/api/recipes/summaries`).
+    *   Recipe details (including Markdown steps) are fetched similarly when a user navigates to a specific recipe page, reading directly from Vercel Blob via `src/lib/recipe-utils.ts`.
+    *   A "cache-busting" mechanism (`?timestamp=${Date.now()}`) is used when fetching blob content to ensure fresh data is retrieved, especially after updates.
 
-*   **Écriture & Suppression de Recettes (Admin Uniquement via Server Actions)** :
-    *   Lorsqu'une nouvelle recette est créée via le formulaire "New Recipe" ou importée, le BeerXML généré/fourni (`recipe.xml`) et les étapes Markdown (`steps.md`) sont téléversés sur Vercel Blob à l'aide d'une Server Action (`addRecipesAction` dans `src/app/actions/recipe-actions.ts`). Cette action utilise la fonction `put` de `@vercel/blob` et assure `addRandomSuffix: false` pour maintenir un nommage de fichier cohérent.
-    *   Lorsqu'une recette est éditée, les fichiers `recipe.xml` et `steps.md` mis à jour écrasent les fichiers existants dans Vercel Blob dans le dossier spécifique de la recette. Le système tente d'identifier les fichiers `.xml` et `.md` existants dans le dossier pour les écraser, même si leurs noms exacts ne sont pas `recipe.xml` ou `steps.md` (bien que ce soient les noms par défaut lors de la création).
-    *   Lorsqu'une recette est supprimée, une Server Action (`deleteRecipeAction`) utilise la fonction `del` de `@vercel/blob` pour retirer le dossier de recette correspondant et tout son contenu du magasin Blob.
-    *   Les Server Actions appellent également `revalidatePath` pour signaler à Next.js de mettre à jour les données mises en cache pour les pages pertinentes.
+*   **Writing & Deleting Recipes (Admin Only via Server Actions)**:
+    *   When a new recipe is created via the "New Recipe" form or imported, the generated/provided BeerXML (`recipe.xml`) and Markdown steps (`steps.md`) are uploaded to Vercel Blob using a Server Action (`addRecipesAction` in `src/app/actions/recipe-actions.ts`). This action uses the `put` function from `@vercel/blob` and ensures `addRandomSuffix: false` to maintain consistent file naming.
+    *   When a recipe is edited, the updated `recipe.xml` and `steps.md` files overwrite the existing files in Vercel Blob within that recipe's specific folder. The system attempts to identify existing `.xml` and `.md` files in the folder to overwrite them, even if their exact names are not `recipe.xml` or `steps.md` (though these are the defaults on creation).
+    *   When a recipe is deleted, a Server Action (`deleteRecipeAction`) uses the `del` function from `@vercel/blob` to remove the corresponding recipe folder and all its contents from the Blob store.
+    *   Server Actions also call `revalidatePath` to signal Next.js to update cached data for relevant pages.
 
-*   **Variables d'Environnement pour le Déploiement Vercel** :
-    *   `BLOB_READ_WRITE_TOKEN` : **Crucial**. Ce token permet à l'application de s'authentifier et d'interagir avec votre magasin Vercel Blob. Il doit être configuré dans les paramètres de votre projet Vercel.
-    *   `TOTP_SECRET` : **Crucial pour la Connexion Admin**. Une chaîne secrète encodée en Base32 utilisée pour la génération et la vérification TOTP. Générez-la une fois et stockez-la en toute sécurité.
-    *   `NEXT_PUBLIC_TOTP_ISSUER_NAME` : Le nom affiché dans les applications d'authentification (par exemple, "BrewCrafter App").
-    *   `NEXT_PUBLIC_TOTP_ACCOUNT_NAME` : Le nom de compte affiché dans les applications d'authentification (par exemple, "admin").
+*   **Environment Variables for Vercel Deployment**:
+    *   `BLOB_READ_WRITE_TOKEN`: **Crucial**. This token allows the application to authenticate and interact with your Vercel Blob store. It must be configured in your Vercel project settings.
+    *   `TOTP_SECRET`: **Crucial for Admin Login**. A Base32 encoded secret string used for TOTP generation and verification. Generate this once and store it securely.
+    *   `NEXT_PUBLIC_TOTP_ISSUER_NAME`: The name displayed in authenticator apps (e.g., "BrewCrafter App").
+    *   `NEXT_PUBLIC_TOTP_ACCOUNT_NAME`: The account name displayed in authenticator apps (e.g., "admin").
 
-Ce stockage basé sur le cloud assure que vos recettes sont persistantes à travers les déploiements et accessibles de n'importe où.
+This cloud-based storage ensures your recipes are persistent across deployments and accessible from anywhere.
 
-## Développement Local
+## Local Development
 
-Pour exécuter BrewCrafter localement :
+To run BrewCrafter locally:
 
-1.  Clonez le dépôt.
-2.  Installez les dépendances : `npm install` (ou `yarn install`).
-3.  **Configurez les Variables d'Environnement** :
-    *   Créez un fichier nommé `.env.local` à la racine de votre projet. (Ce fichier ne doit PAS être commité sur Git).
-    *   Ajoutez les variables suivantes, en remplaçant les valeurs de remplacement :
+1.  Clone the repository.
+2.  Install dependencies: `npm install` (or `yarn install`).
+3.  **Set up Environment Variables**:
+    *   Create a file named `.env.local` in the root of your project. (This file should NOT be committed to Git).
+    *   Add the following variables, replacing the placeholder values:
         ```env
-        BLOB_READ_WRITE_TOKEN=votre_token_vercel_blob_lecture_ecriture_ici
-        TOTP_SECRET=VOTRE_SECRET_TOTP_BASE32_UNIQUE_ICI
+        BLOB_READ_WRITE_TOKEN=your_vercel_blob_read_write_token_here
+        TOTP_SECRET=YOUR_UNIQUE_BASE32_TOTP_SECRET_HERE
         NEXT_PUBLIC_TOTP_ISSUER_NAME="BrewCrafter Local"
         NEXT_PUBLIC_TOTP_ACCOUNT_NAME="localadmin"
         ```
-    *   Vous pouvez obtenir `BLOB_READ_WRITE_TOKEN` depuis l'onglet "Storage" de votre projet Vercel après avoir lié un magasin Blob.
-    *   Pour `TOTP_SECRET`, générez une chaîne Base32 robuste (par exemple, en utilisant un script Node.js local avec `speakeasy` ou un générateur en ligne de confiance). **Ce secret doit être unique et conservé en toute sécurité.**
-4.  Exécutez le serveur de développement : `npm run dev`.
-5.  Ouvrez [http://localhost:9002](http://localhost:9002) (ou le port spécifié dans `package.json`) dans votre navigateur.
-6.  **Première Configuration Admin (si nécessaire)** :
-    *   Naviguez vers `http://localhost:9002/admin/setup-totp`.
-    *   Scannez le QR code avec votre application d'authentification (par exemple, Google Authenticator, Authy).
-    *   Vous pouvez maintenant utiliser les codes générés pour vous connecter en tant qu'admin via le bouton de l'en-tête.
-    *   **Il est fortement recommandé de rendre à nouveau la page de configuration TOTP inaccessible (`src/app/admin/setup-totp/page.tsx`) après l'avoir utilisée, surtout pour un déploiement en production.**
+    *   You can get `BLOB_READ_WRITE_TOKEN` from your Vercel project's "Storage" tab after linking a Blob store.
+    *   For `TOTP_SECRET`, generate a strong Base32 string (e.g., using a local Node.js script with `speakeasy` or a trusted online generator). **This secret must be unique and kept secure.**
+4.  Run the development server: `npm run dev`.
+5.  Open [http://localhost:9002](http://localhost:9002) (or the port specified in `package.json`) in your browser.
+6.  **First-Time Admin Setup (if needed)**:
+    *   Navigate to `http://localhost:9002/admin/setup-totp`.
+    *   Scan the QR code with your authenticator app (e.g., Google Authenticator, Authy).
+    *   You can now use the generated codes to log in as admin via the header button.
+    *   **SECURITY WARNING**: The `/admin/setup-totp` page is intended for initial, one-time setup. For security, it is strongly recommended to make it inaccessible again after setup (e.g., by modifying the code in `src/app/admin/setup-totp/page.tsx` to return `notFound()`), especially for a production deployment.
 
-En développement local, les fonctionnalités "Importer une recette" et "New Recipe" sauvegarderont les fichiers sur votre magasin Vercel Blob si `BLOB_READ_WRITE_TOKEN` est correctement configuré et valide. La suppression de recettes affectera également votre Vercel Blob.
+In local development, the "Import recipe" and "New Recipe" features will save files to your Vercel Blob store if `BLOB_READ_WRITE_TOKEN` is correctly configured and valid. Deleting recipes will also affect your Vercel Blob.
 
-## Utiliser ce Projet (Fork & Déploiement Personnel)
+## Using this Project (Fork & Personal Deployment)
 
-Si vous souhaitez forker ce projet et le déployer pour votre propre usage :
+If you wish to fork this project and deploy it for your own use:
 
-1.  **Forkez le dépôt GitHub.**
-2.  **Créez votre propre projet sur [Vercel](https://vercel.com/)** et liez-le à votre fork.
-3.  **Intégrez Vercel Blob à votre projet Vercel** :
-    *   Dans votre projet Vercel, allez dans l'onglet "Storage" et créez/connectez un nouveau "Blob store".
-    *   Copiez le `BLOB_READ_WRITE_TOKEN` qui est généré.
-4.  **Générez un Secret TOTP** :
-    *   Créez une chaîne Base32 aléatoire et robuste (au moins 32 caractères recommandés). Vous pouvez utiliser des outils en ligne sécurisés ou un script local pour cela. Ce sera votre `TOTP_SECRET`.
-5.  **Configurez les Variables d'Environnement sur Vercel** :
-    *   Dans les "Settings" de votre projet Vercel, sous "Environment Variables", ajoutez :
-        *   `BLOB_READ_WRITE_TOKEN` : Votre token Vercel Blob.
-        *   `TOTP_SECRET` : Votre secret TOTP en Base32.
-        *   `NEXT_PUBLIC_TOTP_ISSUER_NAME` : (Optionnel) Le nom de votre application qui apparaîtra dans l'authentificateur (ex: "Mon Livre de Recettes").
-        *   `NEXT_PUBLIC_TOTP_ACCOUNT_NAME` : (Optionnel) Le nom de compte qui apparaîtra (ex: "moncompte@admin").
-6.  **Configurez les Variables d'Environnement pour le Développement Local** :
-    *   Créez un fichier `.env.local` à la racine de votre projet (et ajoutez-le à `.gitignore`).
-    *   Copiez-y les mêmes variables d'environnement que celles configurées sur Vercel.
-7.  **Configuration Initiale du TOTP** :
-    *   La page `/admin/setup-totp/page.tsx` est maintenant accessible par défaut pour faciliter le fork et la configuration.
-    *   Déployez votre application (ou exécutez localement).
-    *   Accédez à `/admin/setup-totp` sur votre instance, scannez le QR code.
-    *   Une fois configuré, **il est fortement recommandé de sécuriser ou de rendre à nouveau la page `/admin/setup-totp/page.tsx` inaccessible** (par exemple, en la faisant retourner `notFound()` comme elle le faisait précédemment) et redéployez si vous êtes dans un environnement de production ou partagé.
-8.  **Ajoutez vos Recettes** :
-    *   Vous pouvez utiliser l'interface d'administration (une fois connecté) pour créer de nouvelles recettes ou importer vos fichiers BeerXML. Ils seront stockés dans votre Vercel Blob.
+1.  **Fork the GitHub repository.**
+2.  **Create your own project on [Vercel](https://vercel.com/)** and link it to your fork.
+3.  **Integrate Vercel Blob with your Vercel project**:
+    *   In your Vercel project, go to the "Storage" tab and create/connect a new "Blob store".
+    *   Copy the `BLOB_READ_WRITE_TOKEN` that is generated.
+4.  **Generate a TOTP Secret**:
+    *   Create a strong, random Base32 string (at least 32 characters recommended). You can use secure online tools or a local script for this. This will be your `TOTP_SECRET`.
+5.  **Configure Environment Variables on Vercel**:
+    *   In your Vercel project "Settings", under "Environment Variables", add:
+        *   `BLOB_READ_WRITE_TOKEN`: Your Vercel Blob token.
+        *   `TOTP_SECRET`: Your Base32 TOTP secret.
+        *   `NEXT_PUBLIC_TOTP_ISSUER_NAME`: (Optional) Your app's name that will appear in the authenticator (e.g., "My Recipe Book").
+        *   `NEXT_PUBLIC_TOTP_ACCOUNT_NAME`: (Optional) The account name that will appear (e.g., "myaccount@admin").
+6.  **Configure Environment Variables for Local Development**:
+    *   Create a `.env.local` file in your project root (and add it to `.gitignore`).
+    *   Copy the same environment variables configured on Vercel into it.
+7.  **Initial TOTP Setup**:
+    *   The `/admin/setup-totp` page is now accessible by default to facilitate forking and setup.
+    *   Deploy your application (or run locally).
+    *   Access `/admin/setup-totp` on your instance, scan the QR code with your authenticator app.
+    *   Once configured, **it is strongly recommended to secure or make the `/admin/setup-totp/page.tsx` page inaccessible again** (e.g., by having it return `notFound()` as it did previously) and redeploy if you are in a production or shared environment. Uncontrolled access to this page would allow anyone to link their authenticator to your instance's admin account.
+8.  **Add Your Recipes**:
+    *   You can use the admin interface (once logged in) to create new recipes or import your BeerXML files. They will be stored in your Vercel Blob.
 
 ---
 
-Ce README vise à fournir un aperçu complet de l'application BrewCrafter et de sa configuration.
+This README aims to provide a comprehensive overview of the BrewCrafter application and its setup.

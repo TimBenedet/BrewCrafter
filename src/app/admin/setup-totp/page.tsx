@@ -91,4 +91,8 @@ export default function SetupTotpPage() {
               Refresh QR Code
             </Button>
           </div>
-        </
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
