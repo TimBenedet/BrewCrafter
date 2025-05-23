@@ -1,7 +1,7 @@
 
 import { getRecipeDetails } from '@/lib/recipe-utils';
 import { RecipeForm } from '@/components/recipes/RecipeForm';
-import type { RecipeFormValues } from '@/components/recipes/RecipeForm'; // Assuming type is exported from RecipeForm
+import type { RecipeFormValues } from '@/components/recipes/RecipeForm';
 import type { BeerXMLRecipe } from '@/types/recipe';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -14,8 +14,6 @@ interface EditRecipePageProps {
   };
 }
 
-// Helper function to transform BeerXMLRecipe to RecipeFormValues
-// This needs to be robust and handle all cases based on your RecipeForm structure
 function transformBeerXMLToFormValues(recipe: BeerXMLRecipe): RecipeFormValues {
   return {
     name: recipe.name || '',
@@ -24,13 +22,13 @@ function transformBeerXMLToFormValues(recipe: BeerXMLRecipe): RecipeFormValues {
     batchSize: recipe.batchSize || 0,
     boilSize: recipe.boilSize || 0,
     boilTime: recipe.boilTime || 0,
-    efficiency: recipe.efficiency || 72.0, // Default efficiency if not present
+    efficiency: recipe.efficiency || 72.0,
     notes: recipe.notes || '',
-    
+    stepsMarkdown: recipe.stepsMarkdown || '', // Added stepsMarkdown
+
     og: recipe.og,
     fg: recipe.fg,
-    // ABV and IBU are calculated in the form, so we can omit them here or pass recipe values if available
-    abv: recipe.abv, 
+    abv: recipe.abv,
     ibu: recipe.ibu,
     colorSrm: recipe.color,
 
@@ -54,7 +52,7 @@ function transformBeerXMLToFormValues(recipe: BeerXMLRecipe): RecipeFormValues {
       name: h.name,
       alpha: h.alpha,
       amount: h.amount, // Stored as kg
-      amountUnit: 'g', // Default display unit, form handles conversion for display
+      amountUnit: 'g', // Default display unit for form
       use: h.use as 'Boil' | 'Dry Hop' | 'Mash' | 'First Wort' | 'Aroma' | 'Whirlpool' || 'Boil',
       time: h.time,
       form: h.form as 'Pellet' | 'Plug' | 'Leaf' | 'Extract' || 'Pellet',
@@ -67,7 +65,7 @@ function transformBeerXMLToFormValues(recipe: BeerXMLRecipe): RecipeFormValues {
       amount: y.amount,
       laboratory: y.laboratory || '',
       productId: y.productId || '',
-      attenuation: y.attenuation || 75, // Default attenuation
+      attenuation: y.attenuation || 75,
     })),
 
     miscs: recipe.miscs.map(m => ({
@@ -77,7 +75,7 @@ function transformBeerXMLToFormValues(recipe: BeerXMLRecipe): RecipeFormValues {
       time: m.time,
       amount: m.amount,
     })),
-    
+
     mash: {
       name: recipe.mash?.name || 'Single Infusion',
       mashSteps: recipe.mash?.mashSteps.map(ms => ({
@@ -106,24 +104,22 @@ export default async function EditRecipePage({ params }: EditRecipePageProps) {
         <Button asChild variant="outline" size="sm">
           <Link href={`/recipes/${params.recipeSlug}`}>
             <ArrowLeftIcon className="mr-2 h-4 w-4" />
-            Back to Recipe
+            Retour à la Recette
           </Link>
         </Button>
       </div>
       <header className="mb-4">
         <h1 className="text-3xl font-bold text-primary flex items-center">
           <PencilIcon className="mr-3 h-7 w-7" />
-          Edit Recipe: {recipeData.name}
+          Modifier la Recette : {recipeData.name}
         </h1>
-        <p className="text-muted-foreground">Modify the fields below to update your recipe.</p>
+        <p className="text-muted-foreground">Modifiez les champs ci-dessous pour mettre à jour votre recette et ses étapes.</p>
       </header>
-      <RecipeForm 
-        mode="edit" 
-        initialData={initialFormValues} 
-        recipeSlug={params.recipeSlug} 
+      <RecipeForm
+        mode="edit"
+        initialData={initialFormValues}
+        recipeSlug={params.recipeSlug}
       />
     </div>
   );
 }
-
-    

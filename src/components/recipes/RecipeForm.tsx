@@ -2,7 +2,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,20 +24,18 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { SaveIcon, PlusCircleIcon, Trash2Icon, InfoIcon, ListChecksIcon, Wheat, Hop as HopIconLucide, Microscope, Package, Thermometer, StickyNote, BarChart3 } from 'lucide-react';
+import { SaveIcon, PlusCircleIcon, Trash2Icon, InfoIcon, ListChecksIcon, Wheat, Hop as HopIconLucide, Microscope, Package, Thermometer, StickyNote, BarChart3, FileText, UploadCloud } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { addRecipesAction } from '@/app/actions/recipe-actions';
 import { useRouter } from 'next/navigation';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import type { BeerXMLRecipe } from '@/types/recipe'; // Import for type reference
 
 // Sub-schemas for array elements
 const fermentableSchema = z.object({
   name: z.string().min(1, "Fermentable name is required."),
   type: z.enum(['Grain', 'Extract', 'Sugar', 'Adjunct', 'Dry Extract', 'Liquid Extract']),
-  amount: z.coerce.number().min(0, "Amount must be zero or positive."), 
+  amount: z.coerce.number().min(0, "Amount must be zero or positive."),
   amountUnit: z.enum(['kg', 'g']).default('kg'),
   yield: z.coerce.number().min(0).max(100, "Yield must be between 0 and 100."),
   color: z.coerce.number().min(0, "Color (SRM) must be positive."),
@@ -46,7 +44,7 @@ const fermentableSchema = z.object({
 const hopSchema = z.object({
   name: z.string().min(1, "Hop name is required."),
   alpha: z.coerce.number().min(0).max(100, "Alpha acid must be between 0 and 100."),
-  amount: z.coerce.number().min(0, "Amount must be zero or positive."), 
+  amount: z.coerce.number().min(0, "Amount must be zero or positive."),
   amountUnit: z.enum(['kg', 'g']).default('g'),
   use: z.enum(['Boil', 'Dry Hop', 'Mash', 'First Wort', 'Aroma', 'Whirlpool']),
   time: z.coerce.number().min(0, "Time must be zero or positive."),
@@ -85,9 +83,10 @@ const recipeFormSchema = z.object({
   brewer: z.string().optional(),
   batchSize: z.coerce.number().positive({ message: 'Batch Size must be a positive number.' }),
   boilSize: z.coerce.number().positive({ message: 'Boil Size must be a positive number.' }),
-  boilTime: z.coerce.number().int().positive({ message: 'Boil Time must be a positive integer.'}),
+  boilTime: z.coerce.number().int().positive({ message: 'Boil Time must be a positive integer.' }),
   efficiency: z.coerce.number().min(0).max(100).optional(),
   notes: z.string().optional(),
+  stepsMarkdown: z.string().optional(), // Added for recipe steps
 
   og: z.coerce.number().min(1.0, "OG must be >= 1.000").max(2.0, "OG seems too high").optional(),
   fg: z.coerce.number().min(0.9, "FG seems too low").max(2.0, "FG seems too high").optional(),
@@ -115,6 +114,12 @@ const recipeFormSchema = z.object({
 
 export type RecipeFormValues = z.infer<typeof recipeFormSchema>;
 
+interface RecipeFile {
+  fileName: string;
+  content: string;
+}
+
+
 const createDefaultValues = (): RecipeFormValues => ({
   name: '',
   type: 'All Grain',
@@ -125,10 +130,11 @@ const createDefaultValues = (): RecipeFormValues => ({
   efficiency: 72.0,
   og: 1.052,
   fg: 1.012,
-  abv: 0, 
-  ibu: 0, 
+  abv: 0,
+  ibu: 0,
   colorSrm: 14.0,
   notes: '',
+  stepsMarkdown: '',
   style: {
     name: 'American Amber Ale',
     category: 'Amber and Brown American Beer',
@@ -195,8 +201,7 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `        <NAME>${sanitizeForXml(f.name)}</NAME>\n`;
     xml += `        <VERSION>1</VERSION>\n`;
     xml += `        <TYPE>${sanitizeForXml(f.type)}</TYPE>\n`;
-    // Amount is already in kg in form state
-    xml += `        <AMOUNT>${Number(f.amount).toFixed(3)}</AMOUNT>\n`; 
+    xml += `        <AMOUNT>${Number(f.amount).toFixed(3)}</AMOUNT>\n`;
     xml += `        <YIELD>${Number(f.yield).toFixed(1)}</YIELD>\n`;
     xml += `        <COLOR>${Number(f.color).toFixed(1)}</COLOR>\n`;
     xml += `      </FERMENTABLE>\n`;
@@ -209,8 +214,7 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `        <NAME>${sanitizeForXml(h.name)}</NAME>\n`;
     xml += `        <VERSION>1</VERSION>\n`;
     xml += `        <ALPHA>${Number(h.alpha).toFixed(1)}</ALPHA>\n`;
-    // Amount is already in kg in form state
-    xml += `        <AMOUNT>${Number(h.amount).toFixed(4)}</AMOUNT>\n`; 
+    xml += `        <AMOUNT>${Number(h.amount).toFixed(4)}</AMOUNT>\n`;
     xml += `        <USE>${sanitizeForXml(h.use)}</USE>\n`;
     xml += `        <TIME>${Number(h.time).toFixed(0)}</TIME>\n`;
     xml += `        <FORM>${sanitizeForXml(h.form)}</FORM>\n`;
@@ -225,11 +229,11 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `        <VERSION>1</VERSION>\n`;
     xml += `        <TYPE>${sanitizeForXml(y.type)}</TYPE>\n`;
     xml += `        <FORM>${sanitizeForXml(y.form)}</FORM>\n`;
-    xml += `        <AMOUNT>${Number(y.amount).toFixed(4)}</AMOUNT>\n`; 
-    if(y.laboratory) xml += `        <LABORATORY>${sanitizeForXml(y.laboratory)}</LABORATORY>\n`;
-    if(y.productId) xml += `        <PRODUCT_ID>${sanitizeForXml(y.productId)}</PRODUCT_ID>\n`;
+    xml += `        <AMOUNT>${Number(y.amount).toFixed(4)}</AMOUNT>\n`;
+    if (y.laboratory) xml += `        <LABORATORY>${sanitizeForXml(y.laboratory)}</LABORATORY>\n`;
+    if (y.productId) xml += `        <PRODUCT_ID>${sanitizeForXml(y.productId)}</PRODUCT_ID>\n`;
     const attenuation = y.attenuation === undefined || y.attenuation === null ? undefined : y.attenuation;
-    if(attenuation !== undefined) xml += `        <ATTENUATION>${Number(attenuation).toFixed(1)}</ATTENUATION>\n`;
+    if (attenuation !== undefined) xml += `        <ATTENUATION>${Number(attenuation).toFixed(1)}</ATTENUATION>\n`;
     xml += `      </YEAST>\n`;
   });
   xml += `    </YEASTS>\n`;
@@ -242,7 +246,7 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `        <TYPE>${sanitizeForXml(m.type)}</TYPE>\n`;
     xml += `        <USE>${sanitizeForXml(m.use)}</USE>\n`;
     xml += `        <TIME>${Number(m.time).toFixed(0)}</TIME>\n`;
-    xml += `        <AMOUNT>${Number(m.amount).toFixed(4)}</AMOUNT>\n`; 
+    xml += `        <AMOUNT>${Number(m.amount).toFixed(4)}</AMOUNT>\n`;
     xml += `      </MISC>\n`;
   });
   xml += `    </MISCS>\n`;
@@ -283,14 +287,14 @@ function calculateAbv(ogInput?: number | string, fgInput?: number | string): num
   return undefined;
 }
 
-function getBignessFactor(og: number | undefined): number {
+function getBignessFactor(og?: number): number {
   if (og === undefined || isNaN(og) || og < 1.0) {
     return NaN;
   }
   return 1.65 * Math.pow(0.000125, og - 1.0);
 }
 
-function getBoilTimeFactor(boilTimeMinutes: number | undefined): number {
+function getBoilTimeFactor(boilTimeMinutes?: number): number {
   if (boilTimeMinutes === undefined || isNaN(boilTimeMinutes) || boilTimeMinutes < 0) {
     return NaN;
   }
@@ -303,43 +307,45 @@ function calculateIbuTinseth(
   boilSizeLiters?: number,
   originalGravity?: number
 ): number | undefined {
-  if (boilSizeLiters === undefined || isNaN(boilSizeLiters) || boilSizeLiters <= 0 ||
-      originalGravity === undefined || isNaN(originalGravity) || originalGravity < 1.0) {
+  const numBoilSize = parseFloat(String(boilSizeLiters));
+  const numOriginalGravity = parseFloat(String(originalGravity));
+
+  if (isNaN(numBoilSize) || numBoilSize <= 0 || isNaN(numOriginalGravity) || numOriginalGravity < 1.0) {
     return undefined;
   }
 
   let totalIbus = 0;
-  const bignessFactor = getBignessFactor(originalGravity);
+  const bignessFactor = getBignessFactor(numOriginalGravity);
+
   if (isNaN(bignessFactor)) {
     return undefined;
   }
 
   (hops || []).forEach(hop => {
     const currentAlpha = parseFloat(String(hop.alpha));
-    // hop.amount is already in KG from the form state
-    const amountGrams = hop.amount * 1000.0; 
+    const amountGrams = parseFloat(String(hop.amount)) * 1000.0; // amount is in KG, convert to G for formula
     const currentTime = parseFloat(String(hop.time));
 
     if (
       hop.use === 'Boil' &&
       !isNaN(currentAlpha) && currentAlpha > 0 &&
       !isNaN(amountGrams) && amountGrams > 0 &&
-      !isNaN(currentTime) && currentTime >= 0 
+      !isNaN(currentTime) && currentTime >= 0
     ) {
       const alphaDecimal = currentAlpha / 100.0;
       const boilTimeFactor = getBoilTimeFactor(currentTime);
 
       if (isNaN(boilTimeFactor)) {
-        return; 
+        return; // Skip this hop if boilTimeFactor is NaN
       }
 
       const utilization = bignessFactor * boilTimeFactor;
-      
+
       if (isNaN(utilization)) {
-        return; 
+        return; // Skip this hop if utilization is NaN
       }
-      
-      const ibusForHop = (alphaDecimal * amountGrams * utilization * 1000) / boilSizeLiters;
+
+      const ibusForHop = (alphaDecimal * amountGrams * utilization * 1000) / numBoilSize;
 
       if (!isNaN(ibusForHop)) {
         totalIbus += ibusForHop;
@@ -347,13 +353,14 @@ function calculateIbuTinseth(
     }
   });
 
-  return isNaN(totalIbus) ? undefined : totalIbus;
+  return isNaN(totalIbus) || totalIbus < 0 ? undefined : totalIbus;
 }
+
 
 interface RecipeFormProps {
   mode?: 'create' | 'edit';
   initialData?: RecipeFormValues;
-  recipeSlug?: string; // For navigating back after edit
+  recipeSlug?: string;
 }
 
 export function RecipeForm({ mode = 'create', initialData, recipeSlug }: RecipeFormProps) {
@@ -364,6 +371,8 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug }: RecipeF
   });
   const router = useRouter();
   const { setValue } = form;
+  const markdownFileInputRef = useRef<HTMLInputElement>(null);
+
 
   const { fields: fermentableFields, append: appendFermentable, remove: removeFermentable } = useFieldArray({
     control: form.control,
@@ -385,7 +394,7 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug }: RecipeF
     name: "miscs",
   });
 
-   const { fields: mashStepFields, append: appendMashStep, remove: removeMashStep } = useFieldArray({
+  const { fields: mashStepFields, append: appendMashStep, remove: removeMashStep } = useFieldArray({
     control: form.control,
     name: "mash.mashSteps",
   });
@@ -419,719 +428,801 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug }: RecipeF
 
   async function onSubmit(data: RecipeFormValues) {
     const xmlData = generateBeerXml(data);
-    
+    const filesToUpload: RecipeFile[] = [{ fileName: data.name + ".xml", content: xmlData }];
+
+    if (data.stepsMarkdown && data.stepsMarkdown.trim() !== '') {
+        filesToUpload.push({ fileName: "steps.md", content: data.stepsMarkdown });
+    }
+
+    toast({ title: mode === 'edit' ? "Mise à jour en cours..." : "Enregistrement en cours...", description: "Veuillez patienter." });
+
     try {
-      const result = await addRecipesAction([{ fileName: data.name + ".xml", content: xmlData }]);
+      const result = await addRecipesAction(filesToUpload);
       if (result.success && result.count && result.count > 0) {
         toast({
-          title: mode === 'edit' ? "Recipe Updated!" : "Recipe Saved!",
-          description: `Recipe "${data.name}" was successfully saved to Vercel Blob.`,
+          title: mode === 'edit' ? "Recette Mise à Jour !" : "Recette Enregistrée !",
+          description: `La recette "${data.name}" a été sauvegardée avec succès sur Vercel Blob.`,
         });
-        // For edit mode, we need to derive the slug from the potentially updated name
-        // The addRecipesAction itself handles the actual blob path based on the XML name.
-        // So, we derive the new slug to navigate to the correct detail page.
         const newSlug = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
         router.push(mode === 'edit' ? `/recipes/${newSlug}` : '/');
-        router.refresh(); 
+        router.refresh();
       } else if (result.success && result.count === 0) {
-         toast({
-          title: "No Recipe Imported/Updated",
-          description: "The file did not contain a valid recipe or its name could not be extracted.",
+        toast({
+          title: "Aucune Recette Enregistrée",
+          description: "Le fichier XML n'a pas pu être traité ou son nom n'a pas pu être extrait.",
           variant: "default",
         });
-      } else {
-        throw new Error(result.error || "An error occurred while saving the recipe to Vercel Blob.");
+      }
+      else {
+        throw new Error(result.error || "Une erreur inconnue est survenue lors de la sauvegarde sur Vercel Blob.");
       }
     } catch (error) {
       console.error("Error saving recipe:", error);
       toast({
-        title: mode === 'edit' ? "Update Failed" : "Save Failed",
-        description: (error as Error).message || "An error occurred while saving the recipe.",
+        title: mode === 'edit' ? "Échec de la Mise à Jour" : "Échec de la Sauvegarde",
+        description: (error as Error).message || "Une erreur inattendue est survenue.",
         variant: "destructive",
       });
     }
   }
 
+  const handleMarkdownFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      toast({ title: "Aucun fichier sélectionné", description: "Veuillez sélectionner un fichier .md.", variant: "default" });
+      return;
+    }
+
+    if (!file.name.toLowerCase().endsWith('.md')) {
+      toast({ title: "Type de fichier invalide", description: "Veuillez sélectionner un fichier Markdown (.md).", variant: "destructive" });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const content = e.target?.result as string;
+      if (content === null || content === undefined) {
+        toast({ title: "Erreur de lecture du fichier", description: "Impossible de lire le contenu du fichier.", variant: "destructive" });
+        return;
+      }
+      form.setValue('stepsMarkdown', content, { shouldValidate: true });
+      toast({ title: "Fichier Markdown chargé", description: `${file.name} a été chargé dans l'éditeur.` });
+    };
+    reader.readAsText(file);
+
+    // Reset file input to allow selecting the same file again if needed
+    if (markdownFileInputRef.current) {
+      markdownFileInputRef.current.value = '';
+    }
+  };
+
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-       <Accordion type="multiple" defaultValue={['item-general', 'item-target-stats']} className="w-full">
-        
-        <AccordionItem value="item-general">
+        <Accordion type="multiple" defaultValue={['item-general', 'item-target-stats']} className="w-full">
+
+          <AccordionItem value="item-general">
             <AccordionTrigger>
-                <CardTitle className="flex items-center text-lg">
-                    <InfoIcon className="mr-2 h-5 w-5 text-primary" />
-                    General Information
-                </CardTitle>
+              <CardTitle className="flex items-center text-lg">
+                <InfoIcon className="mr-2 h-5 w-5 text-primary" />
+                Informations Générales
+              </CardTitle>
             </AccordionTrigger>
             <AccordionContent>
-                <CardContent className="space-y-4 pt-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                        control={form.control}
-                        name="name"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Recipe Name</FormLabel>
-                            <FormControl>
-                            <Input placeholder="E.g., My Super IPA" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="type"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Recipe Type</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value ?? 'All Grain'}>
-                            <FormControl>
-                                <SelectTrigger>
-                                <SelectValue placeholder="Select a type" />
-                                </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                                <SelectItem value="All Grain">All Grain</SelectItem>
+              <CardContent className="space-y-4 pt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nom de la recette</FormLabel>
+                        <FormControl>
+                          <Input placeholder="E.g., My Super IPA" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Type de recette</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value ?? 'All Grain'}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Sélectionnez un type de recette" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="All Grain">All Grain</SelectItem>
+                            <SelectItem value="Extract">Extract</SelectItem>
+                            <SelectItem value="Partial Mash">Partial Mash</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="brewer"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Brasseur (Optionnel)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="E.g., My Name" {...field} value={field.value ?? ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="batchSize"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Taille du lot (L)</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.1" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="boilSize"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Taille d'ébullition (L)</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.1" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="boilTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Temps d'ébullition (min)</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="1" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="efficiency"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Efficacité (%)</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.1" {...field} value={field.value ?? ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="item-style">
+            <AccordionTrigger>
+              <CardTitle className="flex items-center text-lg">
+                <ListChecksIcon className="mr-2 h-5 w-5 text-primary" />
+                Style de la Bière
+              </CardTitle>
+            </AccordionTrigger>
+            <AccordionContent>
+              <CardContent className="space-y-4 pt-4">
+                <FormField
+                  control={form.control}
+                  name="style.name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nom du style</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value ?? ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="style.category"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Catégorie</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value ?? ''} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="style.styleGuide"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Guide de style</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value ?? ''} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="style.type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Type (Style)</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value ?? 'Ale'}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sélectionnez un type de style" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Ale">Ale</SelectItem>
+                          <SelectItem value="Lager">Lager</SelectItem>
+                          <SelectItem value="Mead">Mead</SelectItem>
+                          <SelectItem value="Wheat">Wheat</SelectItem>
+                          <SelectItem value="Mixed">Mixed</SelectItem>
+                          <SelectItem value="Cider">Cider</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="item-target-stats">
+            <AccordionTrigger>
+              <CardTitle className="flex items-center text-lg">
+                <BarChart3 className="mr-2 h-5 w-5 text-primary" />
+                Statistiques Cibles
+              </CardTitle>
+            </AccordionTrigger>
+            <AccordionContent>
+              <CardContent className="space-y-4 pt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="og"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>OG (Densité Initiale)</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.001" placeholder="E.g., 1.050" {...field} value={field.value ?? ''} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="fg"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>FG (Densité Finale)</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.001" placeholder="E.g., 1.010" {...field} value={field.value ?? ''} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="abv"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ABV (%) - Calculé</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.01" {...field} readOnly />
+                        </FormControl>
+                        <FormDescription>Calculé automatiquement.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="ibu"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>IBU - Calculé</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.1" {...field} readOnly />
+                        </FormControl>
+                        <FormDescription>Calculé (Tinseth).</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="colorSrm"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Couleur (SRM)</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.1" {...field} value={field.value ?? ''} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </CardContent>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="item-fermentables">
+            <AccordionTrigger>
+              <CardTitle className="flex items-center text-lg">
+                <Wheat className="mr-2 h-5 w-5 text-primary" />
+                Fermentescibles
+              </CardTitle>
+            </AccordionTrigger>
+            <AccordionContent>
+              <CardContent className="space-y-4 pt-4">
+                <Button type="button" variant="outline" size="sm" onClick={() => appendFermentable({ name: '', type: 'Grain', amount: 0, yield: 75, color: 0, amountUnit: 'kg' })}>
+                  <PlusCircleIcon className="mr-2 h-4 w-4" /> Ajouter Fermentescible
+                </Button>
+                {fermentableFields.map((item, index) => {
+                  const currentUnit = form.watch(`fermentables.${index}.amountUnit`);
+                  return (
+                    <div key={item.id} className="p-4 border rounded-md space-y-3 relative">
+                      <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => removeFermentable(index)}>
+                        <Trash2Icon className="h-4 w-4" />
+                      </Button>
+                      <FormField control={form.control} name={`fermentables.${index}.name`} render={({ field }) => (<FormItem><FormLabel>Nom</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 items-end">
+                        <FormField control={form.control} name={`fermentables.${index}.type`} render={({ field }) => (
+                          <FormItem><FormLabel>Type</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value ?? 'Grain'}>
+                              <FormControl><SelectTrigger><SelectValue placeholder="Type de fermentescible" /></SelectTrigger></FormControl>
+                              <SelectContent>
+                                <SelectItem value="Grain">Grain</SelectItem>
                                 <SelectItem value="Extract">Extract</SelectItem>
-                                <SelectItem value="Partial Mash">Partial Mash</SelectItem>
-                            </SelectContent>
+                                <SelectItem value="Sugar">Sugar</SelectItem>
+                                <SelectItem value="Adjunct">Adjunct</SelectItem>
+                                <SelectItem value="Dry Extract">Dry Extract</SelectItem>
+                                <SelectItem value="Liquid Extract">Liquid Extract</SelectItem>
+                              </SelectContent>
                             </Select>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    </div>
-                    <FormField
-                    control={form.control}
-                    name="brewer"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Brewer (Optional)</FormLabel>
-                        <FormControl>
-                            <Input placeholder="E.g., My Name" {...field} value={field.value ?? ''}/>
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField
-                        control={form.control}
-                        name="batchSize"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Batch Size (L)</FormLabel>
-                            <FormControl>
-                            <Input type="number" step="0.1" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="boilSize"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Boil Size (L)</FormLabel>
-                            <FormControl>
-                            <Input type="number" step="0.1" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="boilTime"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Boil Time (min)</FormLabel>
-                            <FormControl>
-                            <Input type="number" step="1" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    </div>
-                    <FormField
-                        control={form.control}
-                        name="efficiency"
-                        render={({ field }) => (
+                            <FormMessage /></FormItem>)} />
+                        <FormField
+                          control={form.control}
+                          name={`fermentables.${index}.amount`}
+                          render={({ field }) => {
+                            const displayValue = currentUnit === 'g' ? parseFloat(((field.value || 0) * 1000).toFixed(3)) : parseFloat((field.value || 0).toFixed(3));
+                            return (
+                              <FormItem>
+                                <FormLabel>Quantité</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    step={currentUnit === 'g' ? "1" : "0.001"}
+                                    value={isNaN(displayValue) ? '' : displayValue}
+                                    onChange={(e) => {
+                                      const rawValue = parseFloat(e.target.value);
+                                      if (!isNaN(rawValue)) {
+                                        const valueInKg = currentUnit === 'g' ? rawValue / 1000 : rawValue;
+                                        field.onChange(valueInKg);
+                                      } else {
+                                        field.onChange(undefined);
+                                      }
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            );
+                          }}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`fermentables.${index}.amountUnit`}
+                          render={({ field: unitField }) => (
                             <FormItem>
-                            <FormLabel>Efficiency (%)</FormLabel>
-                            <FormControl>
-                                <Input type="number" step="0.1" {...field} value={field.value ?? ''} />
-                            </FormControl>
-                            <FormMessage />
+                              <FormLabel>Unité</FormLabel>
+                              <Select onValueChange={unitField.onChange} defaultValue={unitField.value ?? 'kg'}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Unité" /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                  <SelectItem value="kg">kg</SelectItem>
+                                  <SelectItem value="g">g</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
                             </FormItem>
-                        )}
-                    />
-                </CardContent>
+                          )}
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <FormField control={form.control} name={`fermentables.${index}.yield`} render={({ field }) => (<FormItem><FormLabel>Rendement (%)</FormLabel><FormControl><Input type="number" step="0.1" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name={`fermentables.${index}.color`} render={({ field }) => (<FormItem><FormLabel>Couleur (SRM)</FormLabel><FormControl><Input type="number" step="0.1" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                      </div>
+                    </div>
+                  );
+                })}
+                {fermentableFields.length === 0 && <p className="text-sm text-muted-foreground">Aucun fermentescible ajouté.</p>}
+              </CardContent>
             </AccordionContent>
-        </AccordionItem>
+          </AccordionItem>
 
-        <AccordionItem value="item-style">
+          <AccordionItem value="item-hops">
             <AccordionTrigger>
-                <CardTitle className="flex items-center text-lg">
-                    <ListChecksIcon className="mr-2 h-5 w-5 text-primary" />
-                    Beer Style
-                </CardTitle>
+              <CardTitle className="flex items-center text-lg">
+                <HopIconLucide className="mr-2 h-5 w-5 text-primary" />
+                Houblons
+              </CardTitle>
             </AccordionTrigger>
             <AccordionContent>
-                <CardContent className="space-y-4 pt-4">
-                    <FormField
-                        control={form.control}
-                        name="style.name"
-                        render={({ field }) => (
+              <CardContent className="space-y-4 pt-4">
+                <Button type="button" variant="outline" size="sm" onClick={() => appendHop({ name: '', alpha: 5.0, amount: 0.010, use: 'Boil', time: 60, form: 'Pellet', amountUnit: 'g' })}>
+                  <PlusCircleIcon className="mr-2 h-4 w-4" /> Ajouter Houblon
+                </Button>
+                {hopFields.map((item, index) => {
+                  const currentUnit = form.watch(`hops.${index}.amountUnit`);
+                  return (
+                    <div key={item.id} className="p-4 border rounded-md space-y-3 relative">
+                      <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => removeHop(index)}>
+                        <Trash2Icon className="h-4 w-4" />
+                      </Button>
+                      <FormField control={form.control} name={`hops.${index}.name`} render={({ field }) => (<FormItem><FormLabel>Nom</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 items-end">
+                        <FormField control={form.control} name={`hops.${index}.alpha`} render={({ field }) => (<FormItem><FormLabel>Alpha (%)</FormLabel><FormControl><Input type="number" step="0.1" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField
+                          control={form.control}
+                          name={`hops.${index}.amount`}
+                          render={({ field }) => {
+                            const displayValue = currentUnit === 'g' ? parseFloat(((field.value || 0) * 1000).toFixed(1)) : parseFloat((field.value || 0).toFixed(4));
+                            return (
+                              <FormItem>
+                                <FormLabel>Quantité</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    step={currentUnit === 'g' ? "1" : "0.0001"}
+                                    value={isNaN(displayValue) ? '' : displayValue}
+                                    onChange={(e) => {
+                                      const rawValue = parseFloat(e.target.value);
+                                      if (!isNaN(rawValue)) {
+                                        const valueInKg = currentUnit === 'g' ? rawValue / 1000 : rawValue;
+                                        field.onChange(valueInKg);
+                                      } else {
+                                        field.onChange(undefined);
+                                      }
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            );
+                          }}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`hops.${index}.amountUnit`}
+                          render={({ field: unitField }) => (
                             <FormItem>
-                            <FormLabel>Style Name</FormLabel>
-                            <FormControl>
-                                <Input {...field} value={field.value ?? ''}/>
-                            </FormControl>
-                            <FormMessage />
+                              <FormLabel>Unité</FormLabel>
+                              <Select onValueChange={unitField.onChange} defaultValue={unitField.value ?? 'g'}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Unité" /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                  <SelectItem value="kg">kg</SelectItem>
+                                  <SelectItem value="g">g</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
                             </FormItem>
-                        )}
-                    />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                            control={form.control}
-                            name="style.category"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Category</FormLabel>
-                                <FormControl>
-                                    <Input {...field} value={field.value ?? ''}/>
-                                </FormControl>
-                                <FormMessage />
-                                </FormItem>
-                            )}
+                          )}
                         />
-                        <FormField
-                            control={form.control}
-                            name="style.styleGuide"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Style Guide</FormLabel>
-                                <FormControl>
-                                    <Input {...field} value={field.value ?? ''}/>
-                                </FormControl>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                        <FormField control={form.control} name={`hops.${index}.use`} render={({ field }) => (
+                          <FormItem><FormLabel>Utilisation</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value ?? 'Boil'}>
+                              <FormControl><SelectTrigger><SelectValue placeholder="Utilisation du houblon" /></SelectTrigger></FormControl>
+                              <SelectContent>
+                                <SelectItem value="Boil">Boil</SelectItem><SelectItem value="Dry Hop">Dry Hop</SelectItem><SelectItem value="Mash">Mash</SelectItem>
+                                <SelectItem value="First Wort">First Wort</SelectItem><SelectItem value="Aroma">Aroma</SelectItem><SelectItem value="Whirlpool">Whirlpool</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name={`hops.${index}.time`} render={({ field }) => (<FormItem><FormLabel>Temps (min)</FormLabel><FormControl><Input type="number" step="1" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name={`hops.${index}.form`} render={({ field }) => (
+                          <FormItem><FormLabel>Forme</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value ?? 'Pellet'}>
+                              <FormControl><SelectTrigger><SelectValue placeholder="Forme du houblon" /></SelectTrigger></FormControl>
+                              <SelectContent>
+                                <SelectItem value="Pellet">Pellet</SelectItem><SelectItem value="Plug">Plug</SelectItem>
+                                <SelectItem value="Leaf">Leaf</SelectItem><SelectItem value="Extract">Extract</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage /></FormItem>)} />
+                      </div>
                     </div>
-                    <FormField
-                        control={form.control}
-                        name="style.type"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Type (Style)</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value ?? 'Ale'}>
-                            <FormControl>
-                                <SelectTrigger>
-                                <SelectValue placeholder="Select a style type" />
-                                </SelectTrigger>
-                            </FormControl>
+                  );
+                })}
+                {hopFields.length === 0 && <p className="text-sm text-muted-foreground">Aucun houblon ajouté.</p>}
+              </CardContent>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="item-yeasts">
+            <AccordionTrigger>
+              <CardTitle className="flex items-center text-lg">
+                <Microscope className="mr-2 h-5 w-5 text-primary" />
+                Levures
+              </CardTitle>
+            </AccordionTrigger>
+            <AccordionContent>
+              <CardContent className="space-y-4 pt-4">
+                <Button type="button" variant="outline" size="sm" onClick={() => appendYeast({ name: '', type: 'Ale', form: 'Dry', amount: 0, laboratory: '', productId: '', attenuation: 75 })}>
+                  <PlusCircleIcon className="mr-2 h-4 w-4" /> Ajouter Levure
+                </Button>
+                {yeastFields.map((item, index) => (
+                  <div key={item.id} className="p-4 border rounded-md space-y-3 relative">
+                    <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => removeYeast(index)}>
+                      <Trash2Icon className="h-4 w-4" />
+                    </Button>
+                    <FormField control={form.control} name={`yeasts.${index}.name`} render={({ field }) => (<FormItem><FormLabel>Nom</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      <FormField control={form.control} name={`yeasts.${index}.type`} render={({ field }) => (
+                        <FormItem><FormLabel>Type</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value ?? 'Ale'}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Type de levure" /></SelectTrigger></FormControl>
                             <SelectContent>
-                                <SelectItem value="Ale">Ale</SelectItem>
-                                <SelectItem value="Lager">Lager</SelectItem>
-                                <SelectItem value="Mead">Mead</SelectItem>
-                                <SelectItem value="Wheat">Wheat</SelectItem>
-                                <SelectItem value="Mixed">Mixed</SelectItem>
-                                <SelectItem value="Cider">Cider</SelectItem>
+                              <SelectItem value="Ale">Ale</SelectItem><SelectItem value="Lager">Lager</SelectItem><SelectItem value="Wheat">Wheat</SelectItem>
+                              <SelectItem value="Wine">Wine</SelectItem><SelectItem value="Champagne">Champagne</SelectItem>
                             </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                </CardContent>
-            </AccordionContent>
-        </AccordionItem>
-        
-        <AccordionItem value="item-target-stats">
-            <AccordionTrigger>
-                <CardTitle className="flex items-center text-lg">
-                    <BarChart3 className="mr-2 h-5 w-5 text-primary" />
-                    Target Stats
-                </CardTitle>
-            </AccordionTrigger>
-            <AccordionContent>
-                <CardContent className="space-y-4 pt-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                            control={form.control}
-                            name="og"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>OG (Original Gravity)</FormLabel>
-                                <FormControl>
-                                    <Input type="number" step="0.001" placeholder="E.g., 1.050" {...field} value={field.value ?? ''} />
-                                </FormControl>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="fg"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>FG (Final Gravity)</FormLabel>
-                                <FormControl>
-                                    <Input type="number" step="0.001" placeholder="E.g., 1.010" {...field} value={field.value ?? ''} />
-                                </FormControl>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                          </Select>
+                          <FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name={`yeasts.${index}.form`} render={({ field }) => (
+                        <FormItem><FormLabel>Forme</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value ?? 'Dry'}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Forme de levure" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="Liquid">Liquid</SelectItem><SelectItem value="Dry">Dry</SelectItem>
+                              <SelectItem value="Slant">Slant</SelectItem><SelectItem value="Culture">Culture</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name={`yeasts.${index}.amount`} render={({ field }) => (<FormItem><FormLabel>Quantité</FormLabel><FormControl><Input type="number" step="0.001" {...field} /></FormControl><FormDescription>L pour liquide, g pour sèche</FormDescription><FormMessage /></FormItem>)} />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <FormField
-                            control={form.control}
-                            name="abv"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>ABV (%) - Calculated</FormLabel>
-                                <FormControl>
-                                    <Input type="number" step="0.01" {...field} readOnly />
-                                </FormControl>
-                                <FormDescription>Calculated automatically from OG and FG.</FormDescription>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="ibu"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>IBU - Calculated</FormLabel>
-                                <FormControl>
-                                    <Input type="number" step="0.1" {...field} readOnly />
-                                </FormControl>
-                                <FormDescription>Calculated (Tinseth) from hops, OG, and boil volume.</FormDescription>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="colorSrm"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Color (SRM)</FormLabel>
-                                <FormControl>
-                                    <Input type="number" step="0.1" {...field} value={field.value ?? ''} />
-                                </FormControl>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <FormField control={form.control} name={`yeasts.${index}.laboratory`} render={({ field }) => (<FormItem><FormLabel>Laboratoire</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name={`yeasts.${index}.productId`} render={({ field }) => (<FormItem><FormLabel>ID Produit</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name={`yeasts.${index}.attenuation`} render={({ field }) => (<FormItem><FormLabel>Atténuation (%)</FormLabel><FormControl><Input type="number" step="0.1" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                     </div>
-                </CardContent>
+                  </div>
+                ))}
+                {yeastFields.length === 0 && <p className="text-sm text-muted-foreground">Aucune levure ajoutée.</p>}
+              </CardContent>
             </AccordionContent>
-        </AccordionItem>
+          </AccordionItem>
 
-        <AccordionItem value="item-fermentables">
+          <AccordionItem value="item-miscs">
             <AccordionTrigger>
-                <CardTitle className="flex items-center text-lg">
-                    <Wheat className="mr-2 h-5 w-5 text-primary" />
-                    Fermentables
-                </CardTitle>
+              <CardTitle className="flex items-center text-lg">
+                <Package className="mr-2 h-5 w-5 text-primary" />
+                Ingrédients Divers
+              </CardTitle>
             </AccordionTrigger>
             <AccordionContent>
-                <CardContent className="space-y-4 pt-4">
-                    <Button type="button" variant="outline" size="sm" onClick={() => appendFermentable({ name: '', type: 'Grain', amount: 0, yield: 75, color: 0, amountUnit: 'kg' })} className="mb-4">
-                        <PlusCircleIcon className="mr-2 h-4 w-4" /> Add Fermentable
+              <CardContent className="space-y-4 pt-4">
+                <Button type="button" variant="outline" size="sm" onClick={() => appendMisc({ name: '', type: 'Spice', use: 'Boil', time: 0, amount: 0 })}>
+                  <PlusCircleIcon className="mr-2 h-4 w-4" /> Ajouter Ingrédient Divers
+                </Button>
+                {miscFields.map((item, index) => (
+                  <div key={item.id} className="p-4 border rounded-md space-y-3 relative">
+                    <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => removeMisc(index)}>
+                      <Trash2Icon className="h-4 w-4" />
                     </Button>
-                    {fermentableFields.map((item, index) => {
-                        const currentUnit = form.watch(`fermentables.${index}.amountUnit`);
-                        return (
-                            <div key={item.id} className="p-4 border rounded-md space-y-3 relative">
-                                <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => removeFermentable(index)}>
-                                    <Trash2Icon className="h-4 w-4" />
-                                </Button>
-                                <FormField control={form.control} name={`fermentables.${index}.name`} render={({ field }) => (<FormItem><FormLabel>Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 items-end">
-                                    <FormField control={form.control} name={`fermentables.${index}.type`} render={({ field }) => (
-                                        <FormItem><FormLabel>Type</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value ?? 'Grain'}>
-                                            <FormControl><SelectTrigger><SelectValue placeholder="Fermentable type" /></SelectTrigger></FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="Grain">Grain</SelectItem>
-                                                <SelectItem value="Extract">Extract</SelectItem>
-                                                <SelectItem value="Sugar">Sugar</SelectItem>
-                                                <SelectItem value="Adjunct">Adjunct</SelectItem>
-                                                <SelectItem value="Dry Extract">Dry Extract</SelectItem>
-                                                <SelectItem value="Liquid Extract">Liquid Extract</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage /></FormItem>)} />
-                                    <FormField
-                                    control={form.control}
-                                    name={`fermentables.${index}.amount`}
-                                    render={({ field }) => {
-                                        // field.value is always in KG. Display value depends on currentUnit.
-                                        const displayValue = currentUnit === 'g' ? parseFloat(((field.value || 0) * 1000).toFixed(3)) : parseFloat((field.value || 0).toFixed(3));
-                                        return (
-                                        <FormItem>
-                                            <FormLabel>Amount</FormLabel>
-                                            <FormControl>
-                                            <Input
-                                                type="number"
-                                                step={currentUnit === 'g' ? "1" : "0.001"}
-                                                value={isNaN(displayValue) ? '' : displayValue}
-                                                onChange={(e) => {
-                                                const rawValue = parseFloat(e.target.value);
-                                                if (!isNaN(rawValue)) {
-                                                    const valueInKg = currentUnit === 'g' ? rawValue / 1000 : rawValue;
-                                                    field.onChange(valueInKg); // Store as KG
-                                                } else {
-                                                    field.onChange(undefined);
-                                                }
-                                                }}
-                                            />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                        );
-                                    }}
-                                    />
-                                    <FormField
-                                    control={form.control}
-                                    name={`fermentables.${index}.amountUnit`}
-                                    render={({ field: unitField }) => (
-                                        <FormItem>
-                                        <FormLabel>Unit</FormLabel>
-                                        <Select onValueChange={unitField.onChange} defaultValue={unitField.value ?? 'kg'}>
-                                            <FormControl><SelectTrigger><SelectValue placeholder="Unit" /></SelectTrigger></FormControl>
-                                            <SelectContent>
-                                            <SelectItem value="kg">kg</SelectItem>
-                                            <SelectItem value="g">g</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                        </FormItem>
-                                    )}
-                                    />
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <FormField control={form.control} name={`fermentables.${index}.yield`} render={({ field }) => (<FormItem><FormLabel>Yield (%)</FormLabel><FormControl><Input type="number" step="0.1" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                    <FormField control={form.control} name={`fermentables.${index}.color`} render={({ field }) => (<FormItem><FormLabel>Color (SRM)</FormLabel><FormControl><Input type="number" step="0.1" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                </div>
-                            </div>
-                        );
-                    })}
-                    {fermentableFields.length === 0 && <p className="text-sm text-muted-foreground">No fermentables added.</p>}
-                </CardContent>
-            </AccordionContent>
-        </AccordionItem>
-
-        <AccordionItem value="item-hops">
-            <AccordionTrigger>
-                <CardTitle className="flex items-center text-lg">
-                    <HopIconLucide className="mr-2 h-5 w-5 text-primary" />
-                    Hops
-                </CardTitle>
-            </AccordionTrigger>
-            <AccordionContent>
-                <CardContent className="space-y-4 pt-4">
-                    <Button type="button" variant="outline" size="sm" onClick={() => appendHop({ name: '', alpha: 5.0, amount: 0.010, use: 'Boil', time: 60, form: 'Pellet', amountUnit: 'g' })} className="mb-4">
-                        <PlusCircleIcon className="mr-2 h-4 w-4" /> Add Hop
-                    </Button>
-                    {hopFields.map((item, index) => {
-                        const currentUnit = form.watch(`hops.${index}.amountUnit`);
-                        return (
-                            <div key={item.id} className="p-4 border rounded-md space-y-3 relative">
-                                <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => removeHop(index)}>
-                                    <Trash2Icon className="h-4 w-4" />
-                                </Button>
-                                <FormField control={form.control} name={`hops.${index}.name`} render={({ field }) => (<FormItem><FormLabel>Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 items-end">
-                                    <FormField control={form.control} name={`hops.${index}.alpha`} render={({ field }) => (<FormItem><FormLabel>Alpha (%)</FormLabel><FormControl><Input type="number" step="0.1" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                    <FormField
-                                    control={form.control}
-                                    name={`hops.${index}.amount`}
-                                    render={({ field }) => {
-                                        // field.value is always in KG. Display value depends on currentUnit.
-                                        const displayValue = currentUnit === 'g' ? parseFloat(((field.value || 0) * 1000).toFixed(1)) : parseFloat((field.value || 0).toFixed(4));
-                                        return (
-                                        <FormItem>
-                                            <FormLabel>Amount</FormLabel>
-                                            <FormControl>
-                                            <Input
-                                                type="number"
-                                                step={currentUnit === 'g' ? "0.1" : "0.0001"}
-                                                value={isNaN(displayValue) ? '' : displayValue}
-                                                onChange={(e) => {
-                                                const rawValue = parseFloat(e.target.value);
-                                                if (!isNaN(rawValue)) {
-                                                    const valueInKg = currentUnit === 'g' ? rawValue / 1000 : rawValue;
-                                                    field.onChange(valueInKg); // Store as KG
-                                                } else {
-                                                    field.onChange(undefined);
-                                                }
-                                                }}
-                                            />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                        );
-                                    }}
-                                    />
-                                    <FormField
-                                    control={form.control}
-                                    name={`hops.${index}.amountUnit`}
-                                    render={({ field: unitField }) => (
-                                        <FormItem>
-                                        <FormLabel>Unit</FormLabel>
-                                        <Select onValueChange={unitField.onChange} defaultValue={unitField.value ?? 'g'}>
-                                            <FormControl><SelectTrigger><SelectValue placeholder="Unit" /></SelectTrigger></FormControl>
-                                            <SelectContent>
-                                            <SelectItem value="kg">kg</SelectItem>
-                                            <SelectItem value="g">g</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                        </FormItem>
-                                    )}
-                                    />
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                                    <FormField control={form.control} name={`hops.${index}.use`} render={({ field }) => (
-                                        <FormItem><FormLabel>Use</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value ?? 'Boil'}>
-                                            <FormControl><SelectTrigger><SelectValue placeholder="Hop usage" /></SelectTrigger></FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="Boil">Boil</SelectItem><SelectItem value="Dry Hop">Dry Hop</SelectItem><SelectItem value="Mash">Mash</SelectItem>
-                                                <SelectItem value="First Wort">First Wort</SelectItem><SelectItem value="Aroma">Aroma</SelectItem><SelectItem value="Whirlpool">Whirlpool</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage /></FormItem>)} />
-                                    <FormField control={form.control} name={`hops.${index}.time`} render={({ field }) => (<FormItem><FormLabel>Time (min)</FormLabel><FormControl><Input type="number" step="1" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                    <FormField control={form.control} name={`hops.${index}.form`} render={({ field }) => (
-                                        <FormItem><FormLabel>Form</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value ?? 'Pellet'}>
-                                            <FormControl><SelectTrigger><SelectValue placeholder="Hop form" /></SelectTrigger></FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="Pellet">Pellet</SelectItem><SelectItem value="Plug">Plug</SelectItem>
-                                                <SelectItem value="Leaf">Leaf</SelectItem><SelectItem value="Extract">Extract</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage /></FormItem>)} />
-                                </div>
-                            </div>
-                        );
-                    })}
-                    {hopFields.length === 0 && <p className="text-sm text-muted-foreground">No hops added.</p>}
-                </CardContent>
-            </AccordionContent>
-        </AccordionItem>
-
-        <AccordionItem value="item-yeasts">
-            <AccordionTrigger>
-                <CardTitle className="flex items-center text-lg">
-                    <Microscope className="mr-2 h-5 w-5 text-primary" />
-                    Yeasts
-                </CardTitle>
-            </AccordionTrigger>
-            <AccordionContent>
-                <CardContent className="space-y-4 pt-4">
-                    <Button type="button" variant="outline" size="sm" onClick={() => appendYeast({ name: '', type: 'Ale', form: 'Dry', amount: 0, laboratory: '', productId: '', attenuation: 75 })} className="mb-4">
-                        <PlusCircleIcon className="mr-2 h-4 w-4" /> Add Yeast
-                    </Button>
-                    {yeastFields.map((item, index) => (
-                        <div key={item.id} className="p-4 border rounded-md space-y-3 relative">
-                            <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => removeYeast(index)}>
-                                <Trash2Icon className="h-4 w-4" />
-                            </Button>
-                            <FormField control={form.control} name={`yeasts.${index}.name`} render={({ field }) => (<FormItem><FormLabel>Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                <FormField control={form.control} name={`yeasts.${index}.type`} render={({ field }) => (
-                                    <FormItem><FormLabel>Type</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value ?? 'Ale'}>
-                                        <FormControl><SelectTrigger><SelectValue placeholder="Yeast type" /></SelectTrigger></FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="Ale">Ale</SelectItem><SelectItem value="Lager">Lager</SelectItem><SelectItem value="Wheat">Wheat</SelectItem>
-                                            <SelectItem value="Wine">Wine</SelectItem><SelectItem value="Champagne">Champagne</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`yeasts.${index}.form`} render={({ field }) => (
-                                    <FormItem><FormLabel>Form</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value ?? 'Dry'}>
-                                        <FormControl><SelectTrigger><SelectValue placeholder="Yeast form" /></SelectTrigger></FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="Liquid">Liquid</SelectItem><SelectItem value="Dry">Dry</SelectItem>
-                                            <SelectItem value="Slant">Slant</SelectItem><SelectItem value="Culture">Culture</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`yeasts.${index}.amount`} render={({ field }) => (<FormItem><FormLabel>Amount</FormLabel><FormControl><Input type="number" step="0.001" {...field} /></FormControl><FormDescription>L for liquid, g for dry</FormDescription><FormMessage /></FormItem>)} />
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <FormField control={form.control} name={`yeasts.${index}.laboratory`} render={({ field }) => (<FormItem><FormLabel>Laboratory</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`yeasts.${index}.productId`} render={({ field }) => (<FormItem><FormLabel>Product ID</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`yeasts.${index}.attenuation`} render={({ field }) => (<FormItem><FormLabel>Attenuation (%)</FormLabel><FormControl><Input type="number" step="0.1" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                            </div>
-                        </div>
-                    ))}
-                    {yeastFields.length === 0 && <p className="text-sm text-muted-foreground">No yeasts added.</p>}
-                </CardContent>
-            </AccordionContent>
-        </AccordionItem>
-
-        <AccordionItem value="item-miscs">
-            <AccordionTrigger>
-                <CardTitle className="flex items-center text-lg">
-                    <Package className="mr-2 h-5 w-5 text-primary" />
-                    Miscellaneous Ingredients
-                </CardTitle>
-            </AccordionTrigger>
-            <AccordionContent>
-                <CardContent className="space-y-4 pt-4">
-                    <Button type="button" variant="outline" size="sm" onClick={() => appendMisc({ name: '', type: 'Spice', use: 'Boil', time: 0, amount: 0 })} className="mb-4">
-                        <PlusCircleIcon className="mr-2 h-4 w-4" /> Add Miscellaneous Ingredient
-                    </Button>
-                    {miscFields.map((item, index) => (
-                        <div key={item.id} className="p-4 border rounded-md space-y-3 relative">
-                            <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => removeMisc(index)}>
-                                <Trash2Icon className="h-4 w-4" />
-                            </Button>
-                            <FormField control={form.control} name={`miscs.${index}.name`} render={({ field }) => (<FormItem><FormLabel>Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            <FormField control={form.control} name={`miscs.${index}.type`} render={({ field }) => (
-                                    <FormItem><FormLabel>Type</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value ?? 'Spice'}>
-                                        <FormControl><SelectTrigger><SelectValue placeholder="Ingredient type" /></SelectTrigger></FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="Spice">Spice</SelectItem><SelectItem value="Fining">Fining</SelectItem><SelectItem value="Water Agent">Water Agent</SelectItem>
-                                            <SelectItem value="Herb">Herb</SelectItem><SelectItem value="Flavor">Flavor</SelectItem><SelectItem value="Other">Other</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`miscs.${index}.use`} render={({ field }) => (
-                                    <FormItem><FormLabel>Use</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value ?? 'Boil'}>
-                                        <FormControl><SelectTrigger><SelectValue placeholder="Usage" /></SelectTrigger></FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="Boil">Boil</SelectItem><SelectItem value="Mash">Mash</SelectItem><SelectItem value="Primary">Primary</SelectItem>
-                                            <SelectItem value="Secondary">Secondary</SelectItem><SelectItem value="Bottling">Bottling</SelectItem><SelectItem value="Kegging">Kegging</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`miscs.${index}.time`} render={({ field }) => (<FormItem><FormLabel>Time (min)</FormLabel><FormControl><Input type="number" step="1" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`miscs.${index}.amount`} render={({ field }) => (<FormItem><FormLabel>Amount</FormLabel><FormControl><Input type="number" step="0.001" {...field} /></FormControl><FormDescription>Units depend on type</FormDescription><FormMessage /></FormItem>)} />
-                            </div>
-                        </div>
-                    ))}
-                    {miscFields.length === 0 && <p className="text-sm text-muted-foreground">No miscellaneous ingredients added.</p>}
-                </CardContent>
-            </AccordionContent>
-        </AccordionItem>
-
-        <AccordionItem value="item-mash">
-            <AccordionTrigger>
-                <CardTitle className="flex items-center text-lg">
-                    <Thermometer className="mr-2 h-5 w-5 text-primary" />
-                    Mash Profile
-                </CardTitle>
-            </AccordionTrigger>
-            <AccordionContent>
-                <CardContent className="space-y-4 pt-4">
-                    <FormField
-                        control={form.control}
-                        name="mash.name"
-                        render={({ field }) => (
-                            <FormItem>
-                            <FormLabel>Mash Profile Name</FormLabel>
-                            <FormControl>
-                                <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <div className="flex flex-row items-center justify-between pt-2">
-                        <h4 className="font-medium">Mash Steps</h4>
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendMashStep({ name: '', type: 'Infusion', stepTemp: 65, stepTime: 60 })} className="mb-4">
-                            <PlusCircleIcon className="mr-2 h-4 w-4" /> Add Step
-                        </Button>
+                    <FormField control={form.control} name={`miscs.${index}.name`} render={({ field }) => (<FormItem><FormLabel>Nom</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <FormField control={form.control} name={`miscs.${index}.type`} render={({ field }) => (
+                        <FormItem><FormLabel>Type</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value ?? 'Spice'}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Type d'ingrédient" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="Spice">Spice</SelectItem><SelectItem value="Fining">Fining</SelectItem><SelectItem value="Water Agent">Water Agent</SelectItem>
+                              <SelectItem value="Herb">Herb</SelectItem><SelectItem value="Flavor">Flavor</SelectItem><SelectItem value="Other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name={`miscs.${index}.use`} render={({ field }) => (
+                        <FormItem><FormLabel>Utilisation</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value ?? 'Boil'}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Utilisation" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="Boil">Boil</SelectItem><SelectItem value="Mash">Mash</SelectItem><SelectItem value="Primary">Primary</SelectItem>
+                              <SelectItem value="Secondary">Secondary</SelectItem><SelectItem value="Bottling">Bottling</SelectItem><SelectItem value="Kegging">Kegging</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name={`miscs.${index}.time`} render={({ field }) => (<FormItem><FormLabel>Temps (min)</FormLabel><FormControl><Input type="number" step="1" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name={`miscs.${index}.amount`} render={({ field }) => (<FormItem><FormLabel>Quantité</FormLabel><FormControl><Input type="number" step="0.001" {...field} /></FormControl><FormDescription>Unités selon type</FormDescription><FormMessage /></FormItem>)} />
                     </div>
-                    {mashStepFields.map((item, index) => (
-                        <div key={item.id} className="p-4 border rounded-md space-y-3 relative">
-                            <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => removeMashStep(index)}>
-                                <Trash2Icon className="h-4 w-4" />
-                            </Button>
-                            <FormField control={form.control} name={`mash.mashSteps.${index}.name`} render={({ field }) => (<FormItem><FormLabel>Step Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <FormField control={form.control} name={`mash.mashSteps.${index}.type`} render={({ field }) => (
-                                    <FormItem><FormLabel>Step Type</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value ?? 'Infusion'}>
-                                        <FormControl><SelectTrigger><SelectValue placeholder="Step type" /></SelectTrigger></FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="Infusion">Infusion</SelectItem>
-                                            <SelectItem value="Temperature">Temperature</SelectItem>
-                                            <SelectItem value="Decoction">Decoction</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`mash.mashSteps.${index}.stepTemp`} render={({ field }) => (<FormItem><FormLabel>Step Temp (°C)</FormLabel><FormControl><Input type="number" step="1" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name={`mash.mashSteps.${index}.stepTime`} render={({ field }) => (<FormItem><FormLabel>Step Time (min)</FormLabel><FormControl><Input type="number" step="1" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                            </div>
-                        </div>
-                    ))}
-                    {mashStepFields.length === 0 && <p className="text-sm text-muted-foreground">No mash steps added.</p>}
-                </CardContent>
+                  </div>
+                ))}
+                {miscFields.length === 0 && <p className="text-sm text-muted-foreground">Aucun ingrédient divers ajouté.</p>}
+              </CardContent>
             </AccordionContent>
-        </AccordionItem>
+          </AccordionItem>
 
-        <AccordionItem value="item-notes">
+          <AccordionItem value="item-mash">
             <AccordionTrigger>
-                <CardTitle className="flex items-center text-lg">
-                    <StickyNote className="mr-2 h-5 w-5 text-primary" />
-                    Notes
-                </CardTitle>
+              <CardTitle className="flex items-center text-lg">
+                <Thermometer className="mr-2 h-5 w-5 text-primary" />
+                Profil d'Empâtage
+              </CardTitle>
             </AccordionTrigger>
             <AccordionContent>
-                <CardContent className="pt-4">
-                    <FormField
-                    control={form.control}
-                    name="notes"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Recipe Notes (Optional)</FormLabel>
-                        <FormControl>
-                            <Textarea
-                            placeholder="Add your notes about the recipe, brewing process, etc. here."
-                            className="resize-y min-h-[100px]"
-                            {...field}
-                            value={field.value ?? ''}
-                            />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                </CardContent>
+              <CardContent className="space-y-4 pt-4">
+                <FormField
+                  control={form.control}
+                  name="mash.name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nom du Profil d'Empâtage</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex flex-row items-center justify-between pt-2">
+                  <h4 className="font-medium">Étapes d'Empâtage</h4>
+                  <Button type="button" variant="outline" size="sm" onClick={() => appendMashStep({ name: '', type: 'Infusion', stepTemp: 65, stepTime: 60 })}>
+                    <PlusCircleIcon className="mr-2 h-4 w-4" /> Ajouter Étape
+                  </Button>
+                </div>
+                {mashStepFields.map((item, index) => (
+                  <div key={item.id} className="p-4 border rounded-md space-y-3 relative">
+                    <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => removeMashStep(index)}>
+                      <Trash2Icon className="h-4 w-4" />
+                    </Button>
+                    <FormField control={form.control} name={`mash.mashSteps.${index}.name`} render={({ field }) => (<FormItem><FormLabel>Nom de l'étape</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <FormField control={form.control} name={`mash.mashSteps.${index}.type`} render={({ field }) => (
+                        <FormItem><FormLabel>Type d'étape</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value ?? 'Infusion'}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Type d'étape" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="Infusion">Infusion</SelectItem>
+                              <SelectItem value="Temperature">Temperature</SelectItem>
+                              <SelectItem value="Decoction">Decoction</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name={`mash.mashSteps.${index}.stepTemp`} render={({ field }) => (<FormItem><FormLabel>Temp. Étape (°C)</FormLabel><FormControl><Input type="number" step="1" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name={`mash.mashSteps.${index}.stepTime`} render={({ field }) => (<FormItem><FormLabel>Durée Étape (min)</FormLabel><FormControl><Input type="number" step="1" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    </div>
+                  </div>
+                ))}
+                {mashStepFields.length === 0 && <p className="text-sm text-muted-foreground">Aucune étape d'empâtage ajoutée.</p>}
+              </CardContent>
             </AccordionContent>
-        </AccordionItem>
-       </Accordion>
+          </AccordionItem>
+
+          <AccordionItem value="item-steps-markdown">
+            <AccordionTrigger>
+              <CardTitle className="flex items-center text-lg">
+                <FileText className="mr-2 h-5 w-5 text-primary" />
+                Étapes de la Recette (Markdown)
+              </CardTitle>
+            </AccordionTrigger>
+            <AccordionContent>
+              <CardContent className="space-y-4 pt-4">
+                 <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => markdownFileInputRef.current?.click()}
+                    className="mb-2"
+                  >
+                   <UploadCloud className="mr-2 h-4 w-4" /> Importer un fichier .md
+                 </Button>
+                 <input 
+                    type="file" 
+                    accept=".md" 
+                    ref={markdownFileInputRef} 
+                    className="hidden" 
+                    onChange={handleMarkdownFileSelect}
+                  />
+                <FormField
+                  control={form.control}
+                  name="stepsMarkdown"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Contenu Markdown des Étapes</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Entrez ou importez le contenu Markdown pour les étapes de la recette ici..."
+                          className="resize-y min-h-[200px] font-mono text-sm"
+                          {...field}
+                          value={field.value ?? ''}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Ce contenu sera sauvegardé en tant que fichier steps.md dans le dossier de la recette.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="item-notes">
+            <AccordionTrigger>
+              <CardTitle className="flex items-center text-lg">
+                <StickyNote className="mr-2 h-5 w-5 text-primary" />
+                Notes de Recette
+              </CardTitle>
+            </AccordionTrigger>
+            <AccordionContent>
+              <CardContent className="pt-4">
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes sur la recette (Optionnel)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Ajoutez vos notes sur la recette, le processus de brassage, etc."
+                          className="resize-y min-h-[100px]"
+                          {...field}
+                          value={field.value ?? ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
 
         <Button type="submit" size="lg" className="w-full md:w-auto mt-8" disabled={form.formState.isSubmitting}>
           <SaveIcon className="mr-2 h-5 w-5" />
-          {form.formState.isSubmitting 
-            ? (mode === 'edit' ? "Updating..." : "Saving...") 
-            : (mode === 'edit' ? "Update Recipe" : "Create and Save Recipe")}
+          {form.formState.isSubmitting
+            ? (mode === 'edit' ? "Mise à jour en cours..." : "Enregistrement en cours...")
+            : (mode === 'edit' ? "Mettre à Jour la Recette" : "Créer et Enregistrer la Recette")}
         </Button>
       </form>
     </Form>
   );
 }
-
-    
