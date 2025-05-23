@@ -112,8 +112,8 @@ BrewCrafter offre les fonctionnalités clés suivantes :
     *   Déconnexion via une icône dans l'en-tête principal.
     *   **Configuration TOTP** :
         *   Un secret (`TOTP_SECRET`) doit être configuré dans les variables d'environnement.
-        *   Une page dédiée (`/admin/setup-totp`) permettait à l'administrateur de scanner un QR code (une fois, pour la configuration) pour lier son application d'authentification.
-        *   **AVERTISSEMENT DE SÉCURITÉ / CHANGEMENT IMPORTANT** : La page `/admin/setup-totp` est destinée à la configuration initiale unique. Elle est maintenant **désactivée par défaut** (renvoie une erreur 404) pour des raisons de sécurité. Pour reconfigurer le TOTP, le code source de cette page (`src/app/admin/setup-totp/page.tsx`) doit être temporairement restauré ou modifié pour être accessible. Il est fortement recommandé de la rendre à nouveau inaccessible après la configuration. L'accès non contrôlé à cette page permettrait à n'importe qui de lier son authentificateur au compte admin.
+        *   Une page dédiée (`/admin/setup-totp`) permet à l'administrateur de scanner un QR code (une fois, pour la configuration) pour lier son application d'authentification.
+        *   **AVERTISSEMENT DE SÉCURITÉ** : La page `/admin/setup-totp` est destinée à la configuration initiale unique. Pour des raisons de sécurité, il est fortement recommandé de la rendre à nouveau inaccessible après la configuration (par exemple, en modifiant le code de `src/app/admin/setup-totp/page.tsx` pour qu'il renvoie `notFound()`). L'accès non contrôlé à cette page permettrait à n'importe qui de lier son authentificateur au compte admin.
 
 ## Pile Technique
 
@@ -187,11 +187,10 @@ Pour exécuter BrewCrafter localement :
 4.  Exécutez le serveur de développement : `npm run dev`.
 5.  Ouvrez [http://localhost:9002](http://localhost:9002) (ou le port spécifié dans `package.json`) dans votre navigateur.
 6.  **Première Configuration Admin (si nécessaire)** :
-    *   Si vous devez configurer le TOTP pour la première fois, vous devrez temporairement restaurer ou activer le contenu de la page `/admin/setup-totp` (située dans `src/app/admin/setup-totp/page.tsx`). Par défaut, cette page est désactivée (renvoie une erreur 404) pour des raisons de sécurité.
-    *   Une fois accessible, naviguez vers `http://localhost:9002/admin/setup-totp`.
+    *   Naviguez vers `http://localhost:9002/admin/setup-totp`.
     *   Scannez le QR code avec votre application d'authentification (par exemple, Google Authenticator, Authy).
     *   Vous pouvez maintenant utiliser les codes générés pour vous connecter en tant qu'admin via le bouton de l'en-tête.
-    *   **Rendez à nouveau la page de configuration TOTP inaccessible après l'avoir utilisée.**
+    *   **Il est fortement recommandé de rendre à nouveau la page de configuration TOTP inaccessible (`src/app/admin/setup-totp/page.tsx`) après l'avoir utilisée, surtout pour un déploiement en production.**
 
 En développement local, les fonctionnalités "Importer une recette" et "New Recipe" sauvegarderont les fichiers sur votre magasin Vercel Blob si `BLOB_READ_WRITE_TOKEN` est correctement configuré et valide. La suppression de recettes affectera également votre Vercel Blob.
 
@@ -216,10 +215,10 @@ Si vous souhaitez forker ce projet et le déployer pour votre propre usage :
     *   Créez un fichier `.env.local` à la racine de votre projet (et ajoutez-le à `.gitignore`).
     *   Copiez-y les mêmes variables d'environnement que celles configurées sur Vercel.
 7.  **Configuration Initiale du TOTP** :
-    *   Pour lier votre application d'authentification (Google Authenticator, Authy, etc.), vous devrez temporairement rendre la page `/admin/setup-totp/page.tsx` accessible. Pour cela, modifiez le fichier `src/app/admin/setup-totp/page.tsx` pour qu'il retourne le code JSX de la page de configuration (le code d'origine peut être trouvé dans l'historique Git si besoin, ou vous pouvez le recréer pour afficher un QR code généré par `generateTotpQrCodeAction`).
-    *   Déployez cette modification (ou exécutez localement).
-    *   Accédez à `/admin/setup-totp`, scannez le QR code.
-    *   Une fois configuré, **rendez à nouveau la page `/admin/setup-totp/page.tsx` inaccessible** (par exemple, en la faisant retourner `notFound()` comme dans la version actuelle du dépôt principal) et redéployez.
+    *   La page `/admin/setup-totp/page.tsx` est maintenant accessible par défaut pour faciliter le fork et la configuration.
+    *   Déployez votre application (ou exécutez localement).
+    *   Accédez à `/admin/setup-totp` sur votre instance, scannez le QR code.
+    *   Une fois configuré, **il est fortement recommandé de sécuriser ou de rendre à nouveau la page `/admin/setup-totp/page.tsx` inaccessible** (par exemple, en la faisant retourner `notFound()` comme elle le faisait précédemment) et redéployez si vous êtes dans un environnement de production ou partagé.
 8.  **Ajoutez vos Recettes** :
     *   Vous pouvez utiliser l'interface d'administration (une fois connecté) pour créer de nouvelles recettes ou importer vos fichiers BeerXML. Ils seront stockés dans votre Vercel Blob.
 
