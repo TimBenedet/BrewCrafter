@@ -1,11 +1,11 @@
 
-# GitBrew - Your Cloud-Based Beer Recipe Book
+# BrewCrafter - Your Cloud-Based Beer Recipe Book
 
-GitBrew is a modern web application designed for homebrewers and craft beer enthusiasts to manage, create, and explore beer recipes. It leverages a cloud-based approach for recipe storage, making your recipes accessible anywhere.
+BrewCrafter is a modern web application designed for homebrewers and craft beer enthusiasts to manage, create, and explore beer recipes. It leverages a cloud-based approach for recipe storage, making your recipes accessible anywhere.
 
 ## Project Goal
 
-The primary goal of GitBrew is to provide a user-friendly and feature-rich platform for:
+The primary goal of BrewCrafter is to provide a user-friendly and feature-rich platform for:
 *   Storing and organizing BeerXML recipes in the cloud.
 *   Easily viewing detailed recipe information, including ingredients, mash steps, and target statistics.
 *   Creating new recipes from scratch using a comprehensive form that generates BeerXML.
@@ -14,9 +14,9 @@ The primary goal of GitBrew is to provide a user-friendly and feature-rich platf
 
 ## Features
 
-GitBrew offers the following key functionalities:
+BrewCrafter offers the following key functionalities:
 
-*   **Recipe Listing (My Recipes Page)**:
+*   **Recipe Listing (BrewCrafter Recipes Page)**:
     *   Displays all your BeerXML recipes stored in your Vercel Blob.
     *   Each recipe is presented on a card showing key details: Name, Style, Batch Volume, Original Gravity (OG), Final Gravity (FG), Alcohol By Volume (ABV), International Bitterness Units (IBU), and Color (SRM).
     *   Filter recipes by style.
@@ -52,11 +52,11 @@ GitBrew offers the following key functionalities:
     *   On saving, the recipe is converted to BeerXML format and uploaded to your Vercel Blob store, organized in a folder named after the recipe slug.
 
 *   **Recipe Deletion**:
-    *   Allows deleting recipes directly from the "My Recipes" page.
+    *   Allows deleting recipes directly from the "BrewCrafter Recipes" page.
     *   A confirmation dialog prevents accidental deletions.
     *   Deletes the entire recipe folder (including `recipe.xml` and `steps.md`) from Vercel Blob.
 
-*   **GitBrew Label (Label Designer)**:
+*   **BrewCrafter Label (Label Designer)**:
     *   A dedicated page to design simple front and back labels for your beers.
     *   **Controls**:
         *   Load recipe information (Beer Name, IBU, ABV, Description, Ingredients) from existing recipes.
@@ -72,7 +72,7 @@ GitBrew offers the following key functionalities:
         *   Previews reflect background image/color and text color choices.
     *   **Download**: Download the designed front and back labels as PNG images, scaled for ~300 DPI printing based on typical physical label dimensions.
 
-*   **GitBrew Calculator**:
+*   **BrewCrafter Calculator**:
     *   A page with handy client-side brewing calculators:
         *   **ABV Calculator**: Calculates Alcohol By Volume from Original and Final Gravity.
         *   **IBU Calculator (Tinseth)**: Estimates International Bitterness Units based on hop additions (amount, alpha acid, boil time), original gravity, and boil volume. Allows multiple hop additions.
@@ -80,7 +80,7 @@ GitBrew offers the following key functionalities:
 
 ## Technical Stack
 
-GitBrew is built with a modern, JavaScript-focused tech stack:
+BrewCrafter is built with a modern, JavaScript-focused tech stack:
 
 *   **Framework**: [Next.js](https://nextjs.org/) (App Router)
 *   **Language**: [TypeScript](https://www.typescriptlang.org/)

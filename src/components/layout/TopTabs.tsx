@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { List, Tag, Calculator, Menu as MenuIcon } from 'lucide-react';
 
 const navItems = [
-  { href: '/', label: 'My Recipes', icon: List },
+  { href: '/', label: 'BrewCrafter Recipes', icon: List },
   { href: '/label', label: 'BrewCrafter Label', icon: Tag },
   { href: '/calculator', label: 'BrewCrafter Calculator', icon: Calculator },
 ];
