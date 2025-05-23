@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -5,7 +6,7 @@ import { generateTotpQrCodeAction } from '@/app/actions/auth-actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, ShieldCheck, ShieldAlert, QrCodeIcon } from 'lucide-react';
+import { Loader2, ShieldCheck, ShieldAlert, QrCodeIcon, AlertTriangle } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -30,21 +31,17 @@ export default function SetupTotpPage() {
     fetchQrCode();
   }, []);
 
-  // Example of how an admin might generate a secret if they don't have one
-  // This should NOT be run in production client-side like this.
-  // It's here for illustrative purposes for the admin.
-  const handleGenerateSecretExample = () => {
-    // This is an example. In a real scenario, you'd run this in a secure environment
-    // (e.g., a local script) and then set the TOTP_SECRET environment variable.
-    // const secret = speakeasy.generateSecret({ length: 32, name: process.env.NEXT_PUBLIC_TOTP_ISSUER_NAME });
-    // console.log('Example generated secret (base32):', secret.base32);
-    // alert(`Example generated secret (base32): ${secret.base32}. Store this securely as TOTP_SECRET.`);
-    alert("Pour générer un nouveau secret, utilisez un outil sécurisé (comme un script local avec 'speakeasy') puis configurez la variable d'environnement TOTP_SECRET sur Vercel et dans votre .env.local. Ne le faites que si vous comprenez les implications de sécurité.");
-  };
-
-
   return (
     <div className="container mx-auto max-w-md py-12">
+      <Alert variant="destructive" className="mb-6">
+        <AlertTriangle className="h-5 w-5" />
+        <AlertTitle className="font-bold">AVERTISSEMENT DE SÉCURITÉ IMPORTANT</AlertTitle>
+        <AlertDescription>
+          Cette page est destinée à la **configuration initiale unique** du TOTP par l'administrateur.
+          Une fois votre application d'authentification configurée, il est fortement recommandé de rendre cette page inaccessible (par exemple, en supprimant le fichier ou en la protégeant) dans un environnement de production pour empêcher toute configuration non autorisée.
+        </AlertDescription>
+      </Alert>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center text-2xl">
@@ -53,6 +50,7 @@ export default function SetupTotpPage() {
           </CardTitle>
           <CardDescription>
             Scannez ce QR code avec votre application d'authentification (Google Authenticator, Authy, etc.) pour configurer l'accès admin.
+            Ceci ne doit être fait qu'une seule fois.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -85,9 +83,9 @@ export default function SetupTotpPage() {
                 <AlertTitle>Instructions Importantes</AlertTitle>
                 <AlertDescription>
                   <ul className="list-disc space-y-1 pl-5 text-sm">
-                    <li>Scannez ce QR code avec votre application d'authentification préférée.</li>
-                    <li>Gardez votre secret TOTP (la variable d'environnement `TOTP_SECRET`) en sécurité. Ne le partagez jamais.</li>
-                    <li>Si vous perdez l'accès à votre application d'authentification, vous devrez reconfigurer le `TOTP_SECRET` et re-scanner.</li>
+                    <li>Scannez ce QR code une seule fois avec votre application d'authentification préférée.</li>
+                    <li>Gardez votre `TOTP_SECRET` (la variable d'environnement) en sécurité. Ne le partagez jamais.</li>
+                    <li>Une fois la configuration terminée, cette page `/admin/setup-totp` devrait être sécurisée ou supprimée pour la production.</li>
                   </ul>
                 </AlertDescription>
               </Alert>
@@ -98,11 +96,6 @@ export default function SetupTotpPage() {
               <Link href="/">Retour à l'accueil</Link>
             </Button>
           </div>
-           {/* <div className="pt-4 text-center">
-            <Button variant="link" size="sm" onClick={handleGenerateSecretExample} className="text-xs text-muted-foreground">
-              (Admin Dev: Aide pour générer un nouveau secret)
-            </Button>
-          </div> */}
         </CardContent>
       </Card>
     </div>
