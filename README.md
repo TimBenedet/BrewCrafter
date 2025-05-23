@@ -8,8 +8,8 @@ BrewCrafter is a modern web application designed for homebrewers and craft beer 
 The primary goal of BrewCrafter is to provide a user-friendly and feature-rich platform for:
 *   Storing and organizing BeerXML recipes in the cloud (Vercel Blob).
 *   Easily viewing detailed recipe information, including ingredients, mash steps, and target statistics.
-*   Creating new recipes from scratch using a comprehensive form that generates BeerXML and saves it to Vercel Blob.
-*   Editing existing recipes.
+*   Creating new recipes from scratch using a comprehensive form that generates BeerXML (and optionally Markdown steps) and saves it to Vercel Blob.
+*   Editing existing recipes, including their detailed brewing steps (via Markdown).
 *   Deleting recipes from Vercel Blob.
 *   Calculating essential brewing metrics (ABV, IBU, SG Correction) via client-side calculators.
 *   Designing simple, printable labels for your homebrewed beers, with options to pre-fill data from your recipes.
@@ -45,25 +45,31 @@ BrewCrafter offers the following key functionalities:
 *   **Recipe Creation & Editing (Admin Only)**:
     *   **New Recipe Creation**:
         *   A dedicated "New Recipe" page (`/recipes/new`) with a comprehensive, multi-section accordion form.
-        *   Allows input for all standard BeerXML fields: General Information, Style Details, Target Statistics (OG, FG, Color SRM - ABV & IBU are automatically calculated), dynamic lists for Fermentables, Hops, Yeasts, and Miscs (with unit selection kg/g), Mash Profile details, and Notes.
-        *   On saving, the recipe is converted to BeerXML format and uploaded to your Vercel Blob store, organized in a folder named after the recipe slug.
+        *   Allows input for all standard BeerXML fields: General Information, Style Details, Target Statistics (OG, FG, Color SRM - ABV & IBU are automatically calculated), dynamic lists for Fermentables, Hops, Yeasts, and Miscs (with unit selection kg/g), Mash Profile details, Notes, and **detailed brewing steps via an integrated Markdown editor/importer**.
+        *   On saving, the recipe is converted to BeerXML format (`recipe.xml`) and the steps to Markdown (`steps.md`). Both files are uploaded to your Vercel Blob store, organized in a folder named after the recipe slug.
     *   **Recipe Editing**:
-        *   Accessible via an "Edit Recipe" button on the Recipe Detail View.
-        *   Loads the existing recipe data into the same comprehensive form for modification.
-        *   Saving updates the `recipe.xml` file in Vercel Blob.
+        *   Accessible via an "Edit Recipe" button on the Recipe Detail View (visible to admins).
+        *   Loads the existing recipe data (including `steps.md` content) into the same comprehensive form for modification.
+        *   Allows editing all aspects of the recipe, including the Markdown steps.
+        *   Saving updates the `recipe.xml` and `steps.md` files in Vercel Blob.
 
 *   **Recipe Import (Admin Only)**:
-    *   "Import recipe" button on the "BrewCrafter Recipes" page.
+    *   "Import recipe" button on the "BrewCrafter Recipes" page (visible to admins).
     *   Allows selecting a single BeerXML (`.xml`) file from your local computer.
-    *   The imported recipe is then saved to Vercel Blob.
-    *   **Clarification on Import Process**:
+    *   The imported recipe is then saved to Vercel Blob (`recipe.xml` in its own slug-based folder).
+    *   **Clarification on Import Process & Steps**:
         1.  **Import XML First**: Use the "Import recipe" button to upload your `.xml` file. This makes the basic recipe details and ingredients visible in the app.
-        2.  **Add Brewing Steps (Optional but Recommended)**: To see the detailed brewing procedure in the "Recipe Steps" tab for an imported recipe, you will need to manually create/upload a corresponding `steps.md` file into that recipe's folder on Vercel Blob. For newly created recipes via the form, there isn't an integrated way to generate `steps.md`; this would also be a manual addition to Vercel Blob if desired.
+        2.  **Add/Edit Brewing Steps (Optional but Recommended)**: To see detailed brewing procedures in the "Recipe Steps" tab for an imported recipe, you will need to:
+            *   Click "View Recipe" on the imported recipe.
+            *   Click "Edit Recipe".
+            *   In the "Recipe Steps (Markdown)" section of the form, you can either manually write your steps or import a `.md` file.
+            *   Save the recipe. This will create or update the `steps.md` file in that recipe's folder on Vercel Blob.
+        *   For newly created recipes via the form, the Markdown steps are handled directly within the form.
 
 *   **Recipe Deletion (Admin Only)**:
-    *   Allows deleting recipes directly from the "BrewCrafter Recipes" page.
+    *   Allows deleting recipes directly from the "BrewCrafter Recipes" page (via a delete icon on the recipe card, visible to admins).
     *   A confirmation dialog prevents accidental deletions.
-    *   Deletes the entire recipe folder (including `recipe.xml` and `steps.md`) from Vercel Blob.
+    *   Deletes the entire recipe folder (including `recipe.xml` and any `steps.md`) from Vercel Blob.
 
 *   **BrewCrafter Label (Label Designer)**:
     *   A dedicated page (`/label`) to design simple front and back labels for your beers.
@@ -124,8 +130,8 @@ This application is designed to be deployed on [Vercel](https://vercel.com/) and
     *   Recipe details (including Markdown steps) are fetched similarly when a user navigates to a specific recipe page, by directly reading from Vercel Blob via `src/lib/recipe-utils.ts`.
 
 *   **Writing & Deleting Recipes (Admin Only)**:
-    *   When a new recipe is created via the "New Recipe" form or imported, the generated/provided BeerXML is uploaded to Vercel Blob using a Server Action (`addRecipesAction` in `src/app/actions/recipe-actions.ts`) that utilizes the `put` function from `@vercel/blob`.
-    *   When a recipe is edited, the updated `recipe.xml` overwrites the existing file in Vercel Blob.
+    *   When a new recipe is created via the "New Recipe" form or imported, the generated/provided BeerXML (and Markdown steps, if any) are uploaded to Vercel Blob using a Server Action (`addRecipesAction` in `src/app/actions/recipe-actions.ts`) that utilizes the `put` function from `@vercel/blob`.
+    *   When a recipe is edited, the updated `recipe.xml` and `steps.md` overwrite the existing files in Vercel Blob.
     *   When a recipe is deleted, a Server Action (`deleteRecipeAction`) uses the `del` function from `@vercel/blob` to remove the corresponding recipe folder and its contents from the Blob store.
 
 *   **Environment Variables**:
@@ -133,5 +139,4 @@ This application is designed to be deployed on [Vercel](https://vercel.com/) and
     *   Another variable, `NEXT_PUBLIC_ADMIN_PASSWORD`, must be set to enable admin functionalities.
     *   For local development, these tokens should be made available via a `.env.local` file (pulled using `vercel env pull` or set manually).
 
-This cloud-based storage ensures that your recipes are persisted across deployments and accessible from anywhere, rather than relying on the local filesystem of the deployment environment.
-```
+This cloud-based storage ensures that your recipes are persisted across deployments and accessible from anywhere.
