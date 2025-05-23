@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { RecipeStepsDisplay } from './RecipeStepsDisplay';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import React from 'react';
+import React, { useState } from 'react'; // Added useState
 import { useAuth } from '@/contexts/AuthContext';
 
 interface SectionProps {
@@ -131,6 +131,9 @@ const normalizeColor = (srm?: number): number => {
 
 export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRecipe, recipeSlug: string }) {
   const { isAdminAuthenticated } = useAuth();
+  const [activeTab, setActiveTab] = useState<string>("details");
+
+  const editButtonText = activeTab === "details" ? "Modifier Détails Recette" : "Modifier Étapes Recette";
 
   return (
     <div className="space-y-6">
@@ -152,14 +155,14 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
             <Button asChild variant="outline">
               <Link href={`/recipes/${recipeSlug}/edit`}>
                 <PencilIcon className="mr-2 h-4 w-4" />
-                Edit Recipe
+                {editButtonText}
               </Link>
             </Button>
           )}
         </div>
       </div>
 
-      <Tabs defaultValue="details" className="w-full">
+      <Tabs defaultValue="details" className="w-full" onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2 md:w-auto md:inline-flex">
           <TabsTrigger value="details" className="flex items-center gap-2">
             <FileText className="h-4 w-4" /> Recipe Details
@@ -361,6 +364,11 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
             <Card>
               <CardContent className="pt-6">
                 <p className="text-muted-foreground">No detailed steps file (.md) found for this recipe.</p>
+                  {isAdminAuthenticated && (
+                    <p className="mt-2 text-sm">
+                      You can <Link href={`/recipes/${recipeSlug}/edit`} className="text-primary hover:underline">edit this recipe</Link> to add the steps.
+                    </p>
+                  )}
               </CardContent>
             </Card>
           )}
@@ -369,5 +377,3 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
     </div>
   );
 }
-
-    
