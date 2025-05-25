@@ -9,21 +9,21 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { 
-  Wheat, 
+import {
+  Wheat,
   Hop,
-  InfoIcon, 
-  ListChecksIcon, 
-  Microscope, 
-  Thermometer, 
-  StickyNote, 
+  InfoIcon,
+  ListChecksIcon,
+  Microscope,
+  Thermometer,
+  StickyNote,
   Package,
   Container,
   Clock,
   Percent,
   Palette,
   BarChart3,
-  FileText, 
+  FileText,
   ListOrdered,
   GlassWater,
   PencilIcon,
@@ -86,7 +86,7 @@ const TargetStatItem: React.FC<TargetStatProps> = ({
   valueDisplayOverride
 }) => {
   const displayVal = valueDisplayOverride ?? (value !== undefined ? renderValue(value, unit, precision) : <span className="text-muted-foreground">N/A</span>);
-  
+
   return (
     <div className="flex items-center gap-3 py-1">
       <div className="flex items-center gap-2 w-2/5 sm:w-1/3 md:w-2/5 lg:w-1/2 shrink-0">
@@ -162,19 +162,19 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
   };
 
   const handleSaveSteps = async () => {
-    toast({ title: "Sauvegarde en cours...", description: "Mise à jour des étapes de la recette." });
+    toast({ title: "Saving...", description: "Updating recipe steps." });
     const result: ActionResult = await updateRecipeStepsAction(recipeSlug, editableStepsMarkdown);
     if (result.success) {
       toast({
-        title: "Étapes Sauvegardées !",
-        description: "Les étapes de la recette ont été mises à jour.",
+        title: "Steps Saved!",
+        description: "Recipe steps have been updated.",
       });
       setIsEditingSteps(false);
-      router.refresh(); 
+      router.refresh();
     } else {
       toast({
-        title: "Échec de la Sauvegarde",
-        description: result.error || "Une erreur inattendue est survenue.",
+        title: "Save Failed",
+        description: result.error || "An unexpected error occurred.",
         variant: "destructive",
       });
     }
@@ -182,25 +182,22 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
 
   const handleCancelEditSteps = () => {
     setIsEditingSteps(false);
-    setEditableStepsMarkdown(recipe.stepsMarkdown || ''); 
+    setEditableStepsMarkdown(recipe.stepsMarkdown || '');
   };
-  
+
   const getEditButtonText = () => {
     if (activeTab === 'steps') {
-      return "Modifier Étapes Recette";
+      return "Edit Recipe Steps";
     }
-    return "Modifier Détails Recette";
+    return "Edit Recipe Details";
   };
 
   const editLinkDestination = activeTab === 'details' ? `/recipes/${recipeSlug}/edit` : `/recipes/${recipeSlug}/edit?section=steps`;
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    toast({ title: "Rafraîchissement...", description: "Rechargement des données de la recette."});
+    toast({ title: "Refreshing...", description: "Reloading recipe data."});
     router.refresh();
-    // It's hard to know exactly when router.refresh() finishes its data refetching
-    // to set isRefreshing back to false accurately. We'll use a small timeout
-    // as a visual cue, but the actual data update is handled by Next.js.
     setTimeout(() => setIsRefreshing(false), 1000);
   };
 
@@ -225,8 +222,8 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
               <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </Button>
             {isAdminAuthenticated && (!isEditingSteps || activeTab === 'details') && (
-              <Button 
-                  asChild={activeTab === 'details'} 
+              <Button
+                  asChild={activeTab === 'details'}
                   onClick={activeTab === 'steps' ? handleEditButtonClick : undefined}
                   variant="outline"
               >
@@ -295,7 +292,7 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
                 </CardContent>
               </AccordionContent>
             </AccordionItem>
-            
+
             <AccordionItem value="item-target-stats">
                <AccordionTrigger>
                   <CardTitle className="flex items-center text-xl">
@@ -305,50 +302,50 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
                </AccordionTrigger>
                <AccordionContent>
                 <CardContent className="space-y-2 pt-4">
-                  <TargetStatItem 
-                    icon={Thermometer} 
-                    label="Original Gravity" 
+                  <TargetStatItem
+                    icon={Thermometer}
+                    label="Original Gravity"
                     value={recipe.og}
                     valueDisplayOverride={recipe.og !== undefined ? recipe.og.toFixed(3) : undefined}
-                    progressValue={normalizeGravity(recipe.og)} 
+                    progressValue={normalizeGravity(recipe.og)}
                   />
                   <Separator />
-                  <TargetStatItem 
-                    icon={Thermometer} 
-                    label="Final Gravity" 
+                  <TargetStatItem
+                    icon={Thermometer}
+                    label="Final Gravity"
                     value={recipe.fg}
                     valueDisplayOverride={recipe.fg !== undefined ? recipe.fg.toFixed(3) : undefined}
-                    progressValue={normalizeGravity(recipe.fg)} 
+                    progressValue={normalizeGravity(recipe.fg)}
                   />
                   <Separator />
-                  <TargetStatItem 
-                    icon={Percent} 
-                    label="Alcohol By Volume" 
-                    value={recipe.abv} 
-                    unit="%" 
-                    precision={1} 
-                    progressValue={normalizeAbv(recipe.abv)} 
+                  <TargetStatItem
+                    icon={Percent}
+                    label="Alcohol By Volume"
+                    value={recipe.abv}
+                    unit="%"
+                    precision={1}
+                    progressValue={normalizeAbv(recipe.abv)}
                   />
                   <Separator />
-                  <TargetStatItem 
-                    icon={Hop} 
-                    label="Bitterness (IBU)" 
-                    value={recipe.ibu} 
-                    precision={0} 
-                    progressValue={normalizeIbu(recipe.ibu)} 
+                  <TargetStatItem
+                    icon={Hop}
+                    label="Bitterness (IBU)"
+                    value={recipe.ibu}
+                    precision={0}
+                    progressValue={normalizeIbu(recipe.ibu)}
                   />
                   <Separator />
-                  <TargetStatItem 
-                    icon={Palette} 
-                    label="Color (SRM)" 
-                    value={recipe.color} 
-                    precision={0} 
-                    progressValue={normalizeColor(recipe.color)} 
+                  <TargetStatItem
+                    icon={Palette}
+                    label="Color (SRM)"
+                    value={recipe.color}
+                    precision={0}
+                    progressValue={normalizeColor(recipe.color)}
                   />
                 </CardContent>
               </AccordionContent>
             </AccordionItem>
-            
+
             {recipe.fermentables && recipe.fermentables.length > 0 && (
                <AccordionItem value="item-fermentables">
                 <AccordionTrigger>
@@ -408,7 +405,7 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
                 </AccordionContent>
               </AccordionItem>
             )}
-            
+
             {recipe.miscs && recipe.miscs.length > 0 && (
                <AccordionItem value="item-miscs">
                 <AccordionTrigger>
@@ -441,12 +438,12 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
             )}
           </Accordion>
         </TabsContent>
-        
+
         <TabsContent value="steps" className="mt-4">
           {isEditingSteps ? (
             <Card>
               <CardHeader>
-                <CardTitle>Modifier les Étapes de la Recette</CardTitle>
+                <CardTitle>Edit Recipe Steps</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <Textarea
@@ -454,27 +451,27 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
                   onChange={(e) => setEditableStepsMarkdown(e.target.value)}
                   rows={15}
                   className="font-mono text-sm"
-                  placeholder="Entrez les étapes de la recette au format Markdown ici..."
+                  placeholder="Enter recipe steps in Markdown format here..."
                 />
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={handleCancelEditSteps}>
-                    <XCircleIcon className="mr-2 h-4 w-4" /> Annuler
+                    <XCircleIcon className="mr-2 h-4 w-4" /> Cancel
                   </Button>
                   <Button onClick={handleSaveSteps}>
-                    <SaveIcon className="mr-2 h-4 w-4" /> Sauvegarder Étapes
+                    <SaveIcon className="mr-2 h-4 w-4" /> Save Steps
                   </Button>
                 </div>
               </CardContent>
             </Card>
           ) : recipe.stepsMarkdown ? (
-            <RecipeStepsDisplay stepsMarkdown={recipe.stepsMarkdown} />
+            <RecipeStepsDisplay key={recipe.stepsMarkdown} stepsMarkdown={recipe.stepsMarkdown} />
           ) : (
             <Card>
               <CardContent className="pt-6">
-                <p className="text-muted-foreground">Aucun fichier d'étapes détaillé (.md) trouvé pour cette recette.</p>
+                <p className="text-muted-foreground">No detailed steps file (.md) found for this recipe.</p>
                   {isAdminAuthenticated && (
                     <p className="mt-2 text-sm">
-                      Vous pouvez cliquer sur &quot;Modifier Étapes Recette&quot; ci-dessus pour ajouter les étapes.
+                      You can click &quot;Edit Recipe Steps&quot; above to add them.
                     </p>
                   )}
               </CardContent>

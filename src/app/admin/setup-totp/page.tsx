@@ -48,7 +48,7 @@ export default function SetupTotpPage() {
             <ShieldAlert className="h-5 w-5" />
             <AlertTitle className="font-semibold">Important Security Warning!</AlertTitle>
             <AlertDescription>
-              This page is for <strong>initial setup only</strong>. Once you have scanned the QR code and configured your authenticator app, it is strongly recommended to make this page inaccessible (e.g., by modifying it to return a 404 error or by removing it from your deployed project) to prevent others from linking their authenticator to your admin account.
+              This page is for <strong>initial setup only</strong>. Once you have scanned the QR code and configured your authenticator app, it is strongly recommended to make this page inaccessible again (e.g., by modifying its code to return a 404 error or by removing it from your deployed project) to prevent others from linking their authenticator to your admin account.
             </AlertDescription>
           </Alert>
 
@@ -69,7 +69,7 @@ export default function SetupTotpPage() {
           {qrDataURL && !isLoading && (
             <div className="flex flex-col items-center space-y-4">
               <p className="text-sm text-center text-muted-foreground">
-                If the QR code does not appear or if you encounter issues, ensure that the `TOTP_SECRET`, `NEXT_PUBLIC_TOTP_ISSUER_NAME`, and `NEXT_PUBLIC_TOTP_ACCOUNT_NAME` environment variables are correctly configured on Vercel and in your `.env.local` file.
+                If the QR code does not appear or if you encounter issues, ensure that the `TOTP_SECRET`, `NEXT_PUBLIC_TOTP_ISSUER_NAME`, and `NEXT_PUBLIC_TOTP_ACCOUNT_NAME` environment variables are correctly configured on Vercel and in your `.env.local` file. The `TOTP_SECRET` must be a valid Base32 string.
               </p>
               <div className="p-4 bg-white rounded-lg shadow-inner inline-block">
                 <Image
