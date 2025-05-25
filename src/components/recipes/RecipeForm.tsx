@@ -2,7 +2,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm, useFieldArray, UseFormReturn } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,11 +23,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { SaveIcon, PlusCircleIcon, Trash2Icon, InfoIcon, ListChecksIcon, Wheat, Hop as HopIconLucide, Microscope, Package, Thermometer, StickyNote, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import React, { useEffect, useMemo } from 'react';
-import { addRecipesAction, ActionResult } from '@/app/actions/recipe-actions';
+import { addRecipesAction, type ActionResult } from '@/app/actions/recipe-actions';
 import { useRouter } from 'next/navigation';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
@@ -86,7 +86,6 @@ const recipeFormSchema = z.object({
   boilTime: z.coerce.number().int().positive({ message: 'Boil Time must be a positive integer.' }),
   efficiency: z.coerce.number().min(0).max(100).optional(),
   notes: z.string().optional(),
-  // stepsMarkdown: z.string().optional(), // Removed
 
   og: z.coerce.number().min(1.0, "OG must be >= 1.000").max(2.0, "OG seems too high").optional(),
   fg: z.coerce.number().min(0.9, "FG seems too low").max(2.0, "FG seems too high").optional(),
@@ -134,7 +133,6 @@ const createDefaultValues = (): RecipeFormValues => ({
   ibu: 0, // Calculated
   colorSrm: 14.0,
   notes: '',
-  // stepsMarkdown: '', // Removed
   style: {
     name: 'American Amber Ale',
     category: 'Amber and Brown American Beer',
@@ -436,13 +434,8 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
 
   async function onSubmit(data: RecipeFormValues) {
     const xmlData = generateBeerXml(data);
-    const filesToUpload: RecipeFile[] = [{ fileName: data.name + ".xml", content: xmlData }];
-
-    // Logic for stepsMarkdown was here, now removed.
-    // If you had data.stepsMarkdown:
-    // if (data.stepsMarkdown && data.stepsMarkdown.trim() !== '') {
-    //     filesToUpload.push({ fileName: "steps.md", content: data.stepsMarkdown });
-    // }
+    // Only the XML file is sent from this form now.
+    const filesToUpload: RecipeFile[] = [{ fileName: `${data.name}.xml`, content: xmlData }];
 
     toast({ title: mode === 'edit' ? "Updating Recipe..." : "Saving Recipe...", description: "Please wait." });
 
@@ -481,8 +474,10 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
   }
 
   const accordionDefaultValue = useMemo(() => {
-    if (initialOpenSection === 'steps') { // Though 'steps' section is removed, keeping this structure in case it's reused
-      return ['item-notes']; // Fallback if 'steps' was intended, maybe default to 'notes' or another existing section
+    // If a specific section is requested (e.g., coming from "Edit Recipe Steps"), open that.
+    // Otherwise, default to general and target stats.
+    if (initialOpenSection === 'steps') { // Placeholder - 'steps' was removed
+        return ['item-notes']; // Or some other relevant section if "steps" referred to notes
     }
     return ['item-general', 'item-target-stats'];
   }, [initialOpenSection]);
@@ -1125,8 +1120,6 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
             </AccordionContent>
           </AccordionItem>
           
-          {/* Recipe Steps (Markdown) AccordionItem removed */}
-
           <AccordionItem value="item-notes">
             <AccordionTrigger>
               <CardTitle className="flex items-center text-lg">

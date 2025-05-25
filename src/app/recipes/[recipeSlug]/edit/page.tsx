@@ -27,7 +27,7 @@ function transformBeerXMLToFormValues(recipe: BeerXMLRecipe): RecipeFormValues {
     boilTime: recipe.boilTime || 0,
     efficiency: recipe.efficiency || 72.0,
     notes: recipe.notes || '',
-    // stepsMarkdown: recipe.stepsMarkdown || '', // Removed
+    // stepsMarkdown is no longer part of RecipeFormValues
 
     og: recipe.og,
     fg: recipe.fg,
