@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -72,7 +73,7 @@ type HopAddition = { id: number; amount: string; alpha: string; time: string };
 function IbuCalculator() {
   const [ogIbu, setOgIbu] = useState('');
   const [boilVolume, setBoilVolume] = useState('');
-  const [hops, setHops] = useState<HopAddition[]>([{ id: Date.now(), amount: '', alpha: '', time: '' }]);
+  const [hops, setHops] = useState<HopAddition[]>([{ id: 1, amount: '', alpha: '', time: '' }]); // Changed Date.now() to 1 for initial ID
   const [ibu, setIbu] = useState('N/A');
 
   const handleHopChange = (id: number, field: keyof Omit<HopAddition, 'id'>, value: string) => {
