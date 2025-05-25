@@ -24,10 +24,10 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { SaveIcon, PlusCircleIcon, Trash2Icon, InfoIcon, ListChecksIcon, Wheat, Hop as HopIconLucide, Microscope, Package, Thermometer, StickyNote, BarChart3, FileText, UploadCloud } from 'lucide-react';
+import { SaveIcon, PlusCircleIcon, Trash2Icon, InfoIcon, ListChecksIcon, Wheat, Hop as HopIconLucide, Microscope, Package, Thermometer, StickyNote, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useEffect, useRef, useMemo } from 'react';
-import { addRecipesAction } from '@/app/actions/recipe-actions';
+import React, { useEffect, useMemo } from 'react';
+import { addRecipesAction, ActionResult } from '@/app/actions/recipe-actions';
 import { useRouter } from 'next/navigation';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
@@ -86,7 +86,7 @@ const recipeFormSchema = z.object({
   boilTime: z.coerce.number().int().positive({ message: 'Boil Time must be a positive integer.' }),
   efficiency: z.coerce.number().min(0).max(100).optional(),
   notes: z.string().optional(),
-  stepsMarkdown: z.string().optional(),
+  // stepsMarkdown: z.string().optional(), // Removed
 
   og: z.coerce.number().min(1.0, "OG must be >= 1.000").max(2.0, "OG seems too high").optional(),
   fg: z.coerce.number().min(0.9, "FG seems too low").max(2.0, "FG seems too high").optional(),
@@ -130,11 +130,11 @@ const createDefaultValues = (): RecipeFormValues => ({
   efficiency: 72.0,
   og: 1.052,
   fg: 1.012,
-  abv: 0,
-  ibu: 0,
+  abv: 0, // Calculated
+  ibu: 0, // Calculated
   colorSrm: 14.0,
   notes: '',
-  stepsMarkdown: '',
+  // stepsMarkdown: '', // Removed
   style: {
     name: 'American Amber Ale',
     category: 'Amber and Brown American Beer',
@@ -201,7 +201,7 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `        <NAME>${sanitizeForXml(f.name)}</NAME>\n`;
     xml += `        <VERSION>1</VERSION>\n`;
     xml += `        <TYPE>${sanitizeForXml(f.type)}</TYPE>\n`;
-    xml += `        <AMOUNT>${Number(f.amount).toFixed(3)}</AMOUNT>\n`;
+    xml += `        <AMOUNT>${Number(f.amount).toFixed(3)}</AMOUNT>\n`; // Amount in KG
     xml += `        <YIELD>${Number(f.yield).toFixed(1)}</YIELD>\n`;
     xml += `        <COLOR>${Number(f.color).toFixed(1)}</COLOR>\n`;
     xml += `      </FERMENTABLE>\n`;
@@ -214,7 +214,7 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `        <NAME>${sanitizeForXml(h.name)}</NAME>\n`;
     xml += `        <VERSION>1</VERSION>\n`;
     xml += `        <ALPHA>${Number(h.alpha).toFixed(1)}</ALPHA>\n`;
-    xml += `        <AMOUNT>${Number(h.amount).toFixed(4)}</AMOUNT>\n`;
+    xml += `        <AMOUNT>${Number(h.amount).toFixed(4)}</AMOUNT>\n`; // Amount in KG
     xml += `        <USE>${sanitizeForXml(h.use)}</USE>\n`;
     xml += `        <TIME>${Number(h.time).toFixed(0)}</TIME>\n`;
     xml += `        <FORM>${sanitizeForXml(h.form)}</FORM>\n`;
@@ -313,6 +313,7 @@ function calculateIbuTinseth(
   const numOriginalGravity = parseFloat(String(originalGravity));
 
   if (isNaN(numBoilSize) || numBoilSize <= 0 || isNaN(numOriginalGravity) || numOriginalGravity < 1.0) {
+    console.warn("calculateIbuTinseth: Invalid boilSize or OG.", { numBoilSize, numOriginalGravity });
     return undefined;
   }
 
@@ -320,12 +321,13 @@ function calculateIbuTinseth(
   const bignessFactor = getBignessFactor(numOriginalGravity);
 
   if (isNaN(bignessFactor)) {
+    console.warn("calculateIbuTinseth: Invalid bignessFactor from OG.", { numOriginalGravity });
     return undefined;
   }
 
-  (hops || []).forEach(hop => {
+  (hops || []).forEach((hop, index) => {
     const currentAlpha = parseFloat(String(hop.alpha));
-    const amountKg = parseFloat(String(hop.amount)); // amount is already in KG
+    const amountKg = parseFloat(String(hop.amount)); // amount is in KG
     const currentTime = parseFloat(String(hop.time));
 
     if (
@@ -335,16 +337,17 @@ function calculateIbuTinseth(
       !isNaN(currentTime) && currentTime >= 0
     ) {
       const alphaDecimal = currentAlpha / 100.0;
-      const amountGrams = amountKg * 1000.0; // Convert KG to G for formula
+      const amountGrams = amountKg * 1000.0; // Convert KG to G for Tinseth formula
       const boilTimeFactor = getBoilTimeFactor(currentTime);
 
       if (isNaN(boilTimeFactor)) {
-        return;
+        console.warn(`calculateIbuTinseth: Hop ${index} - Invalid boilTimeFactor from time ${currentTime}.`);
+        return; // Skips this hop's contribution
       }
 
       const utilization = bignessFactor * boilTimeFactor;
-
       if (isNaN(utilization)) {
+         console.warn(`calculateIbuTinseth: Hop ${index} - Invalid utilization. BF: ${bignessFactor}, BTF: ${boilTimeFactor}`);
         return;
       }
 
@@ -352,6 +355,8 @@ function calculateIbuTinseth(
 
       if (!isNaN(ibusForHop)) {
         totalIbus += ibusForHop;
+      } else {
+         console.warn(`calculateIbuTinseth: Hop ${index} - IBU calculation resulted in NaN.`);
       }
     }
   });
@@ -375,7 +380,6 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
   });
   const router = useRouter();
   const { setValue } = form;
-  const markdownFileInputRef = useRef<HTMLInputElement>(null);
 
 
   const { fields: fermentableFields, append: appendFermentable, remove: removeFermentable } = useFieldArray({
@@ -434,14 +438,19 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
     const xmlData = generateBeerXml(data);
     const filesToUpload: RecipeFile[] = [{ fileName: data.name + ".xml", content: xmlData }];
 
-    if (data.stepsMarkdown && data.stepsMarkdown.trim() !== '') {
-        filesToUpload.push({ fileName: "steps.md", content: data.stepsMarkdown });
-    }
+    // Logic for stepsMarkdown was here, now removed.
+    // If you had data.stepsMarkdown:
+    // if (data.stepsMarkdown && data.stepsMarkdown.trim() !== '') {
+    //     filesToUpload.push({ fileName: "steps.md", content: data.stepsMarkdown });
+    // }
 
     toast({ title: mode === 'edit' ? "Updating Recipe..." : "Saving Recipe...", description: "Please wait." });
 
     try {
-      const result = await addRecipesAction(filesToUpload, mode === 'edit' ? recipeSlug : undefined);
+      const result: ActionResult = await addRecipesAction(
+        filesToUpload,
+        mode === 'edit' ? recipeSlug : undefined
+      );
 
       if (result.success && result.count && result.count > 0) {
         toast({
@@ -471,38 +480,9 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
     }
   }
 
-  const handleMarkdownFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      toast({ title: "No file selected", description: "Please select an .md file.", variant: "default" });
-      return;
-    }
-
-    if (!file.name.toLowerCase().endsWith('.md')) {
-      toast({ title: "Invalid file type", description: "Please select a Markdown (.md) file.", variant: "destructive" });
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const content = e.target?.result as string;
-      if (content === null || content === undefined) {
-        toast({ title: "File read error", description: "Could not read file content.", variant: "destructive" });
-        return;
-      }
-      form.setValue('stepsMarkdown', content, { shouldValidate: true });
-      toast({ title: "Markdown File Loaded", description: `${file.name} has been loaded into the editor.` });
-    };
-    reader.readAsText(file);
-
-    if (markdownFileInputRef.current) {
-      markdownFileInputRef.current.value = '';
-    }
-  };
-
   const accordionDefaultValue = useMemo(() => {
-    if (initialOpenSection === 'steps') {
-      return ['item-steps-markdown'];
+    if (initialOpenSection === 'steps') { // Though 'steps' section is removed, keeping this structure in case it's reused
+      return ['item-notes']; // Fallback if 'steps' was intended, maybe default to 'notes' or another existing section
     }
     return ['item-general', 'item-target-stats'];
   }, [initialOpenSection]);
@@ -1144,56 +1124,8 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
               </CardContent>
             </AccordionContent>
           </AccordionItem>
-
-          <AccordionItem value="item-steps-markdown">
-            <AccordionTrigger>
-              <CardTitle className="flex items-center text-lg">
-                <FileText className="mr-2 h-5 w-5 text-primary" />
-                Recipe Steps (Markdown)
-              </CardTitle>
-            </AccordionTrigger>
-            <AccordionContent>
-              <CardContent className="space-y-4 pt-4">
-                 <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => markdownFileInputRef.current?.click()}
-                    className="mb-2"
-                  >
-                   <UploadCloud className="mr-2 h-4 w-4" /> Import .md file
-                 </Button>
-                 <input
-                    type="file"
-                    accept=".md"
-                    ref={markdownFileInputRef}
-                    className="hidden"
-                    onChange={handleMarkdownFileSelect}
-                  />
-                <FormField
-                  control={form.control}
-                  name="stepsMarkdown"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Recipe Steps Markdown Content</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter or import Markdown content for the recipe steps here..."
-                          className="resize-y min-h-[200px] font-mono text-sm"
-                          {...field}
-                          value={field.value ?? ''}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        This content will be saved as steps.md in the recipe folder.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </AccordionContent>
-          </AccordionItem>
+          
+          {/* Recipe Steps (Markdown) AccordionItem removed */}
 
           <AccordionItem value="item-notes">
             <AccordionTrigger>

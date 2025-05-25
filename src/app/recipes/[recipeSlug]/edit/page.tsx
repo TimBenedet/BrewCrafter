@@ -27,7 +27,7 @@ function transformBeerXMLToFormValues(recipe: BeerXMLRecipe): RecipeFormValues {
     boilTime: recipe.boilTime || 0,
     efficiency: recipe.efficiency || 72.0,
     notes: recipe.notes || '',
-    stepsMarkdown: recipe.stepsMarkdown || '', 
+    // stepsMarkdown: recipe.stepsMarkdown || '', // Removed
 
     og: recipe.og,
     fg: recipe.fg,
@@ -108,16 +108,16 @@ export default async function EditRecipePage({ params, searchParams }: EditRecip
         <Button asChild variant="outline" size="sm">
           <Link href={`/recipes/${params.recipeSlug}`}>
             <ArrowLeftIcon className="mr-2 h-4 w-4" />
-            Retour à la Recette
+            Back to Recipe
           </Link>
         </Button>
       </div>
       <header className="mb-4">
         <h1 className="text-3xl font-bold text-primary flex items-center">
           <PencilIcon className="mr-3 h-7 w-7" />
-          Modifier la Recette : {recipeData.name}
+          Edit Recipe: {recipeData.name}
         </h1>
-        <p className="text-muted-foreground">Modifiez les champs ci-dessous pour mettre à jour votre recette et ses étapes.</p>
+        <p className="text-muted-foreground">Modify the fields below to update your recipe.</p>
       </header>
       <RecipeForm
         mode="edit"
@@ -128,5 +128,3 @@ export default async function EditRecipePage({ params, searchParams }: EditRecip
     </div>
   );
 }
-
-    
