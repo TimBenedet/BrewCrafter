@@ -4,7 +4,8 @@ import './globals.css';
 import { Header } from '@/components/layout/Header';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/contexts/AuthContext';
-import React from 'react'; // Explicit React import
+import { LanguageProvider } from '@/contexts/LanguageContext'; // Import LanguageProvider
+import React from 'react';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -31,11 +32,13 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.variable} ${bebasNeue.variable} antialiased font-sans`}>
         <AuthProvider>
-          <Header />
-          <main className="flex-grow container mx-auto px-4 py-8">
-            {children}
-          </main>
-          <Toaster />
+          <LanguageProvider> {/* Wrap with LanguageProvider */}
+            <Header />
+            <main className="flex-grow container mx-auto px-4 py-8">
+              {children}
+            </main>
+            <Toaster />
+          </LanguageProvider>
         </AuthProvider>
       </body>
     </html>
