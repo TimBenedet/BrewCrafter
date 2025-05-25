@@ -1,19 +1,21 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 
-type Language = 'fr' | 'en';
+export type Language = 'fr' | 'en';
 
 interface LanguageContextType {
   language: Language;
   setLanguage: (language: Language) => void;
+  // A simple t-function placeholder, actual translation would need a more robust system
   t: (translations: Record<Language, string> | string) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-const defaultLanguage: Language = 'fr';
+const defaultLanguage: Language = 'fr'; // Default to French
 
 export const LanguageProvider = ({ children }: { children: ReactNode }) => {
   const [language, _setLanguage] = useState<Language>(() => {
@@ -26,11 +28,8 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const storedLanguage = localStorage.getItem('appLanguage') as Language | null;
-      if (storedLanguage && ['fr', 'en'].includes(storedLanguage)) {
-        _setLanguage(storedLanguage);
-      }
-      document.documentElement.lang = language; // Set lang attribute on HTML element
+      // Set lang attribute on HTML element for accessibility and CSS targeting
+      document.documentElement.lang = language;
     }
   }, [language]);
 
@@ -38,17 +37,17 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
     _setLanguage(lang);
     if (typeof window !== 'undefined') {
       localStorage.setItem('appLanguage', lang);
+      document.documentElement.lang = lang; // Update lang attribute on change
     }
-    document.documentElement.lang = lang;
   }, []);
 
+  // Placeholder t-function. For a real app, use a library like react-i18next.
   const t = useCallback(
     (translations: Record<Language, string> | string): string => {
       if (typeof translations === 'string') {
         // Simple key lookup (future enhancement: nested keys)
         // For now, if it's a string, assume it's a key that needs a more complex lookup system not yet implemented
         // or it's a pre-translated string. For this example, we'll assume pre-translated or direct use.
-        // This part would need a proper i18n library for full functionality.
         console.warn(`Translation for string key "${translations}" not found in simple t-function. Using key as fallback.`);
         return translations; 
       }
