@@ -74,31 +74,29 @@ const parseMashSteps = (xmlBlock: string): MashStep[] => {
 
 const parseAndCleanFloat = (val: string | undefined): number | undefined => {
   if (val === undefined || val === null) return undefined;
-  // Remove any non-numeric characters except for '.', '-', and ',' (temporarily, to be replaced)
-  // This handles cases like "6.5 %" or "30 IBU" or "6,5 %"
   const cleanedVal = String(val)
-    .replace(/,/g, '.') // Replace comma with period for European decimal format
-    .replace(/[^\d.-]/g, ''); // Remove all other non-numeric characters
+    .replace(/,/g, '.') 
+    .replace(/[^\d.-]/g, ''); 
   const num = parseFloat(cleanedVal);
   return isNaN(num) ? undefined : num;
 };
 
 export function parseXmlToRecipeSummary(xmlContent: string, slug: string): RecipeSummary | null {
-  console.log(`parseXmlToRecipeSummary: Attempting to parse XML for slug: ${slug}`);
+  console.log(`parseXmlToRecipeSummary: Attempting to parse XML for slug: '${slug}'. XML (first 300 chars): ${xmlContent.substring(0,300)}`);
   
   const recipeBlock = extractTagContent(xmlContent, 'RECIPE');
   if (!recipeBlock) {
-    console.warn(`parseXmlToRecipeSummary: No <RECIPE> block found in XML for slug: ${slug}. XML content (first 500 chars): ${xmlContent.substring(0,500)}`);
+    console.warn(`parseXmlToRecipeSummary: No <RECIPE> block found in XML for slug: '${slug}'.`);
     return null;
   }
-  console.log(`parseXmlToRecipeSummary: <RECIPE> block found for slug: ${slug}`);
+  console.log(`parseXmlToRecipeSummary: <RECIPE> block found for slug: '${slug}'`);
 
   const recipeName = extractTagContent(recipeBlock, 'NAME');
+  console.log(`parseXmlToRecipeSummary: Extracted recipeName: "${recipeName}" for slug: '${slug}'`);
   if (!recipeName) {
-    console.warn(`parseXmlToRecipeSummary: No <NAME> tag found in recipe block for slug: ${slug}. Recipe block (first 500 chars): ${recipeBlock.substring(0,500)}`);
+    console.warn(`parseXmlToRecipeSummary: No <NAME> tag found in recipe block for slug: '${slug}'. Cannot create summary.`);
     return null; 
   }
-  console.log(`parseXmlToRecipeSummary: <NAME> is "${recipeName}" for slug: ${slug}`);
 
   const recipeType = extractTagContent(recipeBlock, 'TYPE');
   const styleBlock = extractTagContent(recipeBlock, 'STYLE');
@@ -111,10 +109,10 @@ export function parseXmlToRecipeSummary(xmlContent: string, slug: string): Recip
   const abvRaw = extractTagContent(recipeBlock, 'ABV');
   const batchSizeRaw = extractTagContent(recipeBlock, 'BATCH_SIZE');
   
-  console.log(`parseXmlToRecipeSummary: Raw values for slug ${slug} - Type: ${recipeType}, StyleName: ${styleName}, OG: ${ogRaw}, FG: ${fgRaw}, IBURaw: ${ibuRaw}, ColorRaw: ${colorRaw}, ABVRaw: ${abvRaw}, BatchSizeRaw: ${batchSizeRaw}`);
+  console.log(`parseXmlToRecipeSummary: Raw values for slug '${slug}' - Type: ${recipeType}, StyleName: ${styleName}, OG: ${ogRaw}, FG: ${fgRaw}, IBURaw: ${ibuRaw}, ColorRaw: ${colorRaw}, ABVRaw: ${abvRaw}, BatchSizeRaw: ${batchSizeRaw}`);
 
   const summary: RecipeSummary = {
-    slug: slug,
+    slug: slug, // slug here is the folder name
     name: recipeName,
     type: recipeType || 'N/A',
     styleName: styleName,
@@ -125,7 +123,7 @@ export function parseXmlToRecipeSummary(xmlContent: string, slug: string): Recip
     abv: parseAndCleanFloat(abvRaw),
     batchSize: parseAndCleanFloat(batchSizeRaw),
   };
-  console.log(`parseXmlToRecipeSummary: Successfully parsed summary for slug ${slug}: Name: ${summary.name}, ABV: ${summary.abv}, IBU: ${summary.ibu}`);
+  console.log(`parseXmlToRecipeSummary: Successfully parsed summary for slug '${slug}': Name: "${summary.name}", Type: ${summary.type}, Style: ${summary.styleName}`);
   return summary;
 }
 
@@ -158,64 +156,81 @@ export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
   console.log("getRecipeSummaries: BLOB_READ_WRITE_TOKEN is set.");
 
   const summaries: RecipeSummary[] = [];
-  const processedSlugs = new Set<string>();
+  const processedSlugs = new Set<string>(); // To avoid processing the same recipe folder multiple times
 
   try {
-    const { blobs } = await list({ prefix: 'Recipes/', mode: 'expanded' }); 
-    console.log("getRecipeSummaries: Vercel Blob list response for prefix 'Recipes/':", { blobsCount: blobs.length });
+    // mode: 'folded' might be more efficient if we only care about top-level folders,
+    // but 'expanded' gives us all files directly, which is what the current logic iterates through.
+    // Let's stick to 'expanded' and refine the iteration.
+    const { blobs, folders } = await list({ prefix: 'Recipes/', mode: 'expanded' }); 
+    console.log("getRecipeSummaries: Vercel Blob list response for prefix 'Recipes/':", { blobsCount: blobs.length, foldersCount: folders?.length });
+    
     if (blobs.length > 0) {
-        console.log("getRecipeSummaries: Raw blobs list from Vercel (first 10):", blobs.slice(0,10).map(b => b.pathname ));
+        console.log("getRecipeSummaries: Raw blobs list from Vercel (first 10 of " + blobs.length + "):", blobs.slice(0,10).map(b => ({pathname: b.pathname, size: b.size, uploadedAt: b.uploadedAt })) );
     }
+    if (folders && folders.length > 0) {
+        console.log("getRecipeSummaries: Folders list from Vercel (first 10 of " + folders.length + "):", folders.slice(0,10));
+    }
+
 
     if (!blobs || blobs.length === 0) {
         console.warn("getRecipeSummaries: No blobs found matching prefix 'Recipes/' in Vercel Blob. This might mean the prefix is wrong, the Blob store is empty under this prefix, or there's an issue with the token/permissions.");
         return [];
     }
     
+    // Iterate through all blobs to find XML files within direct subfolders of 'Recipes/'
     for (const blob of blobs) {
       if (!blob.pathname) {
-        console.warn("getRecipeSummaries: Skipping blob with no pathname.");
+        console.warn("getRecipeSummaries: Skipping blob with no pathname.", blob);
         continue;
       }
       console.log(`getRecipeSummaries: Processing blob path: ${blob.pathname}`);
       const lowerPathname = blob.pathname.toLowerCase();
       
+      // We are looking for XML files: Recipes/SLUG_FOLDER_NAME/ANY_NAME.xml
       if (lowerPathname.startsWith('recipes/') && lowerPathname.endsWith('.xml')) {
-        const pathParts = blob.pathname.substring('Recipes/'.length).split('/'); 
+        // Remove 'Recipes/' prefix and split the rest by '/'
+        const pathSegments = blob.pathname.substring('Recipes/'.length).split('/'); 
+        console.log(`getRecipeSummaries: Path segments for ${blob.pathname}:`, pathSegments);
         
-        if (pathParts.length >= 2) { 
-          const slug = pathParts[0]; 
+        // A valid structure has at least two segments: [SLUG_FOLDER_NAME, FILENAME.xml]
+        if (pathSegments.length === 2) { 
+          const slugFolderName = pathSegments[0]; // This is the actual folder name on Vercel Blob
+          const fileName = pathSegments[1];
+          console.log(`getRecipeSummaries: Potential recipe found. Folder (slug): '${slugFolderName}', File: '${fileName}'`);
 
-          if (!slug) { 
-            console.warn(`getRecipeSummaries: Skipping blob, cannot derive slug from pathParts[0] for: ${blob.pathname}`);
+          if (!slugFolderName) { 
+            console.warn(`getRecipeSummaries: Skipping blob, derived slugFolderName is empty for: ${blob.pathname}`);
             continue;
           }
 
-          const isDirectXmlInSlugFolder = pathParts.length === 2;
-
-          if (isDirectXmlInSlugFolder && !processedSlugs.has(slug)) {
-            console.log(`getRecipeSummaries: Identified XML file: ${blob.pathname} for derived slug: ${slug}`);
+          // Check if we've already processed this folder (slug)
+          if (!processedSlugs.has(slugFolderName)) {
+            console.log(`getRecipeSummaries: First time seeing slugFolderName: '${slugFolderName}'. Attempting to parse XML file: ${blob.pathname}`);
             
             const xmlContent = await fetchBlobContent(blob.url);
             if (xmlContent) {
-              const summary = parseXmlToRecipeSummary(xmlContent, slug); 
+              // Pass the actual folder name as the slug to parseXmlToRecipeSummary
+              const summary = parseXmlToRecipeSummary(xmlContent, slugFolderName); 
               if (summary) {
                 summaries.push(summary);
-                processedSlugs.add(slug); 
-                console.log(`getRecipeSummaries: Successfully parsed and added summary for slug ${slug} from ${blob.pathname}`);
+                // Add the folder name to processedSlugs to ensure we only take one XML per folder
+                processedSlugs.add(slugFolderName); 
+                console.log(`getRecipeSummaries: Successfully parsed and added summary for slug (folder) '${slugFolderName}' from ${blob.pathname}`);
               } else {
-                console.warn(`getRecipeSummaries: Failed to parse summary for slug ${slug} from file ${blob.pathname}`);
+                console.warn(`getRecipeSummaries: Failed to parse summary for slug (folder) '${slugFolderName}' from file ${blob.pathname}. parseXmlToRecipeSummary returned null.`);
               }
             } else {
               console.warn(`getRecipeSummaries: Failed to fetch content for XML file ${blob.pathname}`);
             }
-          } else if (!isDirectXmlInSlugFolder) {
-            console.log(`getRecipeSummaries: Skipping XML file not directly under a recipe slug folder: ${blob.pathname}`);
+          } else {
+            console.log(`getRecipeSummaries: SlugFolderName '${slugFolderName}' already processed. Skipping additional XML file: ${blob.pathname}`);
           }
-
         } else {
-          console.log(`getRecipeSummaries: Skipping blob, path structure not as expected (e.g., not Recipes/Slug/file.xml): ${blob.pathname}. Path parts length: ${pathParts.length}`);
+          console.log(`getRecipeSummaries: Skipping blob, path structure not 'Recipes/Slug/file.xml': ${blob.pathname}. Segments count: ${pathSegments.length}`);
         }
+      } else {
+        console.log(`getRecipeSummaries: Skipping non-XML file or file not in 'Recipes/' prefix: ${blob.pathname}`);
       }
     }
     console.log(`getRecipeSummaries: Finished processing. Found ${summaries.length} recipe summaries.`);
@@ -378,7 +393,4 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
     return null;
   }
 }
-
-    
-
     
