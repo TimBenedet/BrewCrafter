@@ -109,6 +109,8 @@ export function parseXmlToRecipeSummary(xmlContent: string, slug: string): Recip
   const abvRaw = extractTagContent(recipeBlock, 'ABV');
   const batchSizeRaw = extractTagContent(recipeBlock, 'BATCH_SIZE');
   
+  console.log(`parseXmlToRecipeSummary for slug '${slug}': Extracted raw ABV: '${abvRaw}', raw IBU: '${ibuRaw}'`);
+
   console.log(`parseXmlToRecipeSummary: Raw values for slug '${slug}' - Type: ${recipeType}, StyleName: ${styleName}, OG: ${ogRaw}, FG: ${fgRaw}, IBURaw: ${ibuRaw}, ColorRaw: ${colorRaw}, ABVRaw: ${abvRaw}, BatchSizeRaw: ${batchSizeRaw}`);
 
   const summary: RecipeSummary = {
@@ -123,7 +125,7 @@ export function parseXmlToRecipeSummary(xmlContent: string, slug: string): Recip
     abv: parseAndCleanFloat(abvRaw),
     batchSize: parseAndCleanFloat(batchSizeRaw),
   };
-  console.log(`parseXmlToRecipeSummary: Successfully parsed summary for slug '${slug}': Name: "${summary.name}", Type: ${summary.type}, Style: ${summary.styleName}`);
+  console.log(`parseXmlToRecipeSummary: Successfully parsed summary for slug '${slug}': Name: "${summary.name}", Type: ${summary.type}, Style: ${summary.styleName}, ABV: ${summary.abv}, IBU: ${summary.ibu}`);
   return summary;
 }
 
@@ -159,9 +161,6 @@ export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
   const processedSlugs = new Set<string>(); // To avoid processing the same recipe folder multiple times
 
   try {
-    // mode: 'folded' might be more efficient if we only care about top-level folders,
-    // but 'expanded' gives us all files directly, which is what the current logic iterates through.
-    // Let's stick to 'expanded' and refine the iteration.
     const { blobs, folders } = await list({ prefix: 'Recipes/', mode: 'expanded' }); 
     console.log("getRecipeSummaries: Vercel Blob list response for prefix 'Recipes/':", { blobsCount: blobs.length, foldersCount: folders?.length });
     
@@ -172,13 +171,11 @@ export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
         console.log("getRecipeSummaries: Folders list from Vercel (first 10 of " + folders.length + "):", folders.slice(0,10));
     }
 
-
     if (!blobs || blobs.length === 0) {
         console.warn("getRecipeSummaries: No blobs found matching prefix 'Recipes/' in Vercel Blob. This might mean the prefix is wrong, the Blob store is empty under this prefix, or there's an issue with the token/permissions.");
         return [];
     }
     
-    // Iterate through all blobs to find XML files within direct subfolders of 'Recipes/'
     for (const blob of blobs) {
       if (!blob.pathname) {
         console.warn("getRecipeSummaries: Skipping blob with no pathname.", blob);
@@ -187,15 +184,12 @@ export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
       console.log(`getRecipeSummaries: Processing blob path: ${blob.pathname}`);
       const lowerPathname = blob.pathname.toLowerCase();
       
-      // We are looking for XML files: Recipes/SLUG_FOLDER_NAME/ANY_NAME.xml
       if (lowerPathname.startsWith('recipes/') && lowerPathname.endsWith('.xml')) {
-        // Remove 'Recipes/' prefix and split the rest by '/'
         const pathSegments = blob.pathname.substring('Recipes/'.length).split('/'); 
         console.log(`getRecipeSummaries: Path segments for ${blob.pathname}:`, pathSegments);
         
-        // A valid structure has at least two segments: [SLUG_FOLDER_NAME, FILENAME.xml]
         if (pathSegments.length === 2) { 
-          const slugFolderName = pathSegments[0]; // This is the actual folder name on Vercel Blob
+          const slugFolderName = pathSegments[0]; 
           const fileName = pathSegments[1];
           console.log(`getRecipeSummaries: Potential recipe found. Folder (slug): '${slugFolderName}', File: '${fileName}'`);
 
@@ -204,17 +198,14 @@ export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
             continue;
           }
 
-          // Check if we've already processed this folder (slug)
           if (!processedSlugs.has(slugFolderName)) {
             console.log(`getRecipeSummaries: First time seeing slugFolderName: '${slugFolderName}'. Attempting to parse XML file: ${blob.pathname}`);
             
             const xmlContent = await fetchBlobContent(blob.url);
             if (xmlContent) {
-              // Pass the actual folder name as the slug to parseXmlToRecipeSummary
               const summary = parseXmlToRecipeSummary(xmlContent, slugFolderName); 
               if (summary) {
                 summaries.push(summary);
-                // Add the folder name to processedSlugs to ensure we only take one XML per folder
                 processedSlugs.add(slugFolderName); 
                 console.log(`getRecipeSummaries: Successfully parsed and added summary for slug (folder) '${slugFolderName}' from ${blob.pathname}`);
               } else {
@@ -243,7 +234,6 @@ export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
     return []; 
   }
 }
-
 
 export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | null> {
   console.log(`getRecipeDetails: Attempting to get details for slug: ${slug}`);

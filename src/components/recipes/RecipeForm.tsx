@@ -377,6 +377,7 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
     mode: 'onChange',
   });
   const router = useRouter();
+  const { toast } = useToast();
   const { setValue } = form;
 
 
@@ -434,7 +435,6 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
 
   async function onSubmit(data: RecipeFormValues) {
     const xmlData = generateBeerXml(data);
-    // Only the XML file is sent from this form now.
     const filesToUpload: RecipeFile[] = [{ fileName: `${data.name}.xml`, content: xmlData }];
 
     toast({ title: mode === 'edit' ? "Updating Recipe..." : "Saving Recipe...", description: "Please wait." });
@@ -446,10 +446,17 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
       );
 
       if (result.success && result.count && result.count > 0) {
-        toast({
-          title: mode === 'edit' ? "Recipe Updated!" : "Recipe Saved!",
-          description: `Recipe "${data.name}" has been saved to Vercel Blob.`,
-        });
+        if (mode === 'edit') {
+          toast({
+            title: "Recipe Updated!",
+            description: `Modifications saved for recipe "${data.name}".`,
+          });
+        } else {
+          toast({
+            title: "Recipe Saved!",
+            description: `Recipe "${data.name}" has been saved successfully.`,
+          });
+        }
         const targetSlug = result.newSlug || (mode === 'edit' && recipeSlug) || data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
         router.push(mode === 'edit' ? `/recipes/${targetSlug}` : '/');
         router.refresh();
@@ -474,10 +481,8 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
   }
 
   const accordionDefaultValue = useMemo(() => {
-    // If a specific section is requested (e.g., coming from "Edit Recipe Steps"), open that.
-    // Otherwise, default to general and target stats.
-    if (initialOpenSection === 'steps') { // Placeholder - 'steps' was removed
-        return ['item-notes']; // Or some other relevant section if "steps" referred to notes
+    if (initialOpenSection) {
+        return [initialOpenSection];
     }
     return ['item-general', 'item-target-stats'];
   }, [initialOpenSection]);
