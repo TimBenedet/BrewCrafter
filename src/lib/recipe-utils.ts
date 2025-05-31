@@ -72,6 +72,17 @@ const parseMashSteps = (xmlBlock: string): MashStep[] => {
     }));
 };
 
+const parseAndCleanFloat = (val: string | undefined): number | undefined => {
+  if (val === undefined || val === null) return undefined;
+  // Remove any non-numeric characters except for '.', '-', and ',' (temporarily, to be replaced)
+  // This handles cases like "6.5 %" or "30 IBU" or "6,5 %"
+  const cleanedVal = String(val)
+    .replace(/,/g, '.') // Replace comma with period for European decimal format
+    .replace(/[^\d.-]/g, ''); // Remove all other non-numeric characters
+  const num = parseFloat(cleanedVal);
+  return isNaN(num) ? undefined : num;
+};
+
 export function parseXmlToRecipeSummary(xmlContent: string, slug: string): RecipeSummary | null {
   console.log(`parseXmlToRecipeSummary: Attempting to parse XML for slug: ${slug}`);
   
@@ -93,28 +104,28 @@ export function parseXmlToRecipeSummary(xmlContent: string, slug: string): Recip
   const styleBlock = extractTagContent(recipeBlock, 'STYLE');
   const styleName = styleBlock ? extractTagContent(styleBlock, 'NAME') : undefined;
 
-  const og = extractTagContent(recipeBlock, 'OG');
-  const fg = extractTagContent(recipeBlock, 'FG');
-  const ibu = extractTagContent(recipeBlock, 'IBU');
-  const color = extractTagContent(recipeBlock, 'COLOR');
-  const abv = extractTagContent(recipeBlock, 'ABV');
-  const batchSize = extractTagContent(recipeBlock, 'BATCH_SIZE');
+  const ogRaw = extractTagContent(recipeBlock, 'OG');
+  const fgRaw = extractTagContent(recipeBlock, 'FG');
+  const ibuRaw = extractTagContent(recipeBlock, 'IBU');
+  const colorRaw = extractTagContent(recipeBlock, 'COLOR');
+  const abvRaw = extractTagContent(recipeBlock, 'ABV');
+  const batchSizeRaw = extractTagContent(recipeBlock, 'BATCH_SIZE');
   
-  console.log(`parseXmlToRecipeSummary: Raw values for slug ${slug} - Type: ${recipeType}, StyleName: ${styleName}, OG: ${og}, FG: ${fg}, IBU: ${ibu}, Color: ${color}, ABV: ${abv}, BatchSize: ${batchSize}`);
+  console.log(`parseXmlToRecipeSummary: Raw values for slug ${slug} - Type: ${recipeType}, StyleName: ${styleName}, OG: ${ogRaw}, FG: ${fgRaw}, IBURaw: ${ibuRaw}, ColorRaw: ${colorRaw}, ABVRaw: ${abvRaw}, BatchSizeRaw: ${batchSizeRaw}`);
 
   const summary: RecipeSummary = {
     slug: slug,
     name: recipeName,
     type: recipeType || 'N/A',
     styleName: styleName,
-    og: og ? parseFloat(og) : undefined,
-    fg: fg ? parseFloat(fg) : undefined,
-    ibu: ibu ? parseFloat(ibu) : undefined,
-    color: color ? parseFloat(color) : undefined,
-    abv: abv ? parseFloat(abv) : undefined,
-    batchSize: batchSize ? parseFloat(batchSize) : undefined,
+    og: parseAndCleanFloat(ogRaw),
+    fg: parseAndCleanFloat(fgRaw),
+    ibu: parseAndCleanFloat(ibuRaw),
+    color: parseAndCleanFloat(colorRaw),
+    abv: parseAndCleanFloat(abvRaw),
+    batchSize: parseAndCleanFloat(batchSizeRaw),
   };
-  console.log(`parseXmlToRecipeSummary: Successfully parsed summary for slug ${slug}:`, summary.name);
+  console.log(`parseXmlToRecipeSummary: Successfully parsed summary for slug ${slug}: Name: ${summary.name}, ABV: ${summary.abv}, IBU: ${summary.ibu}`);
   return summary;
 }
 
@@ -122,7 +133,7 @@ async function fetchBlobContent(blobUrl: string): Promise<string | null> {
   const cacheBustingUrl = `${blobUrl}?timestamp=${Date.now()}`;
   console.log(`fetchBlobContent: Attempting to fetch content from URL: ${cacheBustingUrl}`);
   try {
-    const response = await fetch(cacheBustingUrl, { cache: 'no-store' }); // Added { cache: 'no-store' }
+    const response = await fetch(cacheBustingUrl, { cache: 'no-store' }); 
     if (!response.ok) {
       console.error(`fetchBlobContent: Failed to fetch blob content from ${cacheBustingUrl}: ${response.status} ${response.statusText}`);
       const errorText = await response.text();
@@ -172,17 +183,14 @@ export async function getRecipeSummaries(): Promise<RecipeSummary[]> {
       if (lowerPathname.startsWith('recipes/') && lowerPathname.endsWith('.xml')) {
         const pathParts = blob.pathname.substring('Recipes/'.length).split('/'); 
         
-        if (pathParts.length >= 2) { // e.g., ["slug-name", "recipe-file.xml"] or ["slug-folder", "sub-folder", "file.xml"]
-          const slug = pathParts[0]; // The first folder name under Recipes/ is the slug
+        if (pathParts.length >= 2) { 
+          const slug = pathParts[0]; 
 
           if (!slug) { 
             console.warn(`getRecipeSummaries: Skipping blob, cannot derive slug from pathParts[0] for: ${blob.pathname}`);
             continue;
           }
 
-          // Check if we are directly in the slug folder by ensuring only one part after the slug
-          // e.g. pathParts = ["my-recipe", "recipe.xml"] -> true
-          // e.g. pathParts = ["my-recipe", "another-folder", "recipe.xml"] -> false
           const isDirectXmlInSlugFolder = pathParts.length === 2;
 
           if (isDirectXmlInSlugFolder && !processedSlugs.has(slug)) {
@@ -322,33 +330,33 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
       version: parseInt(extractTagContent(recipeBlock, 'VERSION') || '1'),
       type: extractTagContent(recipeBlock, 'TYPE') || 'N/A',
       brewer: extractTagContent(recipeBlock, 'BREWER'),
-      batchSize: parseFloat(extractTagContent(recipeBlock, 'BATCH_SIZE') || '0'),
-      boilSize: parseFloat(extractTagContent(recipeBlock, 'BOIL_SIZE') || '0'),
-      boilTime: parseFloat(extractTagContent(recipeBlock, 'BOIL_TIME') || '0'),
-      efficiency: extractTagContent(recipeBlock, 'EFFICIENCY') ? parseFloat(extractTagContent(recipeBlock, 'EFFICIENCY')!) : undefined,
+      batchSize: parseAndCleanFloat(extractTagContent(recipeBlock, 'BATCH_SIZE')) || 0,
+      boilSize: parseAndCleanFloat(extractTagContent(recipeBlock, 'BOIL_SIZE')) || 0,
+      boilTime: parseAndCleanFloat(extractTagContent(recipeBlock, 'BOIL_TIME')) || 0,
+      efficiency: parseAndCleanFloat(extractTagContent(recipeBlock, 'EFFICIENCY')),
       notes: extractTagContent(recipeBlock, 'NOTES'),
       
-      og: extractTagContent(recipeBlock, 'OG') ? parseFloat(extractTagContent(recipeBlock, 'OG')!) : undefined,
-      fg: extractTagContent(recipeBlock, 'FG') ? parseFloat(extractTagContent(recipeBlock, 'FG')!) : undefined,
-      abv: extractTagContent(recipeBlock, 'ABV') ? parseFloat(extractTagContent(recipeBlock, 'ABV')!) : undefined,
-      ibu: extractTagContent(recipeBlock, 'IBU') ? parseFloat(extractTagContent(recipeBlock, 'IBU')!) : undefined,
-      color: extractTagContent(recipeBlock, 'COLOR') ? parseFloat(extractTagContent(recipeBlock, 'COLOR')!) : undefined,
+      og: parseAndCleanFloat(extractTagContent(recipeBlock, 'OG')),
+      fg: parseAndCleanFloat(extractTagContent(recipeBlock, 'FG')),
+      abv: parseAndCleanFloat(extractTagContent(recipeBlock, 'ABV')),
+      ibu: parseAndCleanFloat(extractTagContent(recipeBlock, 'IBU')),
+      color: parseAndCleanFloat(extractTagContent(recipeBlock, 'COLOR')),
       
       style: styleBlock ? {
         name: extractTagContent(styleBlock, 'NAME') || 'N/A',
         category: extractTagContent(styleBlock, 'CATEGORY'),
         styleGuide: extractTagContent(styleBlock, 'STYLE_GUIDE'),
         type: extractTagContent(styleBlock, 'TYPE') as any || 'Ale',
-        ogMin: extractTagContent(styleBlock, 'OG_MIN') ? parseFloat(extractTagContent(styleBlock, 'OG_MIN')!) : undefined,
-        ogMax: extractTagContent(styleBlock, 'OG_MAX') ? parseFloat(extractTagContent(styleBlock, 'OG_MAX')!) : undefined,
-        fgMin: extractTagContent(styleBlock, 'FG_MIN') ? parseFloat(extractTagContent(styleBlock, 'FG_MIN')!) : undefined,
-        fgMax: extractTagContent(styleBlock, 'FG_MAX') ? parseFloat(extractTagContent(styleBlock, 'FG_MAX')!) : undefined,
-        ibuMin: extractTagContent(styleBlock, 'IBU_MIN') ? parseFloat(extractTagContent(styleBlock, 'IBU_MIN')!) : undefined,
-        ibuMax: extractTagContent(styleBlock, 'IBU_MAX') ? parseFloat(extractTagContent(styleBlock, 'IBU_MAX')!) : undefined,
-        colorMin: extractTagContent(styleBlock, 'COLOR_MIN') ? parseFloat(extractTagContent(styleBlock, 'COLOR_MIN')!) : undefined,
-        colorMax: extractTagContent(styleBlock, 'COLOR_MAX') ? parseFloat(extractTagContent(styleBlock, 'COLOR_MAX')!) : undefined,
-        abvMin: extractTagContent(styleBlock, 'ABV_MIN') ? parseFloat(extractTagContent(styleBlock, 'ABV_MIN')!) : undefined,
-        abvMax: extractTagContent(styleBlock, 'ABV_MAX') ? parseFloat(extractTagContent(styleBlock, 'ABV_MAX')!) : undefined,
+        ogMin: parseAndCleanFloat(extractTagContent(styleBlock, 'OG_MIN')),
+        ogMax: parseAndCleanFloat(extractTagContent(styleBlock, 'OG_MAX')),
+        fgMin: parseAndCleanFloat(extractTagContent(styleBlock, 'FG_MIN')),
+        fgMax: parseAndCleanFloat(extractTagContent(styleBlock, 'FG_MAX')),
+        ibuMin: parseAndCleanFloat(extractTagContent(styleBlock, 'IBU_MIN')),
+        ibuMax: parseAndCleanFloat(extractTagContent(styleBlock, 'IBU_MAX')),
+        colorMin: parseAndCleanFloat(extractTagContent(styleBlock, 'COLOR_MIN')),
+        colorMax: parseAndCleanFloat(extractTagContent(styleBlock, 'COLOR_MAX')),
+        abvMin: parseAndCleanFloat(extractTagContent(styleBlock, 'ABV_MIN')),
+        abvMax: parseAndCleanFloat(extractTagContent(styleBlock, 'ABV_MAX')),
       } : undefined,
 
       fermentables: fermentablesBlock ? parseFermentables(fermentablesBlock) : [],
@@ -357,7 +365,7 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
       miscs: miscsBlock ? parseMiscs(miscsBlock) : [],
       mash: mashBlock ? {
           name: extractTagContent(mashBlock, 'NAME') || 'N/A',
-          grainTemp: extractTagContent(mashBlock, 'GRAIN_TEMP') ? parseFloat(extractTagContent(mashBlock, 'GRAIN_TEMP')!) : undefined,
+          grainTemp: parseAndCleanFloat(extractTagContent(mashBlock, 'GRAIN_TEMP')),
           mashSteps: mashStepsBlock ? parseMashSteps(mashStepsBlock) : []
       } : undefined,
       stepsMarkdown, 
@@ -370,5 +378,7 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
     return null;
   }
 }
+
+    
 
     

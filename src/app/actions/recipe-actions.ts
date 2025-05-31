@@ -55,64 +55,64 @@ export async function addRecipesAction(recipeFiles: RecipeFile[], originalRecipe
       console.log(`${actionName}: EDIT mode. Using finalSlug: ${finalSlug}`);
 
       const recipeDirPrefix = `Recipes/${finalSlug}/`;
-      console.log(`${actionName}: Listing blobs with prefix: '${recipeDirPrefix}', mode: 'expanded'`);
+      console.log(`${actionName}: EDIT mode. Listing blobs with prefix: '${recipeDirPrefix}', mode: 'expanded'`);
       const { blobs: existingBlobs } = await list({ prefix: recipeDirPrefix, mode: 'expanded' });
-      console.log(`${actionName}: EDIT mode. Blobs in ${recipeDirPrefix}:`, existingBlobs.map(b => b.pathname));
+      console.log(`${actionName}: EDIT mode. Found ${existingBlobs.length} blobs in ${recipeDirPrefix}:`, existingBlobs.map(b => ({pathname: b.pathname, size: b.size, uploadedAt: b.uploadedAt })));
 
 
       let existingXmlPathname: string | undefined = existingBlobs.find(b =>
         b.pathname?.toLowerCase().startsWith(recipeDirPrefix.toLowerCase()) &&
         b.pathname?.toLowerCase().endsWith('.xml') &&
-        b.pathname.substring(recipeDirPrefix.length).indexOf('/') === -1 && // Ensure it's a direct child
-        b.pathname.substring(recipeDirPrefix.length).length > 0 // Ensure not just the folder itself
+        b.pathname.substring(recipeDirPrefix.length).indexOf('/') === -1 && 
+        b.pathname.substring(recipeDirPrefix.length).length > 0 
       )?.pathname;
+      console.log(`${actionName}: EDIT mode. Pathname for existing XML identified as: ${existingXmlPathname || 'None found (will create recipe.xml)'}`);
 
       let existingMdPathname: string | undefined = existingBlobs.find(b =>
         b.pathname?.toLowerCase().startsWith(recipeDirPrefix.toLowerCase()) &&
         b.pathname?.toLowerCase().endsWith('.md') &&
-        b.pathname.substring(recipeDirPrefix.length).indexOf('/') === -1 && // Ensure it's a direct child
-        b.pathname.substring(recipeDirPrefix.length).length > 0 // Ensure not just the folder itself
+        b.pathname.substring(recipeDirPrefix.length).indexOf('/') === -1 && 
+        b.pathname.substring(recipeDirPrefix.length).length > 0 
       )?.pathname;
-
-      if (existingXmlPathname) console.log(`${actionName}: EDIT mode. Found existing XML: ${existingXmlPathname}`);
-      if (existingMdPathname) console.log(`${actionName}: EDIT mode. Found existing MD: ${existingMdPathname}`);
+      console.log(`${actionName}: EDIT mode. Pathname for existing MD identified as: ${existingMdPathname || 'None found (will create steps.md if MD content provided)'}`);
 
 
       if (xmlFileFromInput) {
         const xmlPathToUpload = existingXmlPathname || `Recipes/${finalSlug}/recipe.xml`;
-        console.log(`${actionName}: Attempting to upload XML to Vercel Blob: ${xmlPathToUpload}`);
-        await put(xmlPathToUpload, xmlFileFromInput.content, {
+        console.log(`${actionName}: EDIT mode. Preparing to upload XML. Target path: ${xmlPathToUpload}. Content length: ${xmlFileFromInput.content.length}`);
+        const putResultXml = await put(xmlPathToUpload, xmlFileFromInput.content, {
           access: 'public',
           contentType: 'application/xml',
           addRandomSuffix: false,
         });
+        console.log(`${actionName}: EDIT mode. XML Vercel Blob put result:`, { url: putResultXml.url, pathname: putResultXml.pathname });
         filesWritten++;
-        console.log(`${actionName}: XML file for recipe slug "${finalSlug}" saved/updated to Vercel Blob at ${xmlPathToUpload}`);
+      } else {
+         console.log(`${actionName}: EDIT mode. No XML file provided in input, skipping XML update.`);
       }
 
-      if (mdFileFromInput) {
+      if (mdFileFromInput && mdFileFromInput.content.trim() !== '') { // Only save/update if content is not empty
         const mdPathToUpload = existingMdPathname || `Recipes/${finalSlug}/steps.md`;
-        console.log(`${actionName}: Attempting to upload MD (length: ${mdFileFromInput.content.length}) to Vercel Blob: ${mdPathToUpload}`);
-        await put(mdPathToUpload, mdFileFromInput.content, {
+        console.log(`${actionName}: EDIT mode. Preparing to upload MD. Target path: ${mdPathToUpload}. Content length: ${mdFileFromInput.content.length}`);
+        const putResultMd = await put(mdPathToUpload, mdFileFromInput.content, {
           access: 'public',
           contentType: 'text/markdown',
           addRandomSuffix: false,
         });
+         console.log(`${actionName}: EDIT mode. MD Vercel Blob put result:`, { url: putResultMd.url, pathname: putResultMd.pathname });
         filesWritten++;
-        console.log(`${actionName}: MD file for recipe slug "${finalSlug}" saved/updated to Vercel Blob at ${mdPathToUpload}`);
-      } else if (existingMdPathname && !mdFileFromInput) {
-        // This case handles if the user clears the markdown content in the form,
-        // we should update the MD file on blob with empty content or delete it.
-        // For simplicity, let's update with empty content.
-        console.log(`${actionName}: MD content cleared in form. Updating existing MD file ${existingMdPathname} with empty content.`);
-        await put(existingMdPathname, '', {
+      } else if (existingMdPathname && (!mdFileFromInput || mdFileFromInput.content.trim() === '')) {
+        console.log(`${actionName}: EDIT mode. MD content cleared or not provided. Updating existing MD file ${existingMdPathname} with empty content.`);
+        const putResultMd = await put(existingMdPathname, '', {
             access: 'public',
             contentType: 'text/markdown',
             addRandomSuffix: false,
         });
-        filesWritten++; // Count this as a write/update operation
+        console.log(`${actionName}: EDIT mode. MD Vercel Blob (empty content) put result:`, { url: putResultMd.url, pathname: putResultMd.pathname });
+        filesWritten++; 
+      } else if (!mdFileFromInput || mdFileFromInput.content.trim() === '') {
+         console.log(`${actionName}: EDIT mode. No MD file provided in input or content is empty, and no existing MD found. Skipping MD update/creation.`);
       }
-
 
     } else {
       // CREATE/IMPORT MODE
@@ -142,7 +142,7 @@ export async function addRecipesAction(recipeFiles: RecipeFile[], originalRecipe
       filesWritten++;
       console.log(`${actionName}: CREATE/IMPORT mode. XML file for recipe slug "${finalSlug}" saved to Vercel Blob at ${xmlPathname}`);
 
-      if (mdFileFromInput) {
+      if (mdFileFromInput && mdFileFromInput.content.trim() !== '') { // Only save if content is not empty
         const mdPathname = `Recipes/${finalSlug}/steps.md`;
         console.log(`${actionName}: CREATE/IMPORT mode. Attempting to upload MD (length: ${mdFileFromInput.content.length}) to Vercel Blob: ${mdPathname}`);
         await put(mdPathname, mdFileFromInput.content, {
@@ -152,6 +152,8 @@ export async function addRecipesAction(recipeFiles: RecipeFile[], originalRecipe
         });
         filesWritten++;
         console.log(`${actionName}: CREATE/IMPORT mode. MD file for recipe slug "${finalSlug}" saved to Vercel Blob at ${mdPathname}`);
+      } else {
+        console.log(`${actionName}: CREATE/IMPORT mode. No MD file provided or content is empty. Skipping MD creation.`);
       }
     }
 
@@ -164,6 +166,8 @@ export async function addRecipesAction(recipeFiles: RecipeFile[], originalRecipe
         revalidatePath(`/recipes/${finalSlug}/edit`);
       }
       console.log(`${actionName}: Revalidated paths for slug: ${finalSlug}`);
+    } else {
+        console.log(`${actionName}: No files were written, skipping path revalidation.`);
     }
 
     return { success: true, count: filesWritten, newSlug: finalSlug };
@@ -190,7 +194,7 @@ export async function deleteRecipeAction(recipeSlug: string): Promise<ActionResu
     const blobFolderPrefix = `Recipes/${recipeSlug}/`;
     console.log(`deleteRecipeAction: Attempting to list blobs in Vercel Blob folder: ${blobFolderPrefix}`);
 
-    const { blobs } = await list({ prefix: blobFolderPrefix, mode: 'expanded' }); // Use expanded to get full info for deletion
+    const { blobs } = await list({ prefix: blobFolderPrefix, mode: 'expanded' }); 
 
     if (blobs.length === 0) {
       console.warn(`deleteRecipeAction: No blobs found with prefix ${blobFolderPrefix} to delete.`);
@@ -267,8 +271,8 @@ export async function updateRecipeStepsAction(recipeSlug: string, markdownConten
     let targetMdPathname: string | undefined = existingBlobsInDir.find(b =>
         b.pathname?.toLowerCase().startsWith(recipeDirPrefix.toLowerCase()) &&
         b.pathname?.toLowerCase().endsWith('.md') &&
-        b.pathname.substring(recipeDirPrefix.length).indexOf('/') === -1 && // Ensure it's a direct child
-        b.pathname.substring(recipeDirPrefix.length).length > 0 // Ensure not just the folder itself
+        b.pathname.substring(recipeDirPrefix.length).indexOf('/') === -1 && 
+        b.pathname.substring(recipeDirPrefix.length).length > 0 
     )?.pathname;
 
 
@@ -276,7 +280,7 @@ export async function updateRecipeStepsAction(recipeSlug: string, markdownConten
         console.log(`${actionName}: Found existing MD to overwrite: ${targetMdPathname}`);
     } else {
         console.log(`${actionName}: No existing MD found directly in ${recipeDirPrefix}. Will create a new file named 'steps.md'.`);
-        targetMdPathname = `Recipes/${recipeSlug}/steps.md`; // Default to steps.md if none found
+        targetMdPathname = `Recipes/${recipeSlug}/steps.md`; 
     }
 
     console.log(`${actionName}: Attempting to upload/update MD (length: ${markdownContent.length}) to Vercel Blob: ${targetMdPathname}`);
@@ -288,7 +292,7 @@ export async function updateRecipeStepsAction(recipeSlug: string, markdownConten
     console.log(`${actionName}: File MD for recipe "${recipeSlug}" saved to Vercel Blob at ${targetMdPathname}`);
 
     revalidatePath(`/recipes/${recipeSlug}`);
-    revalidatePath('/recipes');
+    revalidatePath('/recipes'); 
     revalidatePath('/label');
     console.log(`${actionName}: Revalidated paths for slug: ${recipeSlug}`);
 
@@ -299,3 +303,6 @@ export async function updateRecipeStepsAction(recipeSlug: string, markdownConten
     return { success: false, error: (error as Error).message || 'Failed to save MD to Vercel Blob.' };
   }
 }
+
+
+    
