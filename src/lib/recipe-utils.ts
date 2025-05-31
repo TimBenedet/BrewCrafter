@@ -73,12 +73,17 @@ const parseMashSteps = (xmlBlock: string): MashStep[] => {
 };
 
 const parseAndCleanFloat = (val: string | undefined): number | undefined => {
-  if (val === undefined || val === null) return undefined;
-  const cleanedVal = String(val)
-    .replace(/,/g, '.') 
-    .replace(/[^\d.-]/g, ''); 
-  const num = parseFloat(cleanedVal);
-  return isNaN(num) ? undefined : num;
+  if (typeof val !== 'string' || val.trim() === '') {
+    return undefined;
+  }
+  // Attempt to extract the first valid floating point or integer number from the string
+  // This regex looks for an optional sign, then digits, optionally a decimal point followed by more digits.
+  const match = val.match(/[-+]?[0-9]*\.?[0-9]+/);
+  if (match && match[0]) {
+    const num = parseFloat(match[0]);
+    return isNaN(num) ? undefined : num;
+  }
+  return undefined;
 };
 
 export function parseXmlToRecipeSummary(xmlContent: string, slug: string): RecipeSummary | null {
@@ -109,9 +114,7 @@ export function parseXmlToRecipeSummary(xmlContent: string, slug: string): Recip
   const abvRaw = extractTagContent(recipeBlock, 'ABV');
   const batchSizeRaw = extractTagContent(recipeBlock, 'BATCH_SIZE');
   
-  console.log(`parseXmlToRecipeSummary for slug '${slug}': Extracted raw ABV: '${abvRaw}', raw IBU: '${ibuRaw}'`);
-
-  console.log(`parseXmlToRecipeSummary: Raw values for slug '${slug}' - Type: ${recipeType}, StyleName: ${styleName}, OG: ${ogRaw}, FG: ${fgRaw}, IBURaw: ${ibuRaw}, ColorRaw: ${colorRaw}, ABVRaw: ${abvRaw}, BatchSizeRaw: ${batchSizeRaw}`);
+  console.log(`parseXmlToRecipeSummary for slug '${slug}': Raw extracted strings - ABV: '${abvRaw}', IBU: '${ibuRaw}'`);
 
   const summary: RecipeSummary = {
     slug: slug, // slug here is the folder name
@@ -383,4 +386,6 @@ export async function getRecipeDetails(slug: string): Promise<BeerXMLRecipe | nu
     return null;
   }
 }
+    
+
     
