@@ -7,7 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { InfoIcon, Thermometer, TrendingDown, Loader2 } from 'lucide-react';
 import { getRaptFermentationData } from '@/ai/flows/getRaptFermentationDataFlow';
-import type { RaptFermentationDataInput, RaptFermentationDataOutput, FermentationDataPoint } from '@/types/rapt-flow-types'; // Updated import
+import type { RaptFermentationDataInput, RaptFermentationDataOutput, FermentationDataPoint } from '@/types/rapt-flow-types';
 
 interface RecipeGraphsTabProps {
   recipeSlug: string;
@@ -19,6 +19,8 @@ export const RecipeGraphsTab: React.FC<RecipeGraphsTabProps> = ({ recipeSlug }) 
   const [error, setError] = useState<string | null>(null);
   const [flowErrorMessage, setFlowErrorMessage] = useState<string | null>(null);
 
+  // IMPORTANT: Replace this placeholder with your actual RAPT Pill Telemetry ID to test.
+  const actualRaptPillId = "YOUR_ACTUAL_RAPT_PILL_TELEMETRY_ID_HERE";
 
   useEffect(() => {
     const fetchData = async () => {
@@ -26,10 +28,15 @@ export const RecipeGraphsTab: React.FC<RecipeGraphsTabProps> = ({ recipeSlug }) 
       setError(null);
       setFlowErrorMessage(null);
       try {
-        // For now, using a placeholder RAPT Pill ID.
-        // In a real app, this ID might be stored with the recipe or configured by the user.
-        const placeholderRaptPillId = `RAPT_PILL_FOR_${recipeSlug.toUpperCase()}`;
-        const input: RaptFermentationDataInput = { raptPillId: placeholderRaptPillId };
+        if (actualRaptPillId === "YOUR_ACTUAL_RAPT_PILL_TELEMETRY_ID_HERE") {
+          console.warn(`RecipeGraphsTab: Using placeholder RAPT Pill ID. Replace "YOUR_ACTUAL_RAPT_PILL_TELEMETRY_ID_HERE" in the code with a real ID to fetch data.`);
+          setError("Placeholder RAPT Pill ID is being used. Update the code with a real ID.");
+          setFermentationData([]);
+          setIsLoading(false);
+          return;
+        }
+        
+        const input: RaptFermentationDataInput = { raptPillId: actualRaptPillId };
         
         console.log(`RecipeGraphsTab: Calling getRaptFermentationData for RAPT Pill ID: ${input.raptPillId}`);
         const result: RaptFermentationDataOutput = await getRaptFermentationData(input);
@@ -62,19 +69,21 @@ export const RecipeGraphsTab: React.FC<RecipeGraphsTabProps> = ({ recipeSlug }) 
     };
 
     fetchData();
-  }, [recipeSlug]);
+  }, [recipeSlug, actualRaptPillId]); // actualRaptPillId added to dependency array
 
-  let alertMessage = "This section attempts to display fermentation data by calling a Genkit flow. Ensure RAPTPILLMAIL and RAPTPillPassword environment variables are set on Vercel for the RAPT API integration to work.";
-  if (flowErrorMessage) {
-    alertMessage = `Error fetching RAPT data: ${flowErrorMessage}. Please check server logs and environment variables.`;
-  } else if (error) {
+  let alertMessage = "This section attempts to display fermentation data from a RAPT Pill by calling a Genkit flow. Ensure RAPTPILLMAIL and RAPTPillPassword environment variables are set on Vercel for the RAPT API integration to work.";
+  if (actualRaptPillId === "YOUR_ACTUAL_RAPT_PILL_TELEMETRY_ID_HERE") {
+    alertMessage = `To fetch real data, please edit the file src/components/recipes/RecipeGraphsTab.tsx and replace "YOUR_ACTUAL_RAPT_PILL_TELEMETRY_ID_HERE" with your actual RAPT Pill telemetry ID. Also, ensure RAPTPILLMAIL and RAPTPillPassword environment variables are correctly set.`;
+  } else if (flowErrorMessage) {
+    alertMessage = `Error fetching RAPT data: ${flowErrorMessage}. Please check server logs, environment variables (RAPTPILLMAIL, RAPTPillPassword), and ensure the RAPT Pill ID ("${actualRaptPillId}") is correct.`;
+  } else if (error && !flowErrorMessage) { // Display general error only if no specific flow error
      alertMessage = `Could not load fermentation data: ${error}. This might be a client-side issue or a problem reaching the backend flow.`;
   }
 
 
   return (
     <div className="space-y-6">
-      <Alert variant={error || flowErrorMessage ? "destructive" : "default"}>
+      <Alert variant={error || flowErrorMessage || actualRaptPillId === "YOUR_ACTUAL_RAPT_PILL_TELEMETRY_ID_HERE" ? "destructive" : "default"}>
         <InfoIcon className="h-4 w-4" />
         <AlertTitle>{error || flowErrorMessage ? "Data Fetch Error" : "Fermentation Data"}</AlertTitle>
         <AlertDescription>
@@ -121,7 +130,7 @@ export const RecipeGraphsTab: React.FC<RecipeGraphsTabProps> = ({ recipeSlug }) 
               </ResponsiveContainer>
             </div>
           ) : (
-            <p className="text-muted-foreground text-center py-10">No temperature data available.</p>
+            <p className="text-muted-foreground text-center py-10">No temperature data available. Ensure your RAPT Pill ID is correct and has recent data, or check error messages above.</p>
           )}
         </CardContent>
       </Card>
@@ -167,7 +176,7 @@ export const RecipeGraphsTab: React.FC<RecipeGraphsTabProps> = ({ recipeSlug }) 
               </ResponsiveContainer>
             </div>
           ) : (
-            <p className="text-muted-foreground text-center py-10">No gravity data available.</p>
+            <p className="text-muted-foreground text-center py-10">No gravity data available. Ensure your RAPT Pill ID is correct and has recent data, or check error messages above.</p>
           )}
         </CardContent>
       </Card>
