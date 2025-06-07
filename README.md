@@ -1,5 +1,3 @@
-HELLO WORLD
-
 # BrewCrafter - Your Cloud-Based Beer Recipe Book
 
 ## Project Overview
