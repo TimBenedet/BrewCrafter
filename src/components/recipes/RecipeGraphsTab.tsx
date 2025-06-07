@@ -5,67 +5,66 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { InfoIcon, Thermometer, TrendingDown } from 'lucide-react';
+import { InfoIcon, Thermometer, TrendingDown, Loader2 } from 'lucide-react';
+import { getRaptFermentationData, type RaptFermentationDataInput, type RaptFermentationDataOutput } from '@/ai/flows/getRaptFermentationDataFlow';
 
 interface RecipeGraphsTabProps {
   recipeSlug: string;
 }
 
-// Sample data structure for fermentation
 interface FermentationDataPoint {
-  time: string; // Could be hours, days, or a timestamp
-  temperature?: number; // Celsius
-  gravity?: number; // SG
+  time: string;
+  temperature?: number;
+  gravity?: number;
 }
-
-// Generate some placeholder data for demonstration
-const generatePlaceholderData = (): FermentationDataPoint[] => {
-  const data: FermentationDataPoint[] = [];
-  const startTime = new Date();
-  startTime.setDate(startTime.getDate() - 7); // Start 7 days ago
-
-  for (let i = 0; i < 168; i++) { // 7 days, hourly data
-    const currentTime = new Date(startTime.getTime() + i * 60 * 60 * 1000);
-    const day = Math.floor(i / 24);
-    const hourOfDay = i % 24;
-
-    // Simulate temperature drop and then slight rise
-    let temp = 20 - (day * 0.5) + Math.random() * 0.5;
-    if (day > 4) temp += (day-4) * 0.2; // slight rise after day 4
-
-    // Simulate gravity drop
-    let grav = 1.050 - (day * 0.007) - (hourOfDay * 0.0001) - (Math.random() * 0.001);
-    grav = Math.max(1.008, grav); // Floor gravity
-
-    data.push({
-      time: `${day}d ${hourOfDay}h`,
-      temperature: parseFloat(temp.toFixed(1)),
-      gravity: parseFloat(grav.toFixed(3)),
-    });
-  }
-  return data;
-};
-
 
 export const RecipeGraphsTab: React.FC<RecipeGraphsTabProps> = ({ recipeSlug }) => {
   const [fermentationData, setFermentationData] = useState<FermentationDataPoint[]>([]);
-  const [isLoading, setIsLoading] = useState(true); // For future API calls
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // In a real scenario, you'd fetch data for recipeSlug here.
-    // For now, we use placeholder data.
-    setFermentationData(generatePlaceholderData());
-    setIsLoading(false);
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        // For now, using a placeholder RAPT Pill ID.
+        // In a real app, this ID might be stored with the recipe or configured by the user.
+        const placeholderRaptPillId = `RAPT_PILL_FOR_${recipeSlug.toUpperCase()}`;
+        const input: RaptFermentationDataInput = { raptPillId: placeholderRaptPillId };
+        
+        console.log(`RecipeGraphsTab: Fetching data for RAPT Pill ID: ${input.raptPillId}`);
+        const result: RaptFermentationDataOutput = await getRaptFermentationData(input);
+        
+        if (result && result.data) {
+          console.log(`RecipeGraphsTab: Received ${result.data.length} data points from flow.`);
+          setFermentationData(result.data);
+        } else {
+          console.error('RecipeGraphsTab: No data received from flow or data is malformed.');
+          setError('Failed to load fermentation data from the backend.');
+          setFermentationData([]);
+        }
+      } catch (e) {
+        console.error('RecipeGraphsTab: Error fetching fermentation data:', e);
+        setError(e instanceof Error ? e.message : 'An unknown error occurred while fetching data.');
+        setFermentationData([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
   }, [recipeSlug]);
 
   return (
     <div className="space-y-6">
-      <Alert>
+      <Alert variant={error ? "destructive" : "default"}>
         <InfoIcon className="h-4 w-4" />
-        <AlertTitle>Live Fermentation Data (Placeholder)</AlertTitle>
+        <AlertTitle>{error ? "Data Fetch Error" : "Fermentation Data (Simulated)"}</AlertTitle>
         <AlertDescription>
-          This section is intended to display live fermentation data from your RAPT Pill or similar monitoring device.
-          Currently, it shows placeholder data. Real integration is a future enhancement.
+          {error 
+            ? `Could not load fermentation data: ${error}. This currently uses a placeholder flow.`
+            : "This section displays simulated fermentation data. For real data, the Genkit flow 'getRaptFermentationDataFlow.ts' needs to be updated with your RAPT Cloud API details."}
         </AlertDescription>
       </Alert>
 
@@ -79,7 +78,10 @@ export const RecipeGraphsTab: React.FC<RecipeGraphsTabProps> = ({ recipeSlug }) 
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-muted-foreground">Loading temperature data...</p>
+            <div className="flex items-center justify-center h-[300px]">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="ml-2 text-muted-foreground">Loading temperature data...</p>
+            </div>
           ) : fermentationData.length > 0 ? (
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
@@ -105,7 +107,7 @@ export const RecipeGraphsTab: React.FC<RecipeGraphsTabProps> = ({ recipeSlug }) 
               </ResponsiveContainer>
             </div>
           ) : (
-            <p className="text-muted-foreground">No temperature data available.</p>
+            <p className="text-muted-foreground text-center py-10">No temperature data available.</p>
           )}
         </CardContent>
       </Card>
@@ -120,7 +122,10 @@ export const RecipeGraphsTab: React.FC<RecipeGraphsTabProps> = ({ recipeSlug }) 
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-muted-foreground">Loading gravity data...</p>
+            <div className="flex items-center justify-center h-[300px]">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="ml-2 text-muted-foreground">Loading gravity data...</p>
+            </div>
           ) : fermentationData.length > 0 ? (
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
@@ -148,7 +153,7 @@ export const RecipeGraphsTab: React.FC<RecipeGraphsTabProps> = ({ recipeSlug }) 
               </ResponsiveContainer>
             </div>
           ) : (
-            <p className="text-muted-foreground">No gravity data available.</p>
+            <p className="text-muted-foreground text-center py-10">No gravity data available.</p>
           )}
         </CardContent>
       </Card>
