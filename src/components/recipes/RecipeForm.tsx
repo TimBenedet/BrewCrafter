@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { SaveIcon, PlusCircleIcon, Trash2Icon, InfoIcon, ListChecksIcon, Wheat, Hop as HopIconLucide, Microscope, Package, Thermometer, StickyNote, BarChart3 } from 'lucide-react';
+import { SaveIcon, PlusCircleIcon, Trash2Icon, InfoIcon, ListChecksIcon, Wheat, Hop as HopIconLucide, Microscope, Package, Thermometer, StickyNote, BarChart3, ActivityIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import React, { useEffect, useMemo } from 'react';
 import { addRecipesAction, type ActionResult } from '@/app/actions/recipe-actions';
@@ -81,6 +81,7 @@ const recipeFormSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters long.' }),
   type: z.enum(['All Grain', 'Extract', 'Partial Mash'], { required_error: 'Recipe type is required.' }),
   brewer: z.string().optional(),
+  status: z.enum(['in_progress', 'completed']).default('in_progress'),
   batchSize: z.coerce.number().positive({ message: 'Batch Size must be a positive number.' }),
   boilSize: z.coerce.number().positive({ message: 'Boil Size must be a positive number.' }),
   boilTime: z.coerce.number().int().positive({ message: 'Boil Time must be a positive integer.' }),
@@ -123,6 +124,7 @@ const createDefaultValues = (): RecipeFormValues => ({
   name: '',
   type: 'All Grain',
   brewer: '',
+  status: 'in_progress',
   batchSize: 20,
   boilSize: 25,
   boilTime: 60,
@@ -169,6 +171,7 @@ function generateBeerXml(data: RecipeFormValues): string {
   xml += `    <VERSION>1</VERSION>\n`;
   xml += `    <TYPE>${sanitizeForXml(data.type)}</TYPE>\n`;
   if (data.brewer) xml += `    <BREWER>${sanitizeForXml(data.brewer)}</BREWER>\n`;
+  if (data.status) xml += `    <BREWCRAFTER_STATUS>${sanitizeForXml(data.status)}</BREWCRAFTER_STATUS>\n`;
   xml += `    <BATCH_SIZE>${data.batchSize}</BATCH_SIZE>\n`;
   xml += `    <BOIL_SIZE>${data.boilSize}</BOIL_SIZE>\n`;
   xml += `    <BOIL_TIME>${data.boilTime}</BOIL_TIME>\n`;
@@ -199,7 +202,8 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `        <NAME>${sanitizeForXml(f.name)}</NAME>\n`;
     xml += `        <VERSION>1</VERSION>\n`;
     xml += `        <TYPE>${sanitizeForXml(f.type)}</TYPE>\n`;
-    xml += `        <AMOUNT>${Number(f.amount).toFixed(3)}</AMOUNT>\n`; // Amount in KG
+    const amountInKg = f.amountUnit === 'g' ? f.amount / 1000 : f.amount;
+    xml += `        <AMOUNT>${Number(amountInKg).toFixed(3)}</AMOUNT>\n`; 
     xml += `        <YIELD>${Number(f.yield).toFixed(1)}</YIELD>\n`;
     xml += `        <COLOR>${Number(f.color).toFixed(1)}</COLOR>\n`;
     xml += `      </FERMENTABLE>\n`;
@@ -212,7 +216,8 @@ function generateBeerXml(data: RecipeFormValues): string {
     xml += `        <NAME>${sanitizeForXml(h.name)}</NAME>\n`;
     xml += `        <VERSION>1</VERSION>\n`;
     xml += `        <ALPHA>${Number(h.alpha).toFixed(1)}</ALPHA>\n`;
-    xml += `        <AMOUNT>${Number(h.amount).toFixed(4)}</AMOUNT>\n`; // Amount in KG
+    const amountInKg = h.amountUnit === 'g' ? h.amount / 1000 : h.amount;
+    xml += `        <AMOUNT>${Number(amountInKg).toFixed(4)}</AMOUNT>\n`; 
     xml += `        <USE>${sanitizeForXml(h.use)}</USE>\n`;
     xml += `        <TIME>${Number(h.time).toFixed(0)}</TIME>\n`;
     xml += `        <FORM>${sanitizeForXml(h.form)}</FORM>\n`;
@@ -325,22 +330,33 @@ function calculateIbuTinseth(
 
   (hops || []).forEach((hop, index) => {
     const currentAlpha = parseFloat(String(hop.alpha));
-    const amountKg = parseFloat(String(hop.amount)); // amount is in KG
+    // Amount in the form is already in the selected unit (kg or g)
+    // We need to convert to grams for the formula if it's in kg, or use directly if in g.
+    // The BeerXML standard expects amount in KG for hops.
+    // The form data `hop.amount` will be treated as the selected unit (kg or g).
+    // The XML generation converts it to KG. For IBU calculation, we need grams.
+    
+    let amountGrams: number;
+    if (hop.amountUnit === 'kg') {
+      amountGrams = parseFloat(String(hop.amount)) * 1000;
+    } else { // hop.amountUnit === 'g'
+      amountGrams = parseFloat(String(hop.amount));
+    }
     const currentTime = parseFloat(String(hop.time));
+
 
     if (
       hop.use === 'Boil' &&
       !isNaN(currentAlpha) && currentAlpha > 0 &&
-      !isNaN(amountKg) && amountKg > 0 &&
+      !isNaN(amountGrams) && amountGrams > 0 &&
       !isNaN(currentTime) && currentTime >= 0
     ) {
       const alphaDecimal = currentAlpha / 100.0;
-      const amountGrams = amountKg * 1000.0; // Convert KG to G for Tinseth formula
       const boilTimeFactor = getBoilTimeFactor(currentTime);
 
       if (isNaN(boilTimeFactor)) {
         console.warn(`calculateIbuTinseth: Hop ${index} - Invalid boilTimeFactor from time ${currentTime}.`);
-        return; // Skips this hop's contribution
+        return; 
       }
 
       const utilization = bignessFactor * boilTimeFactor;
@@ -435,7 +451,7 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
 
   async function onSubmit(data: RecipeFormValues) {
     const xmlData = generateBeerXml(data);
-    const filesToUpload: RecipeFile[] = [{ fileName: `${data.name}.xml`, content: xmlData }];
+    const filesToUpload: RecipeFile[] = [{ fileName: 'recipe.xml', content: xmlData }];
 
     toast({ title: mode === 'edit' ? "Updating Recipe..." : "Saving Recipe...", description: "Please wait." });
 
@@ -446,15 +462,16 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
       );
 
       if (result.success && result.count && result.count > 0) {
+        const recipeDisplayName = data.name || "Untitled Recipe";
         if (mode === 'edit') {
           toast({
             title: "Recipe Updated!",
-            description: `Modifications saved for recipe "${data.name}".`,
+            description: `Modifications saved for recipe "${recipeDisplayName}".`,
           });
         } else {
           toast({
             title: "Recipe Saved!",
-            description: `Recipe "${data.name}" has been saved successfully.`,
+            description: `Recipe "${recipeDisplayName}" has been saved successfully.`,
           });
         }
         const targetSlug = result.newSlug || (mode === 'edit' && recipeSlug) || data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
@@ -539,19 +556,44 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
                     )}
                   />
                 </div>
-                <FormField
-                  control={form.control}
-                  name="brewer"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Brewer (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="E.g., My Name" {...field} value={field.value ?? ''} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="brewer"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Brewer (Optional)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="E.g., My Name" {...field} value={field.value ?? ''} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center">
+                          <ActivityIcon className="mr-2 h-4 w-4 text-muted-foreground" /> Recipe Status
+                        </FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value ?? 'in_progress'}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select recipe status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="in_progress">In Progress</SelectItem>
+                            <SelectItem value="completed">Completed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
@@ -812,7 +854,9 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
                           control={form.control}
                           name={`fermentables.${index}.amount`}
                           render={({ field }) => {
-                            const displayValue = currentUnit === 'g' ? parseFloat(((field.value || 0) * 1000).toFixed(3)) : parseFloat((field.value || 0).toFixed(3));
+                            // Display value based on currentUnit, but store in KG in form state
+                            const formValueInKg = field.value || 0;
+                            const displayValue = currentUnit === 'g' ? parseFloat((formValueInKg * 1000).toFixed(3)) : parseFloat(formValueInKg.toFixed(3));
                             return (
                               <FormItem>
                                 <FormLabel>Amount</FormLabel>
@@ -824,10 +868,10 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
                                     onChange={(e) => {
                                       const rawValue = parseFloat(e.target.value);
                                       if (!isNaN(rawValue)) {
-                                        const valueInKg = currentUnit === 'g' ? rawValue / 1000 : rawValue;
-                                        field.onChange(valueInKg);
+                                        const valueInKgToStore = currentUnit === 'g' ? rawValue / 1000 : rawValue;
+                                        field.onChange(valueInKgToStore);
                                       } else {
-                                        field.onChange(undefined);
+                                        field.onChange(undefined); // or 0, depending on desired behavior
                                       }
                                     }}
                                   />
@@ -843,7 +887,17 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
                           render={({ field: unitField }) => (
                             <FormItem>
                               <FormLabel>Unit</FormLabel>
-                              <Select onValueChange={unitField.onChange} defaultValue={unitField.value ?? 'kg'}>
+                              <Select 
+                                onValueChange={(newUnit) => {
+                                    // When unit changes, we might need to convert the stored amount (which is always in KG)
+                                    // This part is tricky because the `amount` field itself would need to re-render
+                                    // For simplicity, the current `generateBeerXml` converts to KG before saving.
+                                    // And the display logic above converts the KG value to the selected unit.
+                                    unitField.onChange(newUnit);
+                                    form.trigger(`fermentables.${index}.amount`); // re-validate to update display
+                                }} 
+                                defaultValue={unitField.value ?? 'kg'}
+                              >
                                 <FormControl><SelectTrigger><SelectValue placeholder="Unit" /></SelectTrigger></FormControl>
                                 <SelectContent>
                                   <SelectItem value="kg">kg</SelectItem>
@@ -876,7 +930,7 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
             </AccordionTrigger>
             <AccordionContent>
               <CardContent className="space-y-4 pt-4">
-                <Button type="button" variant="outline" size="sm" onClick={() => appendHop({ name: '', alpha: 5.0, amount: 0.010, use: 'Boil', time: 60, form: 'Pellet', amountUnit: 'g' })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => appendHop({ name: '', alpha: 5.0, amount: 10, use: 'Boil', time: 60, form: 'Pellet', amountUnit: 'g' })}>
                   <PlusCircleIcon className="mr-2 h-4 w-4" /> Add Hop
                 </Button>
                 {hopFields.map((item, index) => {
@@ -892,24 +946,22 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
                         <FormField
                           control={form.control}
                           name={`hops.${index}.amount`}
-                          render={({ field }) => {
-                            const displayValue = currentUnit === 'g' ? parseFloat(((field.value || 0) * 1000).toFixed(1)) : parseFloat((field.value || 0).toFixed(4));
+                           render={({ field }) => {
+                            // Display value based on currentUnit, but store in the selected unit in form state
+                            // XML generation will convert to KG
+                            const formValueInSelectedUnit = field.value || 0;
+                            const displayValue = parseFloat(formValueInSelectedUnit.toString());
                             return (
                               <FormItem>
                                 <FormLabel>Amount</FormLabel>
                                 <FormControl>
                                   <Input
                                     type="number"
-                                    step={currentUnit === 'g' ? "1" : "0.0001"}
+                                    step={currentUnit === 'g' ? "0.1" : "0.0001"} // Smaller step for kg
                                     value={isNaN(displayValue) ? '' : displayValue}
                                     onChange={(e) => {
                                       const rawValue = parseFloat(e.target.value);
-                                      if (!isNaN(rawValue)) {
-                                        const valueInKg = currentUnit === 'g' ? rawValue / 1000 : rawValue;
-                                        field.onChange(valueInKg);
-                                      } else {
-                                        field.onChange(undefined);
-                                      }
+                                      field.onChange(isNaN(rawValue) ? undefined : rawValue);
                                     }}
                                   />
                                 </FormControl>
@@ -924,7 +976,10 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
                           render={({ field: unitField }) => (
                             <FormItem>
                               <FormLabel>Unit</FormLabel>
-                              <Select onValueChange={unitField.onChange} defaultValue={unitField.value ?? 'g'}>
+                              <Select 
+                                onValueChange={unitField.onChange} 
+                                defaultValue={unitField.value ?? 'g'}
+                              >
                                 <FormControl><SelectTrigger><SelectValue placeholder="Unit" /></SelectTrigger></FormControl>
                                 <SelectContent>
                                   <SelectItem value="kg">kg</SelectItem>
@@ -976,7 +1031,7 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
             </AccordionTrigger>
             <AccordionContent>
               <CardContent className="space-y-4 pt-4">
-                <Button type="button" variant="outline" size="sm" onClick={() => appendYeast({ name: '', type: 'Ale', form: 'Dry', amount: 0, laboratory: '', productId: '', attenuation: 75 })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => appendYeast({ name: '', type: 'Ale', form: 'Dry', amount: 1, laboratory: '', productId: '', attenuation: 75 })}>
                   <PlusCircleIcon className="mr-2 h-4 w-4" /> Add Yeast
                 </Button>
                 {yeastFields.map((item, index) => (
@@ -1006,7 +1061,7 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
                             </SelectContent>
                           </Select>
                           <FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name={`yeasts.${index}.amount`} render={({ field }) => (<FormItem><FormLabel>Amount</FormLabel><FormControl><Input type="number" step="0.001" {...field} /></FormControl><FormDescription>L for liquid, g for dry</FormDescription><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name={`yeasts.${index}.amount`} render={({ field }) => (<FormItem><FormLabel>Amount</FormLabel><FormControl><Input type="number" step="0.001" {...field} /></FormControl><FormDescription>e.g., 1 (pack), 11.5 (g), 0.035 (L)</FormDescription><FormMessage /></FormItem>)} />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <FormField control={form.control} name={`yeasts.${index}.laboratory`} render={({ field }) => (<FormItem><FormLabel>Laboratory</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
@@ -1029,7 +1084,7 @@ export function RecipeForm({ mode = 'create', initialData, recipeSlug, initialOp
             </AccordionTrigger>
             <AccordionContent>
               <CardContent className="space-y-4 pt-4">
-                <Button type="button" variant="outline" size="sm" onClick={() => appendMisc({ name: '', type: 'Spice', use: 'Boil', time: 0, amount: 0 })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => appendMisc({ name: '', type: 'Spice', use: 'Boil', time: 0, amount: 1 })}>
                   <PlusCircleIcon className="mr-2 h-4 w-4" /> Add Miscellaneous Ingredient
                 </Button>
                 {miscFields.map((item, index) => (

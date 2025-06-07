@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { RecipeSummary } from '@/types/recipe';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,7 +17,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ChevronRightIcon, BeerIcon, Palette, Percent, Thermometer, AlertTriangle, Trash2 } from 'lucide-react';
+import { ChevronRightIcon, BeerIcon, Palette, Percent, Thermometer, AlertTriangle, Trash2, ActivityIcon, CheckCircle2Icon } from 'lucide-react';
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from 'next/navigation';
@@ -82,13 +83,27 @@ export function RecipeCard({ recipe, isAdmin }: RecipeCardProps) {
     }
   };
 
+  const statusText = recipe.status === 'completed' ? 'Completed' : 'In Progress';
+  const statusIcon = recipe.status === 'completed' ? CheckCircle2Icon : ActivityIcon;
+  const statusVariant = recipe.status === 'completed' ? 'default' : 'secondary';
+
   return (
     <Card className="h-full flex flex-col transition-all duration-200 ease-in-out hover:shadow-xl hover:border-primary/50 focus-within:shadow-xl focus-within:border-primary/50 group">
       <Link href={`/recipes/${recipe.slug}`} passHref legacyBehavior>
         <a className="block hover:no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-t-lg flex-grow">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-xl mb-0.5 leading-tight text-primary">{recipe.name}</CardTitle>
-            <CardDescription className="text-sm text-muted-foreground">{recipe.styleName || recipe.type}</CardDescription>
+          <CardHeader className="pb-3">
+            <div className="flex justify-between items-start">
+              <div>
+                <CardTitle className="text-xl mb-0.5 leading-tight text-primary">{recipe.name}</CardTitle>
+                <CardDescription className="text-sm text-muted-foreground">{recipe.styleName || recipe.type}</CardDescription>
+              </div>
+              {recipe.status && (
+                <Badge variant={statusVariant} className="ml-2 whitespace-nowrap">
+                  <statusIcon className="h-3.5 w-3.5 mr-1.5" />
+                  {statusText}
+                </Badge>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="flex-grow space-y-3 pt-0 pb-4">
             <div className="grid grid-cols-2 gap-x-4 gap-y-2">

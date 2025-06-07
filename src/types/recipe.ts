@@ -10,6 +10,7 @@ export interface RecipeSummary {
   color?: number; // SRM
   abv?: number;
   batchSize?: number; // Liters
+  status?: 'completed' | 'in_progress';
 }
 
 export interface Style {
@@ -98,5 +99,6 @@ export interface BeerXMLRecipe {
   ibu?: number;
   color?: number; // SRM
   stepsMarkdown?: string; // Added for recipe steps
+  status?: 'completed' | 'in_progress';
 }
 

@@ -22,12 +22,12 @@ function transformBeerXMLToFormValues(recipe: BeerXMLRecipe): RecipeFormValues {
     name: recipe.name || '',
     type: recipe.type as 'All Grain' | 'Extract' | 'Partial Mash' || 'All Grain',
     brewer: recipe.brewer || '',
+    status: recipe.status || 'in_progress',
     batchSize: recipe.batchSize || 0,
     boilSize: recipe.boilSize || 0,
     boilTime: recipe.boilTime || 0,
     efficiency: recipe.efficiency || 72.0,
     notes: recipe.notes || '',
-    // stepsMarkdown is no longer part of RecipeFormValues
 
     og: recipe.og,
     fg: recipe.fg,
@@ -54,8 +54,8 @@ function transformBeerXMLToFormValues(recipe: BeerXMLRecipe): RecipeFormValues {
     hops: recipe.hops.map(h => ({
       name: h.name,
       alpha: h.alpha,
-      amount: h.amount, 
-      amountUnit: 'g', 
+      amount: h.amount, // Stored as kg in BeerXMLRecipe, form might use g
+      amountUnit: 'g', // Default to g for form display, XML generation converts
       use: h.use as 'Boil' | 'Dry Hop' | 'Mash' | 'First Wort' | 'Aroma' | 'Whirlpool' || 'Boil',
       time: h.time,
       form: h.form as 'Pellet' | 'Plug' | 'Leaf' | 'Extract' || 'Pellet',
@@ -68,7 +68,7 @@ function transformBeerXMLToFormValues(recipe: BeerXMLRecipe): RecipeFormValues {
       amount: y.amount,
       laboratory: y.laboratory || '',
       productId: y.productId || '',
-      attenuation: y.attenuation || 75,
+      attenuation: (y as any).attenuation || 75, // Cast to any if BeerXMLRecipe type doesn't have attenuation
     })),
 
     miscs: recipe.miscs.map(m => ({

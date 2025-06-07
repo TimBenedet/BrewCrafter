@@ -5,18 +5,19 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import Link from 'next/link';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
 import type { RecipeSummary } from '@/types/recipe';
-import { FileWarning, FilterIcon, AlertTriangle, RefreshCw, PlusCircle, UploadCloud } from 'lucide-react';
+import { FileWarning, FilterIcon, AlertTriangle, RefreshCw, PlusCircle, UploadCloud, ActivityIcon } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext'; // Ensure this path is correct
-import { addRecipesAction } from '@/app/actions/recipe-actions'; // Ensure this path is correct
-import { Input } from "@/components/ui/input"; // For file input if needed directly (though hidden)
+import { useAuth } from '@/contexts/AuthContext';
+import { addRecipesAction } from '@/app/actions/recipe-actions';
+import { Input } from "@/components/ui/input";
 
 export default function HomePage() {
   const [recipes, setRecipes] = useState<RecipeSummary[]>([]);
   const [selectedStyle, setSelectedStyle] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,22 +28,14 @@ export default function HomePage() {
   const loadRecipes = useCallback(async (showToast = false) => {
     setIsLoading(true);
     setError(null);
-    console.log("HomePage: Initiating loadRecipes... Attempting to fetch from /api/recipes/summaries to display recipes from configured storage (e.g., Vercel Blob).");
     try {
       const response = await fetch('/api/recipes/summaries');
-      console.log("HomePage: Fetch response status:", response.status);
       if (!response.ok) {
         let errorData = { error: `Failed to fetch recipes: ${response.statusText}` };
-        try {
-            errorData = await response.json();
-        } catch (parseError) {
-            console.error("HomePage: Failed to parse error response from API:", parseError);
-        }
-        console.error("HomePage: API error response data:", errorData);
+        try { errorData = await response.json(); } catch (parseError) { /* ignore */ }
         throw new Error(errorData.error || `Failed to fetch recipes: ${response.statusText}`);
       }
       const fetchedRecipes: RecipeSummary[] = await response.json();
-      console.log("HomePage: Fetched recipes count:", fetchedRecipes.length);
       setRecipes(fetchedRecipes);
       if (showToast) {
         toast({
@@ -52,7 +45,6 @@ export default function HomePage() {
       }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while loading recipes.";
-      console.error("HomePage: Error in loadRecipes:", errorMessage, e);
       setError(errorMessage);
       if (showToast) {
         toast({
@@ -63,7 +55,6 @@ export default function HomePage() {
       }
     } finally {
       setIsLoading(false);
-      console.log("HomePage: loadRecipes finished.");
     }
   }, [toast]);
 
@@ -122,7 +113,7 @@ export default function HomePage() {
     reader.readAsText(file);
 
     if (fileInputRef.current) {
-      fileInputRef.current.value = ''; // Reset file input
+      fileInputRef.current.value = ''; 
     }
   };
 
@@ -130,24 +121,25 @@ export default function HomePage() {
     if (!recipes || recipes.length === 0) return [];
     const styles = new Set<string>();
     recipes.forEach(recipe => {
-      if (recipe.styleName) {
-        styles.add(recipe.styleName);
-      }
+      if (recipe.styleName) styles.add(recipe.styleName);
     });
     return Array.from(styles).sort();
   }, [recipes]);
 
   const recipesToDisplay = useMemo(() => {
     if (!recipes) return [];
-    if (selectedStyle === 'all') {
-      return recipes;
+    let filteredRecipes = recipes;
+    if (selectedStyle !== 'all') {
+      filteredRecipes = filteredRecipes.filter(recipe => recipe.styleName === selectedStyle);
     }
-    return recipes.filter(recipe => recipe.styleName === selectedStyle);
-  }, [recipes, selectedStyle]);
+    if (selectedStatus !== 'all') {
+      filteredRecipes = filteredRecipes.filter(recipe => recipe.status === selectedStatus);
+    }
+    return filteredRecipes;
+  }, [recipes, selectedStyle, selectedStatus]);
 
   const renderTopBar = () => (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
-      {/* Left side buttons */}
       <div className="flex items-center gap-2">
         {isAdminAuthenticated && (
           <>
@@ -161,7 +153,6 @@ export default function HomePage() {
               <UploadCloud className="mr-2 h-4 w-4" />
               Import recipe
             </Button>
-            {/* Hidden file input, triggered by the "Import recipe" button */}
             <input
               type="file"
               ref={fileInputRef}
@@ -173,24 +164,33 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* Right side filter and refresh */}
       <div className="flex items-center gap-2">
         {recipes.length > 0 && (
-          <Select value={selectedStyle} onValueChange={setSelectedStyle}>
-            <SelectTrigger
-              id="style-filter"
-              className="w-auto sm:w-[220px] bg-background text-sm"
-            >
-              <FilterIcon className="h-4 w-4 mr-2 text-muted-foreground" />
-              <SelectValue placeholder="Filter by style" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All styles</SelectItem>
-              {uniqueStyles.map(style => (
-                <SelectItem key={style} value={style}>{style}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <>
+            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <SelectTrigger id="status-filter" className="w-auto sm:w-[180px] bg-background text-sm">
+                <ActivityIcon className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="in_progress">In Progress</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={selectedStyle} onValueChange={setSelectedStyle}>
+              <SelectTrigger id="style-filter" className="w-auto sm:w-[220px] bg-background text-sm">
+                <FilterIcon className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Filter by style" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All styles</SelectItem>
+                {uniqueStyles.map(style => (
+                  <SelectItem key={style} value={style}>{style}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
         )}
         <Button onClick={() => loadRecipes(true)} variant="outline" size="icon" aria-label="Refresh recipes" disabled={isLoading}>
           <RefreshCw className={`h-4 w-4 ${isLoading && recipes.length > 0 ? 'animate-spin' : ''}`} />
@@ -204,7 +204,7 @@ export default function HomePage() {
       <div className="space-y-4">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-                 {isAdminAuthenticated && ( // Placeholder for admin buttons
+                 {isAdminAuthenticated && (
                     <>
                         <div className="animate-pulse h-9 w-32 bg-muted rounded-md"></div>
                         <div className="animate-pulse h-9 w-36 bg-muted rounded-md"></div>
@@ -212,7 +212,8 @@ export default function HomePage() {
                  )}
             </div>
             <div className="flex items-center gap-2">
-                 <div className="animate-pulse h-10 w-[220px] bg-muted rounded-md"></div> {/* Placeholder for filter */}
+                 <div className="animate-pulse h-10 w-[180px] bg-muted rounded-md"></div> {/* Placeholder for status filter */}
+                 <div className="animate-pulse h-10 w-[220px] bg-muted rounded-md"></div> {/* Placeholder for style filter */}
                  <div className="animate-pulse h-10 w-10 bg-muted rounded-md"></div> {/* Placeholder for refresh */}
             </div>
         </div>
@@ -296,9 +297,9 @@ export default function HomePage() {
         !isLoading && !error && recipes.length > 0 && (
           <div className="flex flex-col items-center justify-center text-center py-10">
             <FileWarning className="w-16 h-16 text-muted-foreground mb-4" />
-            <h2 className="text-2xl font-semibold mb-2">No recipes match</h2>
+            <h2 className="text-2xl font-semibold mb-2">No recipes match filters</h2>
             <p className="text-muted-foreground">
-              No recipes match the style &quot;{selectedStyle}&quot;. Try a different filter.
+              No recipes match the current style &quot;{selectedStyle === 'all' ? 'any style' : selectedStyle}&quot; and status &quot;{selectedStatus === 'all' ? 'any status' : selectedStatus === 'in_progress' ? 'In Progress' : 'Completed'}&quot;. Try different filters.
             </p>
           </div>
         )
@@ -306,5 +307,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    
