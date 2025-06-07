@@ -1,9 +1,9 @@
+
 'use server';
 /**
- * @fileOverview A Genkit flow to fetch (simulated) fermentation data,
- * intended for future integration with RAPT Pill API.
+ * @fileOverview A Genkit flow to fetch fermentation data from RAPT Cloud API.
  *
- * - getRaptFermentationData - A function that simulates fetching fermentation data.
+ * - getRaptFermentationData - A function that fetches fermentation data.
  * - RaptFermentationDataInput - The input type.
  * - RaptFermentationDataOutput - The return type.
  */
@@ -11,41 +11,15 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-// Sample data structure for fermentation
+// Data structure for fermentation points used by the UI
 interface FermentationDataPoint {
-  time: string; // Could be hours, days, or a timestamp
+  time: string; // Formatted time string for X-axis display
   temperature?: number; // Celsius
   gravity?: number; // SG
 }
 
-// Generate some placeholder data for demonstration
-const generatePlaceholderFlowData = (): FermentationDataPoint[] => {
-  const data: FermentationDataPoint[] = [];
-  const startTime = new Date();
-  startTime.setDate(startTime.getDate() - 5); // Start 5 days ago for a shorter dataset
-
-  for (let i = 0; i < 120; i++) { // 5 days, hourly data
-    const currentTime = new Date(startTime.getTime() + i * 60 * 60 * 1000);
-    const day = Math.floor(i / 24);
-    const hourOfDay = i % 24;
-
-    let temp = 20 - (day * 0.6) + Math.random() * 0.4;
-    if (day > 3) temp += (day - 3) * 0.3;
-
-    let grav = 1.060 - (day * 0.009) - (hourOfDay * 0.00015) - (Math.random() * 0.0015);
-    grav = Math.max(1.010, grav);
-
-    data.push({
-      time: `${day}d ${hourOfDay}h`,
-      temperature: parseFloat(temp.toFixed(1)),
-      gravity: parseFloat(grav.toFixed(3)),
-    });
-  }
-  return data;
-};
-
 export const RaptFermentationDataInputSchema = z.object({
-  raptPillId: z.string().describe('The ID of the RAPT Pill device.'),
+  raptPillId: z.string().describe('The ID of the RAPT Pill device (telemetry ID).'),
   // Potentially add dateRange or other query parameters here in the future
 });
 export type RaptFermentationDataInput = z.infer<typeof RaptFermentationDataInputSchema>;
@@ -74,33 +48,122 @@ const getRaptFermentationDataFlow = ai.defineFlow(
   async (input) => {
     console.log('getRaptFermentationDataFlow called with input:', input);
 
-    // !!--------------------------------------------------------------------!!
-    // !! Placeholder: Actual RAPT Cloud API Call                           !!
-    // !! Replace this section with the actual HTTP request to RAPT Cloud.  !!
-    // !! You will need:                                                    !!
-    // !! - The RAPT Cloud API endpoint.                                    !!
-    // !! - Your RAPT Cloud API Key (store securely in environment variables).!!
-    // !! - Logic to handle authentication, request parameters, and response.!!
-    // !!--------------------------------------------------------------------!!
+    const raptMail = process.env.RAPTPILLMAIL;
+    const raptPassword = process.env.RAPTPillPassword;
 
-    // Example of how you might structure the actual call (pseudo-code):
-    // const RAPT_API_KEY = process.env.RAPT_CLOUD_API_KEY;
-    // if (!RAPT_API_KEY) {
-    //   throw new Error('RAPT_CLOUD_API_KEY is not configured.');
-    // }
-    // const response = await fetch(`https://api.rapt.io/v1/telemetry?id=${input.raptPillId}&range=7d`, {
-    //   headers: { 'Authorization': `Bearer ${RAPT_API_KEY}` }
-    // });
-    // if (!response.ok) {
-    //   throw new Error(`Failed to fetch data from RAPT API: ${response.statusText}`);
-    // }
-    // const rawData = await response.json();
-    // const formattedData = rawData.map(item => ({ /* transform to FermentationDataPoint */ }));
-    // return { data: formattedData };
+    if (!raptMail || !raptPassword) {
+      console.error('getRaptFermentationDataFlow: RAPTPILLMAIL or RAPTPillPassword environment variables are not set.');
+      throw new Error('RAPT API credentials are not configured in environment variables.');
+    }
 
-    // For now, returning mock data:
-    const mockData = generatePlaceholderFlowData();
-    console.log(`getRaptFermentationDataFlow: Returning ${mockData.length} mock data points for pill ID ${input.raptPillId}`);
-    return { data: mockData };
+    let accessToken = '';
+
+    // 1. Fetch Access Token
+    try {
+      const tokenUrl = 'https://id.rapt.io/connect/token';
+      const tokenParams = new URLSearchParams();
+      tokenParams.append('client_id', 'rapt-user');
+      tokenParams.append('grant_type', 'password');
+      tokenParams.append('username', raptMail);
+      tokenParams.append('password', raptPassword);
+
+      console.log('getRaptFermentationDataFlow: Attempting to fetch RAPT access token...');
+      const tokenResponse = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: tokenParams.toString(),
+      });
+
+      if (!tokenResponse.ok) {
+        const errorBody = await tokenResponse.text();
+        console.error(`getRaptFermentationDataFlow: Error fetching RAPT token: ${tokenResponse.status} ${tokenResponse.statusText}`, errorBody);
+        throw new Error(`Failed to authenticate with RAPT API: ${tokenResponse.statusText}. Details: ${errorBody}`);
+      }
+
+      const tokenData = await tokenResponse.json();
+      if (!tokenData.access_token) {
+        console.error('getRaptFermentationDataFlow: access_token not found in RAPT response', tokenData);
+        throw new Error('Failed to retrieve access token from RAPT API.');
+      }
+      accessToken = tokenData.access_token;
+      console.log('getRaptFermentationDataFlow: RAPT access token obtained successfully.');
+
+    } catch (error) {
+      console.error('getRaptFermentationDataFlow: Exception during RAPT token fetch:', error);
+      // Return empty data on token fetch error to prevent UI crash, error is logged.
+      return { data: [] };
+    }
+
+    // 2. Fetch Telemetry Data
+    try {
+      const apiRaptPillId = input.raptPillId;
+      const range = '7d'; // Default range, can be made configurable
+      const telemetryUrl = `https://api.rapt.io/v1/hydrometer/${apiRaptPillId}/telemetry?duration=${range}`;
+      
+      console.log(`getRaptFermentationDataFlow: Attempting to fetch telemetry for Pill ID ${apiRaptPillId} with range ${range} using URL: ${telemetryUrl}`);
+      const telemetryResponse = await fetch(telemetryUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!telemetryResponse.ok) {
+        const errorBody = await telemetryResponse.text();
+        console.error(`getRaptFermentationDataFlow: Error fetching RAPT telemetry: ${telemetryResponse.status} ${telemetryResponse.statusText}`, errorBody);
+        throw new Error(`Failed to fetch data from RAPT API for Pill ID ${apiRaptPillId}: ${telemetryResponse.statusText}. Details: ${errorBody}`);
+      }
+
+      const rawData: any[] = await telemetryResponse.json(); // Expecting an array of telemetry objects
+      console.log(`getRaptFermentationDataFlow: Received ${rawData.length} raw telemetry data points. First item if array:`, rawData.length > 0 ? rawData[0] : 'empty array');
+
+      // 3. Transform Data
+      if (!Array.isArray(rawData)) {
+          console.warn('getRaptFermentationDataFlow: RAPT telemetry data is not an array. Unable to process.');
+          return { data: [] };
+      }
+      if (rawData.length === 0) {
+        console.log('getRaptFermentationDataFlow: RAPT telemetry data array is empty.');
+        return { data: [] };
+      }
+
+      const firstTimestampMillis = new Date(rawData[0].timestamp).getTime();
+
+      const formattedData: FermentationDataPoint[] = rawData.map((item: any, index: number) => {
+        if (!item || typeof item.timestamp !== 'string' ) {
+          console.warn(`getRaptFermentationDataFlow: Skipping malformed data point at index ${index}:`, item);
+          return null; 
+        }
+
+        const currentTimestampMillis = new Date(item.timestamp).getTime();
+        let displayTime: string;
+
+        if (index === 0 || isNaN(firstTimestampMillis) || isNaN(currentTimestampMillis)) {
+            displayTime = "0d 0h";
+        } else {
+            const diffMillis = currentTimestampMillis - firstTimestampMillis;
+            const diffHoursTotal = Math.floor(diffMillis / (1000 * 60 * 60));
+            const diffDays = Math.floor(diffHoursTotal / 24);
+            const hourInDay = diffHoursTotal % 24;
+            displayTime = `${diffDays}d ${hourInDay}h`;
+        }
+
+        return {
+          time: displayTime,
+          temperature: typeof item.temperature === 'number' ? parseFloat(item.temperature.toFixed(1)) : undefined,
+          gravity: typeof item.gravity === 'number' ? parseFloat(item.gravity.toFixed(3)) : undefined,
+        };
+      }).filter(Boolean) as FermentationDataPoint[];
+
+      console.log(`getRaptFermentationDataFlow: Returning ${formattedData.length} formatted data points.`);
+      return { data: formattedData };
+
+    } catch (error) {
+      console.error('getRaptFermentationDataFlow: Exception during RAPT telemetry fetch or data transformation:', error);
+      return { data: [] }; // Return empty data on error
+    }
   }
 );
