@@ -4,38 +4,21 @@
  * @fileOverview A Genkit flow to fetch fermentation data from RAPT Cloud API.
  *
  * - getRaptFermentationData - A function that fetches fermentation data.
- * - RaptFermentationDataInput - The input type.
- * - RaptFermentationDataOutput - The return type.
+ * - RaptFermentationDataInput - The input type. (Imported from rapt-flow-types)
+ * - RaptFermentationDataOutput - The return type. (Imported from rapt-flow-types)
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
-
-// Data structure for fermentation points used by the UI
-interface FermentationDataPoint {
-  time: string; // Formatted time string for X-axis display
-  temperature?: number; // Celsius
-  gravity?: number; // SG
-}
-
-export const RaptFermentationDataInputSchema = z.object({
-  raptPillId: z.string().describe('The ID of the RAPT Pill device (telemetry ID).'),
-  // Potentially add dateRange or other query parameters here in the future
-});
-export type RaptFermentationDataInput = z.infer<typeof RaptFermentationDataInputSchema>;
-
-const FermentationDataPointSchema = z.object({
-  time: z.string(),
-  temperature: z.number().optional(),
-  gravity: z.number().optional(),
-});
-
-export const RaptFermentationDataOutputSchema = z.object({
-  data: z.array(FermentationDataPointSchema).describe('Array of fermentation data points.'),
-});
-export type RaptFermentationDataOutput = z.infer<typeof RaptFermentationDataOutputSchema>;
+import {
+  RaptFermentationDataInputSchema,
+  type RaptFermentationDataInput,
+  RaptFermentationDataOutputSchema,
+  type RaptFermentationDataOutput,
+  type FermentationDataPoint,
+} from '@/types/rapt-flow-types'; // Updated import
 
 export async function getRaptFermentationData(input: RaptFermentationDataInput): Promise<RaptFermentationDataOutput> {
+  console.log('getRaptFermentationData (exported async wrapper): Called with input:', JSON.stringify(input));
   return getRaptFermentationDataFlow(input);
 }
 
@@ -45,16 +28,16 @@ const getRaptFermentationDataFlow = ai.defineFlow(
     inputSchema: RaptFermentationDataInputSchema,
     outputSchema: RaptFermentationDataOutputSchema,
   },
-  async (input) => {
-    console.log('getRaptFermentationDataFlow: Flow started with input:', JSON.stringify(input));
+  async (input): Promise<RaptFermentationDataOutput> => {
+    console.log('getRaptFermentationDataFlow (Genkit Flow): Started with input:', JSON.stringify(input));
 
     const raptMail = process.env.RAPTPILLMAIL;
     const raptPassword = process.env.RAPTPillPassword;
 
     if (!raptMail || !raptPassword) {
-      console.error('getRaptFermentationDataFlow: RAPTPILLMAIL or RAPTPillPassword environment variables are NOT SET.');
-      // Consider throwing an error here or returning a specific error structure if appropriate for UI
-      return { data: [] , error: 'RAPT API credentials are not configured in server environment variables.' } as any; 
+      const errorMessage = 'RAPTPILLMAIL or RAPTPillPassword environment variables are NOT SET.';
+      console.error(`getRaptFermentationDataFlow: ${errorMessage}`);
+      return { data: [], error: errorMessage };
     }
     console.log('getRaptFermentationDataFlow: RAPTPILLMAIL and RAPTPillPassword environment variables found.');
 
@@ -84,23 +67,24 @@ const getRaptFermentationDataFlow = ai.defineFlow(
 
       if (!tokenResponse.ok) {
         const errorBody = await tokenResponse.text();
-        console.error(`getRaptFermentationDataFlow: Error fetching RAPT token. Status: ${tokenResponse.status} ${tokenResponse.statusText}. Response Body:`, errorBody);
-        // Return empty data on token fetch error to prevent UI crash, error is logged.
-        return { data: [], error: `Failed to authenticate with RAPT API: ${tokenResponse.statusText}. Details: ${errorBody}` } as any;
+        const errorMessage = `Error fetching RAPT token. Status: ${tokenResponse.status} ${tokenResponse.statusText}. Response Body: ${errorBody}`;
+        console.error(`getRaptFermentationDataFlow: ${errorMessage}`);
+        return { data: [], error: `Failed to authenticate with RAPT API: ${tokenResponse.statusText}. Details: ${errorBody}` };
       }
 
       const tokenData = await tokenResponse.json();
       if (!tokenData.access_token) {
-        console.error('getRaptFermentationDataFlow: access_token NOT FOUND in RAPT API response. Response data:', JSON.stringify(tokenData));
-        // Return empty data if token is missing.
-        return { data: [], error: 'Failed to retrieve access_token from RAPT API.' } as any;
+        const errorMessage = 'access_token NOT FOUND in RAPT API response.';
+        console.error(`getRaptFermentationDataFlow: ${errorMessage} Response data:`, JSON.stringify(tokenData));
+        return { data: [], error: errorMessage };
       }
       accessToken = tokenData.access_token;
       console.log('getRaptFermentationDataFlow: RAPT access token obtained successfully.');
 
     } catch (error: any) {
+      const errorMessage = `Exception during RAPT token fetch: ${error.message}`;
       console.error('getRaptFermentationDataFlow: Exception during RAPT token fetch:', error.message, error.stack);
-      return { data: [], error: `Exception during RAPT token fetch: ${error.message}` } as any;
+      return { data: [], error: errorMessage };
     }
 
     // 2. Fetch Telemetry Data
@@ -124,8 +108,9 @@ const getRaptFermentationDataFlow = ai.defineFlow(
 
       if (!telemetryResponse.ok) {
         const errorBody = await telemetryResponse.text();
-        console.error(`getRaptFermentationDataFlow: Error fetching RAPT telemetry. Status: ${telemetryResponse.status} ${telemetryResponse.statusText}. Response Body:`, errorBody);
-        return { data: [], error: `Failed to fetch data from RAPT API for Pill ID ${apiRaptPillId}: ${telemetryResponse.statusText}. Details: ${errorBody}` } as any;
+        const errorMessage = `Error fetching RAPT telemetry. Status: ${telemetryResponse.status} ${telemetryResponse.statusText}. Response Body: ${errorBody}`;
+        console.error(`getRaptFermentationDataFlow: ${errorMessage}`);
+        return { data: [], error: `Failed to fetch data from RAPT API for Pill ID ${apiRaptPillId}: ${telemetryResponse.statusText}. Details: ${errorBody}` };
       }
 
       const rawData: any[] = await telemetryResponse.json(); // Expecting an array of telemetry objects
@@ -138,14 +123,13 @@ const getRaptFermentationDataFlow = ai.defineFlow(
       // 3. Transform Data
       if (!Array.isArray(rawData)) {
           console.warn('getRaptFermentationDataFlow: RAPT telemetry data is not an array. Unable to process.');
-          return { data: [] };
+          return { data: [], error: 'Received non-array telemetry data from RAPT API.' };
       }
       if (rawData.length === 0) {
         console.log('getRaptFermentationDataFlow: RAPT telemetry data array is empty. No data to transform.');
         return { data: [] };
       }
 
-      // Use the timestamp of the first valid data point as the baseline
       let firstValidTimestampMillis: number | null = null;
       for (const item of rawData) {
         if (item && typeof item.timestamp === 'string') {
@@ -208,9 +192,9 @@ const getRaptFermentationDataFlow = ai.defineFlow(
       return { data: formattedData };
 
     } catch (error: any) {
+      const errorMessage = `Exception during RAPT telemetry fetch or data transformation: ${error.message}`;
       console.error('getRaptFermentationDataFlow: Exception during RAPT telemetry fetch or data transformation:', error.message, error.stack);
-      return { data: [], error: `Exception during RAPT telemetry fetch or transformation: ${error.message}` } as any; 
+      return { data: [], error: errorMessage };
     }
   }
 );
-
