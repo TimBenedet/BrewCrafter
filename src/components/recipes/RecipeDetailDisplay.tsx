@@ -38,7 +38,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Textarea } from '@/components/ui/textarea';
 import { updateRecipeStepsAction } from '@/app/actions/recipe-actions';
-import type { ActionResult } from '@/app/actions/recipe-actions';
+import type { ActionResult } from '@/types/actions'; // Updated import
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { RecipeGraphsTab } from './RecipeGraphsTab'; // New component for graphs

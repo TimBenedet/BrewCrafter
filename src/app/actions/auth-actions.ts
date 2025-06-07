@@ -1,13 +1,9 @@
+
 'use server';
 
 import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
-
-export interface AuthActionResult {
-  success: boolean;
-  error?: string;
-  qrDataURL?: string;
-}
+import type { AuthActionResult } from '@/types/actions'; // Updated import
 
 export async function generateTotpQrCodeAction(): Promise<AuthActionResult> {
   const secret = process.env.TOTP_SECRET;

@@ -4,14 +4,7 @@
 import { revalidatePath } from 'next/cache';
 import { put, del, list } from '@vercel/blob';
 import type { BeerXMLRecipe } from '@/types/recipe';
-
-export interface ActionResult {
-  success: boolean;
-  count?: number;
-  error?: string;
-  recipe?: BeerXMLRecipe | null;
-  newSlug?: string;
-}
+import type { ActionResult } from '@/types/actions'; // Updated import
 
 interface RecipeFile {
   fileName: string;

@@ -27,7 +27,8 @@ import { useToast } from '@/hooks/use-toast';
 import { SaveIcon, PlusCircleIcon, Trash2Icon, InfoIcon, ListChecksIcon, Wheat, Hop as HopIconLucide, Microscope, Package, Thermometer, StickyNote, BarChart3, ActivityIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import React, { useEffect, useMemo } from 'react';
-import { addRecipesAction, type ActionResult } from '@/app/actions/recipe-actions';
+import { addRecipesAction } from '@/app/actions/recipe-actions';
+import type { ActionResult } from '@/types/actions'; // Updated import
 import { useRouter } from 'next/navigation';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 

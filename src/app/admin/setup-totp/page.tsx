@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, ShieldAlert, QrCodeIcon } from 'lucide-react';
-import { generateTotpQrCodeAction, type AuthActionResult } from '@/app/actions/auth-actions';
+import { generateTotpQrCodeAction } from '@/app/actions/auth-actions';
+import type { AuthActionResult } from '@/types/actions'; // Updated import
 
 export default function SetupTotpPage() {
   const [qrDataURL, setQrDataURL] = useState<string | null>(null);
