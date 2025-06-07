@@ -30,6 +30,7 @@ import {
   SaveIcon,
   XCircleIcon,
   RefreshCw,
+  AreaChart, // Added for Graphs tab
 } from 'lucide-react';
 import { RecipeStepsDisplay } from './RecipeStepsDisplay';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -40,6 +41,7 @@ import { updateRecipeStepsAction } from '@/app/actions/recipe-actions';
 import type { ActionResult } from '@/app/actions/recipe-actions';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { RecipeGraphsTab } from './RecipeGraphsTab'; // New component for graphs
 
 interface SectionProps {
   title: string;
@@ -159,6 +161,8 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
       setEditableStepsMarkdown(recipe.stepsMarkdown || '');
       setIsEditingSteps(true);
     }
+    // For "Recipe Details" tab, the link handles navigation
+    // For "Recipe Graphs" tab, the button is disabled or leads to general edit.
   };
 
   const handleSaveSteps = async () => {
@@ -185,20 +189,32 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
     setEditableStepsMarkdown(recipe.stepsMarkdown || '');
   };
 
-  const getEditButtonText = () => {
+  const getEditButtonTextAndAction = () => {
     if (activeTab === 'steps') {
-      return "Edit Recipe Steps";
+      return { text: "Edit Recipe Steps", action: handleEditButtonClick, href: undefined, disabled: isEditingSteps };
     }
-    return "Edit Recipe Details";
+    if (activeTab === 'details') {
+      return { text: "Edit Recipe Details", action: undefined, href: `/recipes/${recipeSlug}/edit`, disabled: false };
+    }
+    // For "graphs" tab, perhaps disable or link to general recipe edit.
+    // For now, let's disable it for simplicity as there's nothing specific to edit on the graph tab itself.
+     if (activeTab === 'graphs') {
+      return { text: "Edit Recipe Details", action: undefined, href: `/recipes/${recipeSlug}/edit`, disabled: true };
+    }
+    return { text: "Edit Recipe Details", action: undefined, href: `/recipes/${recipeSlug}/edit`, disabled: false };
   };
 
-  const editLinkDestination = activeTab === 'details' ? `/recipes/${recipeSlug}/edit` : `/recipes/${recipeSlug}/edit?section=steps`;
+  const { text: editButtonText, action: editButtonAction, href: editButtonHref, disabled: editButtonDisabled } = getEditButtonTextAndAction();
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     toast({ title: "Refreshing...", description: "Reloading recipe data."});
     router.refresh();
-    setTimeout(() => setIsRefreshing(false), 1000);
+    // Slight delay for visual feedback, then re-enable
+    setTimeout(() => {
+      setIsRefreshing(false);
+      toast({ title: "Recipe Reloaded", description: "Data has been updated." });
+    }, 1500);
   };
 
   return (
@@ -221,21 +237,22 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
             <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing} size="icon" aria-label="Refresh recipe details">
               <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </Button>
-            {isAdminAuthenticated && (!isEditingSteps || activeTab === 'details') && (
+            {isAdminAuthenticated && (!isEditingSteps || activeTab !== 'steps') && (
               <Button
-                  asChild={activeTab === 'details'}
-                  onClick={activeTab === 'steps' ? handleEditButtonClick : undefined}
-                  variant="outline"
+                asChild={!!editButtonHref}
+                onClick={editButtonAction}
+                variant="outline"
+                disabled={editButtonDisabled || isRefreshing}
               >
-                {activeTab === 'details' ? (
-                  <Link href={editLinkDestination}>
+                {editButtonHref ? (
+                  <Link href={editButtonHref}>
                     <PencilIcon className="mr-2 h-4 w-4" />
-                    {getEditButtonText()}
+                    {editButtonText}
                   </Link>
                 ) : (
                   <>
                     <PencilIcon className="mr-2 h-4 w-4" />
-                    {getEditButtonText()}
+                    {editButtonText}
                   </>
                 )}
               </Button>
@@ -245,12 +262,15 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
       </div>
 
       <Tabs defaultValue="details" className="w-full" onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 md:w-auto md:inline-flex">
+        <TabsList className="grid w-full grid-cols-3 md:w-auto md:inline-flex">
           <TabsTrigger value="details" className="flex items-center gap-2">
             <FileText className="h-4 w-4" /> Recipe Details
           </TabsTrigger>
           <TabsTrigger value="steps" className="flex items-center gap-2">
             <ListOrdered className="h-4 w-4" /> Recipe Steps
+          </TabsTrigger>
+          <TabsTrigger value="graphs" className="flex items-center gap-2">
+            <AreaChart className="h-4 w-4" /> Recipe Graphs
           </TabsTrigger>
         </TabsList>
 
@@ -471,12 +491,15 @@ export function RecipeDetailDisplay({ recipe, recipeSlug }: { recipe: BeerXMLRec
                 <p className="text-muted-foreground">No detailed steps file (.md) found for this recipe.</p>
                   {isAdminAuthenticated && (
                     <p className="mt-2 text-sm">
-                      You can click &quot;Edit Recipe Steps&quot; above to add them.
+                      You can click "Edit Recipe Steps" above to add them.
                     </p>
                   )}
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+        <TabsContent value="graphs" className="mt-4">
+          <RecipeGraphsTab recipeSlug={recipeSlug} />
         </TabsContent>
       </Tabs>
     </div>

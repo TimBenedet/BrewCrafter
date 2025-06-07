@@ -21,10 +21,15 @@ export async function generateStaticParams() {
   // consider how often this needs to run. For fully dynamic, it can return an empty array
   // if dynamic = 'force-dynamic' is used, or fetch actual slugs.
   // For now, let's keep fetching summaries for param generation.
-  const summaries = await getRecipeSummaries();
-  return summaries.map((recipe) => ({
-    recipeSlug: recipe.slug,
-  }));
+  try {
+    const summaries = await getRecipeSummaries();
+    return summaries.map((recipe) => ({
+      recipeSlug: recipe.slug,
+    }));
+  } catch (error) {
+    console.error("Error generating static params for recipe pages:", error);
+    return []; // Return empty array on error to prevent build failure
+  }
 }
 
 export async function generateMetadata({ params }: RecipePageProps) {
