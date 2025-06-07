@@ -92,7 +92,7 @@ export function RecipeCard({ recipe, isAdmin }: RecipeCardProps) {
       <Link href={`/recipes/${recipe.slug}`} passHref legacyBehavior>
         <a className="block hover:no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-t-lg flex-grow">
           <CardHeader className="pb-3">
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-center"> {/* Changed items-start to items-center */}
               <div>
                 <CardTitle className="text-xl mb-0.5 leading-tight text-primary">{recipe.name}</CardTitle>
                 <CardDescription className="text-sm text-muted-foreground">{recipe.styleName || recipe.type}</CardDescription>
